@@ -108,9 +108,70 @@ GTEST_TEST(MakeBoxVolumeMeshTest, GenerateElements) {
   }
 }
 
+GTEST_TEST(MakeBoxVolumeMeshTest, CalcOffsetBox) {
+  const Box box(0.2, 0.4, 0.8);
+  // Estimate three arithmetic operations, so 3 * epsilon.
+  const double kTolerance = 3.0 * std::numeric_limits<double>::epsilon();
+
+  // Typical case. The offset is smaller than half the minimum dimension.
+  // The offset box still has positive volume.
+  {
+    const double offset = 0.05;
+    const Box offset_box = CalcOffsetBox(box, offset);
+    const Vector3<double> expect_size(0.1, 0.3, 0.7);
+    EXPECT_TRUE(CompareMatrices(expect_size, offset_box.size(), kTolerance))
+        << "Incorrect size of offset box. Typical case.";
+  }
+  // Special case 1.  The offset equals half the minimum dimension. The
+  // offset box degenerates to the medial surface (zero volume, positive area).
+  {
+    const double offset = 0.1;
+    const Box medial_surface = CalcOffsetBox(box, offset);
+    const Vector3<double> expect_size(0.0, 0.2, 0.6);
+    EXPECT_TRUE(CompareMatrices(expect_size, medial_surface.size(), kTolerance))
+        << "Incorrect size of offset box. Special case 1: the offset "
+           "equals half the minimum dimension. Expect the offset box to"
+           " degenerate to the medial surface.";
+  }
+  // Special case 2. The offset is larger than half the minimum dimension. The
+  // offset box degenerates to the same as the special case 1, i.e., the
+  // medial surface. No inverted box (negative dimensions).
+  {
+    const double offset = 0.15;
+    const Box medial_surface = CalcOffsetBox(box, offset);
+    const Vector3<double> expect_size(0.0, 0.2, 0.6);
+    EXPECT_TRUE(CompareMatrices(expect_size, medial_surface.size(), kTolerance))
+        << "Incorrect size of offset box. Special case 2: the offset is"
+           " larger than half the minimum dimension. Expect the "
+           "offset box to degenerate to the medial surface.";
+  }
+  // Special case 3: a box with the same width as depth. Its offset
+  // degenerates to the medial line segment.
+  {
+    const Box box_same_width_depth(0.2, 0.2, 0.4);
+    const double offset = 0.1;
+    const Box medial_line = CalcOffsetBox(box_same_width_depth, offset);
+    const Vector3<double> expect_size(0.0, 0.0, 0.2);
+    EXPECT_TRUE(CompareMatrices(expect_size, medial_line.size(), kTolerance))
+        << "Incorrect size of offset box. Special case 3: A box with the same "
+           "width as depth. Its offset degenerates to the medial line segment.";
+  }
+  // Special case 4: a box with all same dimensions. Its offset degenerates
+  // to the center point.
+  {
+    const Box box_same_width_depth_height(0.2, 0.2, 0.2);
+    const double offset = 0.1;
+    const Box center_point = CalcOffsetBox(box_same_width_depth_height, offset);
+    const Vector3<double> expect_size(0.0, 0.0, 0.0);
+    EXPECT_TRUE(CompareMatrices(expect_size, center_point.size(), kTolerance))
+    << "Incorrect size of offset box. Special case 4: a box with all same "
+       "dimensions. Its offset degenerates to the center point.";
+  }
+}
+
 GTEST_TEST(MakeBoxVolumeMeshTest, GenerateMesh) {
   const Box box(0.2, 0.4, 0.8);
-  VolumeMesh<double> box_mesh = MakeBoxVolumeMesh<double>(box, 0.1);
+  VolumeMesh<double> box_mesh = MakeBoxVolumeMesh<double>(box, 0.1, 0.05);
 
   const int rectangular_cells = 2 * 4 * 8;
   const int tetrahedra_per_cell = 6;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 #include <vector>
@@ -158,6 +159,24 @@ static std::vector<VolumeElement> GenerateElements(
   }
   return elements;
 }
+
+// Allow very very thin box, or zero-volume box, or zero-area box, or
+// zero-length box. In other words, the offset box can degenerate towards the
+// medial axis of the input box. However, it will not become an "inverted
+// box", i.e., a box with negative width, or negative depth, or negative height.
+// The degnerated offset box could be a rectangle, a line segment, or a point.
+Box CalcOffsetBox(const Box& box, double offset) {
+  // Positive corner of the box.
+  const Vector3<double> box_corner = box.size() / 2.0;
+  // Limit `offset` to the minimum half size. Prevent "inverted box".
+  offset = std::min(offset, box_corner.minCoeff());
+  // Positive corner of the rigid core.
+  const Vector3<double> offset_box_corner =
+      box_corner - offset * Vector3<double>::Ones();
+  const Vector3<double> offset_box_size = 2.0 * offset_box_corner;
+  return Box(offset_box_size.x(), offset_box_size.y(), offset_box_size.z());
+}
+
 #endif  // #ifndef DRAKE_DOXYGEN_CXX
 
 /**
@@ -170,20 +189,25 @@ static std::vector<VolumeElement> GenerateElements(
  2. The generated tetrahedra are _conforming_. Two tetrahedra intersect in
     their shared face, or shared edge, or shared vertex, or not at all.
     There is no partial overlapping of two tetrahedra.
+ 3. It respects the offset surface or the medial axis of the box.
  @param[in] box
      The box shape specification (see drake::geometry::Box).
  @param[in] target_edge_length
      Control the resolution of the mesh. The length of axis-aligned edges
      of the mesh will be within this parameter.  The length of
      non-axis-aligned edges will be within √2 or √3 of this parameter.
+ @param[in] offset
+     Offset distance from the box boundary to its rigid core. If `offset`
+     is thicker than half the minimum dimension, the rigid core is at the
+     medial axis of the box.
  @retval volume_mesh
  @tparam T The underlying scalar type. Must be a valid Eigen scalar.
- @note The mesh has no guarantee on the inner boundary for a rigid core.
  */
 template <typename T>
-VolumeMesh<T> MakeBoxVolumeMesh(const Box& box, double target_edge_length) {
-  // TODO(DamrongGuoy): Generate the mesh with rigid core at medial axis or
-  //  offset surface (issue #11906) and remove the "@note" above.
+VolumeMesh<T> MakeBoxVolumeMesh(const Box& box, double target_edge_length,
+                                double offset) {
+  const Box rigid_core_box = CalcOffsetBox(box, offset);
+
   DRAKE_DEMAND(target_edge_length > 0.);
   // Number of vertices in x-, y-, and z- directions.  In each direction,
   // there is one more vertices than cells.
