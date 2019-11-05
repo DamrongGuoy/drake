@@ -24,6 +24,7 @@ drake_cc_package_library(
         ":make_box_field",
         ":make_box_mesh",
         ":make_cylinder_mesh",
+        ":make_ellipsoid_mesh.h",
         ":make_sphere_mesh",
         ":mesh_field",
         ":mesh_half_space_intersection",
@@ -230,6 +231,19 @@ drake_cc_library(
     name = "make_cylinder_mesh",
     hdrs = ["make_cylinder_mesh.h"],
     deps = [
+        ":surface_mesh",
+        ":volume_mesh",
+        ":volume_to_surface_mesh",
+        "//common:essential",
+        "//geometry:shape_specification",
+    ],
+)
+
+drake_cc_library(
+    name = "make_ellipsoid_mesh",
+    hdrs = ["make_ellipsoid_mesh.h"],
+    deps = [
+        ":make_sphere_mesh",
         ":surface_mesh",
         ":volume_mesh",
         ":volume_to_surface_mesh",
@@ -469,6 +483,13 @@ drake_cc_googletest(
     deps = [
         ":make_cylinder_mesh",
         ":sorted_triplet",
+    ],
+)
+
+drake_cc_googletest(
+    name = "make_ellipsoid_mesh_test",
+    deps = [
+        ":make_ellipsoid_mesh",
     ],
 )
 
