@@ -11,6 +11,8 @@
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/geometry_roles.h"
 #include "drake/geometry/proximity/bounding_volume_hierarchy.h"
+#include "drake/geometry/proximity/bvh_to_vtk.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/surface_mesh.h"
 #include "drake/geometry/proximity/volume_mesh_field.h"
 #include "drake/geometry/proximity_properties.h"
@@ -41,6 +43,8 @@ struct SoftMesh {
         bvh(std::make_unique<BoundingVolumeHierarchy<VolumeMesh<double>>>(
             *mesh)) {
     DRAKE_ASSERT(mesh.get() == &pressure->mesh());
+    WriteBVHToVtk("soft_bvh.vtk", *bvh, "AABB Tree of SoftMesh");
+    WriteVolumeMeshToVtk("soft_mesh.vtk", *mesh, "SoftMesh");
   }
 };
 
@@ -170,7 +174,10 @@ struct RigidMesh {
   explicit RigidMesh(std::unique_ptr<SurfaceMesh<double>> mesh_in)
       : mesh(std::move(mesh_in)),
         bvh(std::make_unique<BoundingVolumeHierarchy<SurfaceMesh<double>>>(
-            *mesh)) {}
+            *mesh)) {
+    WriteBVHToVtk("rigid_bvh.vtk", *bvh, "AABB Tree of RigidMesh");
+    WriteSurfaceMeshToVtk("rigid_mesh.vtk", *mesh, "RigidMesh");
+  }
 };
 
 /** The base representation of rigid geometries. Generally, a rigid geometry

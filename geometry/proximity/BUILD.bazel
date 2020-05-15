@@ -65,6 +65,16 @@ drake_cc_library(
 )
 
 drake_cc_library(
+    name = "bvh_to_vtk",
+    srcs = ["bvh_to_vtk.cc"],
+    hdrs = ["bvh_to_vtk.h"],
+    deps = [
+        ":bounding_volume_hierarchy",
+        "@fmt",
+    ],
+)
+
+drake_cc_library(
     name = "collision_filter_legacy",
     hdrs = ["collision_filter_legacy.h"],
     deps = [
@@ -175,6 +185,7 @@ drake_cc_library(
     hdrs = ["hydroelastic_internal.h"],
     deps = [
         ":bounding_volume_hierarchy",
+        ":bvh_to_vtk",
         ":make_box_field",
         ":make_box_mesh",
         ":make_cylinder_field",
@@ -183,6 +194,7 @@ drake_cc_library(
         ":make_ellipsoid_mesh",
         ":make_sphere_field",
         ":make_sphere_mesh",
+        ":mesh_to_vtk",
         ":obj_to_surface_mesh",
         ":proximity_utilities",
         ":surface_mesh",
