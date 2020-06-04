@@ -14,6 +14,8 @@ drake_cc_package_library(
     name = "proximity",
     deps = [
         ":bounding_volume_hierarchy",
+        ":bvh",
+        ":bvh_to_vtk",
         ":collision_filter_legacy",
         ":collisions_exist_callback",
         ":contact_surface_utility",
@@ -51,8 +53,12 @@ drake_cc_package_library(
 
 drake_cc_library(
     name = "bounding_volume_hierarchy",
-    srcs = ["bounding_volume_hierarchy.cc"],
-    hdrs = ["bounding_volume_hierarchy.h"],
+    srcs = [
+        "bounding_volume_hierarchy.cc",
+    ],
+    hdrs = [
+        "bounding_volume_hierarchy.h",
+    ],
     deps = [
         ":posed_half_space",
         ":surface_mesh",
@@ -61,6 +67,36 @@ drake_cc_library(
         "//geometry:shape_specification",
         "//geometry:utilities",
         "//math:geometric_transform",
+    ],
+)
+
+drake_cc_library(
+    name = "bvh",
+    srcs = [
+        "bvh.cc",
+        "obb.cc",
+    ],
+    hdrs = [
+        "bvh.h",
+        "obb.h",
+    ],
+    deps = [
+        ":surface_mesh",
+        ":volume_mesh",
+        "//common",
+        "//geometry:utilities",
+        "//math:geometric_transform",
+    ],
+)
+
+drake_cc_library(
+    name = "bvh_to_vtk",
+    srcs = ["bvh_to_vtk.cc"],
+    hdrs = ["bvh_to_vtk.h"],
+    deps = [
+        ":bounding_volume_hierarchy",
+        ":bvh",
+        "@fmt",
     ],
 )
 
@@ -175,6 +211,8 @@ drake_cc_library(
     hdrs = ["hydroelastic_internal.h"],
     deps = [
         ":bounding_volume_hierarchy",
+        ":bvh",
+        ":bvh_to_vtk",
         ":make_box_field",
         ":make_box_mesh",
         ":make_cylinder_field",
@@ -183,6 +221,7 @@ drake_cc_library(
         ":make_ellipsoid_mesh",
         ":make_sphere_field",
         ":make_sphere_mesh",
+        ":mesh_to_vtk",
         ":obj_to_surface_mesh",
         ":proximity_utilities",
         ":surface_mesh",
@@ -332,6 +371,7 @@ drake_cc_library(
     hdrs = ["mesh_intersection.h"],
     deps = [
         ":bounding_volume_hierarchy",
+        ":bvh",
         ":contact_surface_utility",
         ":mesh_field",
         ":posed_half_space",
@@ -482,6 +522,34 @@ drake_cc_googletest(
     name = "bounding_volume_hierarchy_test",
     deps = [
         ":bounding_volume_hierarchy",
+        ":make_ellipsoid_mesh",
+        ":make_sphere_mesh",
+        ":surface_mesh",
+        ":volume_mesh",
+        "//common/test_utilities:eigen_matrix_compare",
+        "//geometry:shape_specification",
+    ],
+)
+
+drake_cc_googletest(
+    name = "bvh_test",
+    deps = [
+        ":bvh",
+        ":bvh_to_vtk",
+        ":make_ellipsoid_mesh",
+        ":make_sphere_mesh",
+        ":mesh_to_vtk",
+        ":surface_mesh",
+        ":volume_mesh",
+        "//common/test_utilities:eigen_matrix_compare",
+        "//geometry:shape_specification",
+    ],
+)
+
+drake_cc_googletest(
+    name = "obb_test",
+    deps = [
+        ":bvh",
         ":make_ellipsoid_mesh",
         ":make_sphere_mesh",
         ":surface_mesh",

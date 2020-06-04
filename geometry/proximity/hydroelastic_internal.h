@@ -11,6 +11,9 @@
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/geometry_roles.h"
 #include "drake/geometry/proximity/bounding_volume_hierarchy.h"
+#include "drake/geometry/proximity/bvh.h"
+#include "drake/geometry/proximity/bvh_to_vtk.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/surface_mesh.h"
 #include "drake/geometry/proximity/volume_mesh_field.h"
 #include "drake/geometry/proximity_properties.h"
@@ -30,7 +33,7 @@ namespace hydroelastic {
 struct SoftMesh {
   std::unique_ptr<VolumeMesh<double>> mesh;
   std::unique_ptr<VolumeMeshField<double, double>> pressure;
-  std::unique_ptr<BoundingVolumeHierarchy<VolumeMesh<double>>> bvh;
+  std::unique_ptr<BVH<VolumeMesh<double>>> bvh;
 
   SoftMesh() = default;
 
@@ -38,10 +41,15 @@ struct SoftMesh {
            std::unique_ptr<VolumeMeshField<double, double>> pressure_in)
       : mesh(std::move(mesh_in)),
         pressure(std::move(pressure_in)),
-        bvh(std::make_unique<BoundingVolumeHierarchy<VolumeMesh<double>>>(
-            *mesh)) {
+        bvh(std::make_unique<BVH<VolumeMesh<double>>>(*mesh)) {
     DRAKE_ASSERT(mesh.get() == &pressure->mesh());
+    // WriteBVHToVtk("soft_volume_obb_bvh.vtk", *bvh,
+    //               "OBB Tree of Soft Volume Mesh");
+    // WriteVolumeMeshToVtk("soft_volume_mesh.vtk", *mesh, "Soft Volume Mesh");
   }
+
+  SoftMesh(const SoftMesh& s) { *this = s; }
+  SoftMesh& operator=(const SoftMesh& s);
 };
 
 /** Defines a soft half space. The half space is defined such that the half
@@ -134,7 +142,7 @@ class SoftGeometry {
 
   /** Returns a reference to the bounding volume hierarchy -- calling this will
    throw if is_half_space() returns `true`.  */
-  const BoundingVolumeHierarchy<VolumeMesh<double>>& bvh() const {
+  const BVH<VolumeMesh<double>>& bvh() const {
     if (is_half_space()) {
       throw std::runtime_error(
           "SoftGeometry::bvh() cannot be invoked for soft half space");
@@ -163,14 +171,21 @@ class SoftGeometry {
  just referencing it.  */
 struct RigidMesh {
   std::unique_ptr<SurfaceMesh<double>> mesh;
-  std::unique_ptr<BoundingVolumeHierarchy<SurfaceMesh<double>>> bvh;
+  std::unique_ptr<BVH<SurfaceMesh<double>>> bvh;
 
   RigidMesh() = default;
 
   explicit RigidMesh(std::unique_ptr<SurfaceMesh<double>> mesh_in)
       : mesh(std::move(mesh_in)),
-        bvh(std::make_unique<BoundingVolumeHierarchy<SurfaceMesh<double>>>(
-            *mesh)) {}
+        bvh(std::make_unique<BVH<SurfaceMesh<double>>>(*mesh)) {
+    // WriteBVHToVtk("rigid_surface_obb_bvh.vtk", *bvh,
+    //               "OBB Tree of Rigid Surface Mesh");
+    // WriteSurfaceMeshToVtk("rigid_surface_mesh.vtk", *mesh,
+    //                       "Rigid Surface Mesh");
+  }
+
+  RigidMesh(const RigidMesh& r) { *this = r; }
+  RigidMesh& operator=(const RigidMesh& r);
 };
 
 /** The base representation of rigid geometries. Generally, a rigid geometry
@@ -208,7 +223,7 @@ class RigidGeometry {
 
   /** Returns a reference to the bounding volume hierarchy -- calling this will
    throw unless is_half_space() returns false.  */
-  const BoundingVolumeHierarchy<SurfaceMesh<double>>& bvh() const {
+  const BVH<SurfaceMesh<double>>& bvh() const {
     if (is_half_space()) {
       throw std::runtime_error(
           "RigidGeometry::bvh() cannot be invoked for rigid half space");
