@@ -10,6 +10,7 @@
 #include "drake/common/eigen_types.h"
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/proximity/bounding_volume_hierarchy.h"
+#include "drake/geometry/proximity/bvh.h"
 #include "drake/geometry/proximity/contact_surface_utility.h"
 #include "drake/geometry/proximity/mesh_field_linear.h"
 #include "drake/geometry/proximity/posed_half_space.h"
@@ -361,9 +362,9 @@ void SurfaceVolumeIntersector<T>::SampleVolumeFieldOnSurface(
 template <typename T>
 void SurfaceVolumeIntersector<T>::SampleVolumeFieldOnSurface(
     const VolumeMeshField<T, T>& volume_field_M,
-    const BoundingVolumeHierarchy<VolumeMesh<T>>& bvh_M,
+    const BVH<VolumeMesh<T>>& bvh_M,
     const SurfaceMesh<T>& surface_N,
-    const BoundingVolumeHierarchy<SurfaceMesh<T>>& bvh_N,
+    const BVH<SurfaceMesh<T>>& bvh_N,
     const math::RigidTransform<T>& X_MN,
     std::unique_ptr<SurfaceMesh<T>>* surface_MN_M,
     std::unique_ptr<SurfaceMeshFieldLinear<T, T>>* e_MN) {
@@ -381,10 +382,10 @@ void SurfaceVolumeIntersector<T>::SampleVolumeFieldOnSurface(
                    &surface_vertices_M, &surface_e, &mesh_M, &X_MN,
                    &contact_polygon,
                    this](VolumeElementIndex tet_index,
-                         SurfaceFaceIndex tri_index) -> BvttCallbackResult {
+                         SurfaceFaceIndex tri_index) -> BVHCallbackResult {
     if (!this->IsFaceNormalAlongPressureGradient(volume_field_M, surface_N,
                                                  X_MN, tet_index, tri_index)) {
-      return BvttCallbackResult::Continue;
+      return BVHCallbackResult::Continue;
     }
 
     // TODO(SeanCurtis-TRI): This redundantly transforms surface mesh vertex
@@ -402,7 +403,7 @@ void SurfaceVolumeIntersector<T>::SampleVolumeFieldOnSurface(
                                         X_MN);
 
     const int poly_vertex_count = static_cast<int>(polygon_vertices_M.size());
-    if (poly_vertex_count < 3) return BvttCallbackResult::Continue;
+    if (poly_vertex_count < 3) return BVHCallbackResult::Continue;
 
     const int num_previous_vertices = surface_vertices_M.size();
     // Add the new polygon vertices to the mesh vertices and construct a
@@ -425,7 +426,7 @@ void SurfaceVolumeIntersector<T>::SampleVolumeFieldOnSurface(
       const T pressure = volume_field_M.EvaluateCartesian(tet_index, r_MV);
       surface_e.push_back(pressure);
     }
-    return BvttCallbackResult::Continue;
+    return BVHCallbackResult::Continue;
   };
   bvh_M.Collide(bvh_N, X_MN, callback);
 
@@ -489,10 +490,10 @@ template <typename T>
 std::unique_ptr<ContactSurface<T>>
 ComputeContactSurfaceFromSoftVolumeRigidSurface(
     const GeometryId id_S, const VolumeMeshField<T, T>& field_S,
-    const BoundingVolumeHierarchy<VolumeMesh<T>>& bvh_S,
+    const BVH<VolumeMesh<T>>& bvh_S,
     const math::RigidTransform<T>& X_WS, const GeometryId id_R,
     const SurfaceMesh<T>& mesh_R,
-    const BoundingVolumeHierarchy<SurfaceMesh<T>>& bvh_R,
+    const BVH<SurfaceMesh<T>>& bvh_R,
     const math::RigidTransform<T>& X_WR) {
   // TODO(SeanCurtis-TRI): This function is insufficiently templated. Generally,
   //  there are three types of scalars: the pose scalar, the mesh field *value*
@@ -538,7 +539,7 @@ template class SurfaceVolumeIntersector<double>;
 // This template instantiation:
 //   template class SurfaceVolumeIntersector<AutoDiffXd>;
 // triggers compile error because:
-//   BoundingVolumeHierarchy<VolumeMesh<T>>& bvh_M
+//   BVH<VolumeMesh<T>>& bvh_M
 // does not support VolumeMesh<AutoDiffXd>.
 
 template std::unique_ptr<ContactSurface<double>>
@@ -551,10 +552,10 @@ ComputeContactSurfaceFromSoftVolumeRigidSurface(
 template std::unique_ptr<ContactSurface<double>>
 ComputeContactSurfaceFromSoftVolumeRigidSurface(
     const GeometryId id_S, const VolumeMeshField<double, double>& field_S,
-    const BoundingVolumeHierarchy<VolumeMesh<double>>& bvh_S,
+    const BVH<VolumeMesh<double>>& bvh_S,
     const math::RigidTransform<double>& X_WS, const GeometryId id_R,
     const SurfaceMesh<double>& mesh_R,
-    const BoundingVolumeHierarchy<SurfaceMesh<double>>& bvh_R,
+    const BVH<SurfaceMesh<double>>& bvh_R,
     const math::RigidTransform<double>& X_WR);
 
 template std::unique_ptr<ContactSurface<AutoDiffXd>>
@@ -583,10 +584,10 @@ ComputeContactSurfaceFromSoftVolumeRigidSurface(
 std::unique_ptr<ContactSurface<AutoDiffXd>>
 ComputeContactSurfaceFromSoftVolumeRigidSurface(
     const GeometryId, const VolumeMeshField<double, double>&,
-    const BoundingVolumeHierarchy<VolumeMesh<double>>&,
+    const BVH<VolumeMesh<double>>&,
     const math::RigidTransform<AutoDiffXd>&, const GeometryId,
     const SurfaceMesh<double>&,
-    const BoundingVolumeHierarchy<SurfaceMesh<double>>&,
+    const BVH<SurfaceMesh<double>>&,
     const math::RigidTransform<AutoDiffXd>&) {
   throw std::logic_error(
       "AutoDiff-valued ContactSurface calculation between meshes is not"
