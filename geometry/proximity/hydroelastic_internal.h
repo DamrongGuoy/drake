@@ -12,6 +12,9 @@
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/geometry_roles.h"
 #include "drake/geometry/proximity/bounding_volume_hierarchy.h"
+#include "drake/geometry/proximity/bvh.h"
+#include "drake/geometry/proximity/bvh_to_vtk.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/surface_mesh.h"
 #include "drake/geometry/proximity/volume_mesh_field.h"
 #include "drake/geometry/proximity_properties.h"
@@ -36,9 +39,11 @@ class SoftMesh {
            std::unique_ptr<VolumeMeshField<double, double>> pressure)
       : mesh_(std::move(mesh)),
         pressure_(std::move(pressure)),
-        bvh_(std::make_unique<BoundingVolumeHierarchy<VolumeMesh<double>>>(
-            *mesh_)) {
+        bvh_(std::make_unique<BVH<VolumeMesh<double>>>(*mesh_)) {
     DRAKE_ASSERT(mesh_.get() == &pressure_->mesh());
+    // WriteBVHToVtk("soft_volume_obb_bvh.vtk", *bvh_,
+    //               "OBB Tree of Soft Volume Mesh");
+    // WriteVolumeMeshToVtk("soft_volume_mesh.vtk", *mesh_, "Soft Volume Mesh");
   }
 
   SoftMesh(const SoftMesh& s) { *this = s; }
@@ -54,7 +59,7 @@ class SoftMesh {
     DRAKE_DEMAND(pressure_ != nullptr);
     return *pressure_;
   }
-  const BoundingVolumeHierarchy<VolumeMesh<double>>& bvh() const {
+  const BVH<VolumeMesh<double>>& bvh() const {
     DRAKE_DEMAND(bvh_ != nullptr);
     return *bvh_;
   }
@@ -62,7 +67,7 @@ class SoftMesh {
  private:
   std::unique_ptr<VolumeMesh<double>> mesh_;
   std::unique_ptr<VolumeMeshField<double, double>> pressure_;
-  std::unique_ptr<BoundingVolumeHierarchy<VolumeMesh<double>>> bvh_;
+  std::unique_ptr<BVH<VolumeMesh<double>>> bvh_;
 };
 
 /* Defines a soft half space. The half space is defined such that the half
@@ -152,7 +157,7 @@ class SoftGeometry {
 
   /* Returns a reference to the bounding volume hierarchy -- calling this will
    throw if is_half_space() returns `true`.  */
-  const BoundingVolumeHierarchy<VolumeMesh<double>>& bvh() const {
+  const BVH<VolumeMesh<double>>& bvh() const {
     if (is_half_space()) {
       throw std::runtime_error(
           "SoftGeometry::bvh() cannot be invoked for soft half space");
@@ -185,8 +190,12 @@ class RigidMesh {
 
   explicit RigidMesh(std::unique_ptr<SurfaceMesh<double>> mesh)
       : mesh_(std::move(mesh)),
-        bvh_(std::make_unique<BoundingVolumeHierarchy<SurfaceMesh<double>>>(
-            *mesh_)) {}
+        bvh_(std::make_unique<BVH<SurfaceMesh<double>>>(*mesh_)) {
+    // WriteBVHToVtk("rigid_surface_obb_bvh.vtk", *bvh_,
+    //               "OBB Tree of Rigid Surface Mesh");
+    // WriteSurfaceMeshToVtk("rigid_surface_mesh.vtk", *mesh_,
+    //                       "Rigid Surface Mesh");
+  }
 
   DRAKE_DEFAULT_COPY_AND_MOVE_AND_ASSIGN(RigidMesh)
 
@@ -194,14 +203,14 @@ class RigidMesh {
     DRAKE_DEMAND(mesh_ != nullptr);
     return *mesh_;
   }
-  const BoundingVolumeHierarchy<SurfaceMesh<double>>& bvh() const {
+  const BVH<SurfaceMesh<double>>& bvh() const {
     DRAKE_DEMAND(bvh_ != nullptr);
     return *bvh_;
   }
 
  private:
   copyable_unique_ptr<SurfaceMesh<double>> mesh_;
-  copyable_unique_ptr<BoundingVolumeHierarchy<SurfaceMesh<double>>> bvh_;
+  copyable_unique_ptr<BVH<SurfaceMesh<double>>> bvh_;
 };
 
 /* The base representation of rigid geometries. Generally, a rigid geometry
@@ -236,7 +245,7 @@ class RigidGeometry {
 
   /* Returns a reference to the bounding volume hierarchy -- calling this will
    throw unless is_half_space() returns false.  */
-  const BoundingVolumeHierarchy<SurfaceMesh<double>>& bvh() const {
+  const BVH<SurfaceMesh<double>>& bvh() const {
     if (is_half_space()) {
       throw std::runtime_error(
           "RigidGeometry::bvh() cannot be invoked for rigid half space");

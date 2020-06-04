@@ -94,7 +94,7 @@ GTEST_TEST(SoftMeshTest, TestCopyMoveAssignConstruct) {
     const VolumeMesh<double>* const mesh_ptr = &start.mesh();
     const VolumeMeshField<double, double>* const pressure_ptr =
         &start.pressure();
-    const BoundingVolumeHierarchy<VolumeMesh<double>>* const bvh_ptr =
+    const BVH<VolumeMesh<double>>* const bvh_ptr =
         &start.bvh();
 
     // Test move constructor.
@@ -186,7 +186,7 @@ GTEST_TEST(SoftGeometryTest, TestCopyMoveAssignConstruct) {
     const VolumeMesh<double>* const mesh_ptr = &start.mesh();
     const VolumeMeshField<double, double>* const pressure_ptr =
         &start.pressure_field();
-    const BoundingVolumeHierarchy<VolumeMesh<double>>* const bvh_ptr =
+    const BVH<VolumeMesh<double>>* const bvh_ptr =
         &start.bvh();
 
     // Test move constructor.
@@ -250,7 +250,7 @@ GTEST_TEST(RigidMeshTest, TestCopyMoveAssignConstruct) {
     // Grab raw pointers so we can determine that their ownership changes due to
     // move semantics.
     const SurfaceMesh<double>* const mesh_ptr = &start.mesh();
-    const BoundingVolumeHierarchy<SurfaceMesh<double>>* const bvh_ptr =
+    const BVH<SurfaceMesh<double>>* const bvh_ptr =
         &start.bvh();
 
     // Test move constructor.
@@ -315,7 +315,7 @@ GTEST_TEST(RigidGeometryTest, TestCopyMoveAssignConstruct) {
     // Grab raw pointers so we can determine that their ownership changes due to
     // move semantics.
     const SurfaceMesh<double>* const mesh_ptr = &start.mesh();
-    const BoundingVolumeHierarchy<SurfaceMesh<double>>* const bvh_ptr =
+    const BVH<SurfaceMesh<double>>* const bvh_ptr =
         &start.bvh();
 
     // Test move constructor.

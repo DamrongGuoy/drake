@@ -1289,8 +1289,8 @@ GTEST_TEST(MeshIntersectionTest, ComputeContactSurfaceSoftRigidBVH) {
       id_S, *field_S, X_WS, id_R, *surface_R, X_WR);
 
   // Compute the contact surface using the BVHs.
-  auto bvh_S = BoundingVolumeHierarchy<VolumeMesh<double>>(*mesh_S);
-  auto bvh_R = BoundingVolumeHierarchy<SurfaceMesh<double>>(*surface_R);
+  auto bvh_S = BVH<VolumeMesh<double>>(*mesh_S);
+  auto bvh_R = BVH<SurfaceMesh<double>>(*surface_R);
   auto bvh_contact_SR = ComputeContactSurfaceFromSoftVolumeRigidSurface(
       id_S, *field_S, bvh_S, X_WS, id_R, *surface_R, bvh_R, X_WR);
 

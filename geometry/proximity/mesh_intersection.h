@@ -6,6 +6,7 @@
 #include "drake/common/eigen_types.h"
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/proximity/bounding_volume_hierarchy.h"
+#include "drake/geometry/proximity/bvh.h"
 #include "drake/geometry/proximity/mesh_field_linear.h"
 #include "drake/geometry/proximity/posed_half_space.h"
 #include "drake/geometry/proximity/surface_mesh.h"
@@ -81,9 +82,9 @@ class SurfaceVolumeIntersector {
    reduce the number of element-pairs evaluated.  */
   void SampleVolumeFieldOnSurface(
       const VolumeMeshField<T, T>& volume_field_M,
-      const BoundingVolumeHierarchy<VolumeMesh<T>>& bvh_M,
+      const BVH<VolumeMesh<T>>& bvh_M,
       const SurfaceMesh<T>& surface_N,
-      const BoundingVolumeHierarchy<SurfaceMesh<T>>& bvh_N,
+      const BVH<SurfaceMesh<T>>& bvh_N,
       const math::RigidTransform<T>& X_MN,
       std::unique_ptr<SurfaceMesh<T>>* surface_MN_M,
       std::unique_ptr<SurfaceMeshFieldLinear<T, T>>* e_MN);
@@ -362,10 +363,10 @@ template <typename T>
 std::unique_ptr<ContactSurface<T>>
 ComputeContactSurfaceFromSoftVolumeRigidSurface(
     const GeometryId id_S, const VolumeMeshField<T, T>& field_S,
-    const BoundingVolumeHierarchy<VolumeMesh<T>>& bvh_S,
+    const BVH<VolumeMesh<T>>& bvh_S,
     const math::RigidTransform<T>& X_WS, const GeometryId id_R,
     const SurfaceMesh<T>& mesh_R,
-    const BoundingVolumeHierarchy<SurfaceMesh<T>>& bvh_R,
+    const BVH<SurfaceMesh<T>>& bvh_R,
     const math::RigidTransform<T>& X_WR);
 
 // NOTE: This is a short-term hack to allow ProximityEngine to compile when
@@ -382,10 +383,10 @@ ComputeContactSurfaceFromSoftVolumeRigidSurface(
 std::unique_ptr<ContactSurface<AutoDiffXd>>
 ComputeContactSurfaceFromSoftVolumeRigidSurface(
     const GeometryId, const VolumeMeshField<double, double>&,
-    const BoundingVolumeHierarchy<VolumeMesh<double>>&,
+    const BVH<VolumeMesh<double>>&,
     const math::RigidTransform<AutoDiffXd>&, const GeometryId,
     const SurfaceMesh<double>&,
-    const BoundingVolumeHierarchy<SurfaceMesh<double>>&,
+    const BVH<SurfaceMesh<double>>&,
     const math::RigidTransform<AutoDiffXd>&);
 
 }  // namespace internal

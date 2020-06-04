@@ -309,8 +309,8 @@ BENCHMARK_DEFINE_F(MeshIntersectionBenchmark, ___WithBVH)
 // NOLINTNEXTLINE(runtime/references)
 (benchmark::State& state) {
   SetupMeshes(state);
-  const auto bvh_S = BoundingVolumeHierarchy<VolumeMesh<double>>(mesh_S_);
-  const auto bvh_R = BoundingVolumeHierarchy<SurfaceMesh<double>>(mesh_R_);
+  const auto bvh_S = BVH<VolumeMesh<double>>(mesh_S_);
+  const auto bvh_R = BVH<SurfaceMesh<double>>(mesh_R_);
   std::unique_ptr<SurfaceMesh<double>> surface_SR;
   std::unique_ptr<SurfaceMeshFieldLinear<double, double>> e_SR;
   for (auto _ : state) {
