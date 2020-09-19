@@ -16,6 +16,7 @@ drake_cc_package_library(
     deps = [
         ":bounding_volume_hierarchy",
         ":bvh",
+        ":bvh_to_vtk",
         ":collision_filter_legacy",
         ":collisions_exist_callback",
         ":contact_surface_utility",
@@ -71,6 +72,16 @@ drake_cc_library(
         "//geometry:shape_specification",
         "//geometry:utilities",
         "//math:geometric_transform",
+    ],
+)
+
+drake_cc_library(
+    name = "bvh_to_vtk",
+    srcs = ["bvh_to_vtk.cc"],
+    hdrs = ["bvh_to_vtk.h"],
+    deps = [
+        ":bvh",
+        "@fmt",
     ],
 )
 
@@ -508,6 +519,7 @@ drake_cc_googletest(
     name = "bvh_test",
     deps = [
         ":bvh",
+        ":bvh_to_vtk",
         ":make_ellipsoid_mesh",
         ":make_sphere_mesh",
         ":surface_mesh",
@@ -736,9 +748,11 @@ drake_cc_googletest(
 drake_cc_googletest(
     name = "obb_test",
     deps = [
+        ":bvh_to_vtk",
         ":make_box_mesh",
         ":make_ellipsoid_mesh",
         ":make_sphere_mesh",
+        ":mesh_to_vtk",
         ":obb",
         ":surface_mesh",
         ":volume_mesh",

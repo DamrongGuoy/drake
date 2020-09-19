@@ -3,9 +3,11 @@
 #include <gtest/gtest.h>
 
 #include "drake/common/test_utilities/eigen_matrix_compare.h"
+#include "drake/geometry/proximity/bvh_to_vtk.h"
 #include "drake/geometry/proximity/make_box_mesh.h"
 #include "drake/geometry/proximity/make_ellipsoid_mesh.h"
 #include "drake/geometry/proximity/make_sphere_mesh.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/surface_mesh.h"
 #include "drake/geometry/proximity/volume_mesh.h"
 #include "drake/geometry/shape_specification.h"
@@ -597,6 +599,11 @@ TEST_F(ObbMakerTestOctahedron, ObbMakerCompute) {
   // sphere. It is possible to do better as shown in the next test below.
   EXPECT_NEAR(obb_M.CalcVolume(), 26.997, 0.001);
 
+  {
+    WriteSurfaceMeshToVtk("octahedron_mesh.vtk", mesh_M_, "octahedron_mesh");
+    WriteBVHToVtk("octahedron_bvh.vtk", Bvh(mesh_M_), "octahedron_bvh");
+  }
+
   // The covariance matrix of the test vertices has one single eigenvalue with
   // multiplicity 3, so mathematically the PCA solution is arbitrary; any
   // arbitrary orthonormal basis spanning ℝ³ is a valid solution.
@@ -622,6 +629,13 @@ TEST_F(ObbMakerTestOctahedron, ObbMakerCompute) {
   double kEps = 100. * std::numeric_limits<double>::epsilon();
   EXPECT_FALSE(CompareMatrices(obb_F.pose().GetAsMatrix4(),
                                (X_MF * obb_M.pose()).GetAsMatrix4(), kEps));
+
+  {
+    WriteSurfaceMeshToVtk("octahedron_mesh_transform.vtk", mesh_F,
+                          "octahedron_mesh_transform");
+    WriteBVHToVtk("octahedron_bvh_transform.vtk", Bvh(mesh_F),
+                  "octahedron_bvh_transform");
+  }
 }
 
 // TODO(DamrongGuoy): Update or remove this test if we improve the algorithm.
@@ -669,6 +683,12 @@ GTEST_TEST(ObbMakerTest, TestTruncatedBox) {
   // and 50% longer in width and depth.
   EXPECT_TRUE(
       CompareMatrices(obb.half_width(), Vector3d(3.552, 2.960, 0.977), 0.001));
+
+  {
+    WriteSurfaceMeshToVtk("box6x4x2_mesh.vtk", surface_mesh, "box6x4x2_mesh");
+    WriteObbToVtk("box6x4x2_truncated_obb.vtk", obb,
+                  "box6x4x2_truncated_obb.vtk");
+  }
 }
 
 // Smoke test that it works with VolumeMesh<double>.
