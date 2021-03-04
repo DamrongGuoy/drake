@@ -202,6 +202,19 @@ void AddPolygonToMeshData(
   DRAKE_DEMAND(vertices_F != nullptr);
   DRAKE_DEMAND(polygon.size() >= 3);
 
+  // When continuity is not a constraint (e.g. for discrete solvers) we don't
+  // need to split inner triangles into three smaller triangles. This helps
+  // avoid the proliferation of an unnecessary large amount of contact pairs for
+  // the solver.
+  if (polygon.size() == 3) {
+    // N.B. Not sure if need, but here I respect the contour orientation
+    // followed below when adding a fan of triangles around the centroid
+    // instead.
+    faces->emplace_back(polygon[0], polygon[1], polygon[2]);
+    return;
+  }
+
+
   // The polygon will be represented by an equivalent triangle fan around the
   // polygon's centroid. This requires add a new vertex: the centroid.
   Vector3<T> p_FC = CalcPolygonCentroid(polygon, n_F, *vertices_F);
