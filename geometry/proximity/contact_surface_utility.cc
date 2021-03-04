@@ -195,12 +195,24 @@ Vector3<T> CalcPolygonCentroid(
 template <typename T>
 void AddPolygonToMeshData(
     const std::vector<SurfaceVertexIndex>& polygon,
-    const Vector3<T>& n_F,
+    const Vector3<T>& /*n_F*/,
     std::vector<SurfaceFace>* faces,
     std::vector<SurfaceVertex<T>>* vertices_F) {
   DRAKE_DEMAND(faces != nullptr);
   DRAKE_DEMAND(vertices_F != nullptr);
   DRAKE_DEMAND(polygon.size() >= 3);
+
+  // Another experiment. Use fan triangulation: 0,1,2, 0,2,3, 0,3,4,...
+  int num_polygon_vertices = polygon.size();
+  int previous_vertex = 1;
+  for (int next_vertex = 2; next_vertex < num_polygon_vertices; ++next_vertex) {
+    faces->emplace_back(polygon[0], polygon[previous_vertex],
+                        polygon[next_vertex]);
+    previous_vertex = next_vertex;
+  }
+  return;
+
+#if 0
 
   // The polygon will be represented by an equivalent triangle fan around the
   // polygon's centroid. This requires add a new vertex: the centroid.
@@ -221,6 +233,7 @@ void AddPolygonToMeshData(
     v2 = polygon[i];
     faces->emplace_back(v1, v2, centroid_index);
   }
+#endif
 }
 
 template <typename T>
