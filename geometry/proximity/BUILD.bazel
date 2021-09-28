@@ -750,6 +750,16 @@ drake_cc_library(
 )
 
 drake_cc_library(
+    name = "surface_mesh_to_obj",
+    srcs = ["surface_mesh_to_obj.cc"],
+    hdrs = ["surface_mesh_to_obj.h"],
+    deps = [
+        ":triangle_surface_mesh",
+        "@fmt",
+    ],
+)
+
+drake_cc_library(
     name = "tessellation_strategy",
     hdrs = ["tessellation_strategy.h"],
 )
