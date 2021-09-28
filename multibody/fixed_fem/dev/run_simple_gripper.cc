@@ -31,11 +31,15 @@ bazel-bin/multibody/fixed_fem/dev/run_simple_gripper
 
 #include <memory>
 
+#include <fmt/format.h>
 #include <gflags/gflags.h>
 
 #include "drake/common/find_resource.h"
 #include "drake/geometry/drake_visualizer.h"
 #include "drake/geometry/proximity_properties.h"
+#include "drake/geometry/proximity/make_box_mesh.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
+#include "drake/geometry/proximity/surface_mesh_to_obj.h"
 #include "drake/geometry/scene_graph.h"
 #include "drake/multibody/contact_solvers/pgs_solver.h"
 #include "drake/multibody/fixed_fem/dev/deformable_body_config.h"
@@ -110,6 +114,22 @@ int DoMain() {
   const internal::ReferenceDeformableGeometry<double> box_geometry =
       MakeDiamondCubicBoxDeformableGeometry<double>(box, kL / kNumSubdivision,
                                                     p_WB);
+  {
+    const geometry::SurfaceMesh<double> cube_surface =
+        geometry::internal::MakeBoxSurfaceMesh<double>(box, 10.0);
+    geometry::internal::WriteSurfaceMeshToVtk("cube_surface.vtk", cube_surface,
+                                              "cube surface");
+    geometry::internal::WriteSurfaceMeshToObj("cube_surface.obj", cube_surface);
+
+    int count = 1;
+    for (const double x : {-0.03, -0.01, 0.01, 0.03})
+      for (const double y : {-0.03, -0.01, 0.01, 0.03})
+        for (const double z : {-0.03, -0.01, 0.01, 0.03}) {
+          std::cout <<
+            fmt::format("{:4d}  {:5.2f}  {:5.2f}  {:5.2f}\n", count, x, y, z);
+          ++count;
+        }
+  }
 
   /* Set up proximity properties for the deformable box. */
   const CoulombFriction<double> surface_friction(1.0, 1.0);

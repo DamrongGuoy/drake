@@ -531,6 +531,8 @@ drake_cc_binary(
         ":mesh_utilities",
         "//common:add_text_logging_gflags",
         "//geometry:drake_visualizer",
+        "//geometry/proximity:mesh_to_vtk",
+        "//geometry/proximity:surface_mesh_to_obj",
         "//math:geometric_transform",
         "//multibody/contact_solvers:pgs_solver",
         "//multibody/parsing:parser",
