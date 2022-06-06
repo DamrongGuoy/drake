@@ -1395,6 +1395,20 @@ class MultibodyPlant : public internal::MultibodyTreeSystem<T> {
       const geometry::Shape& shape, const std::string& name,
       const CoulombFriction<double>& coulomb_friction);
 
+  /// Modifies the collision geometries associated with a body by swapping the
+  /// `old_id` with the `new_id`.
+  ///
+  /// "Proper" use of this API requires coordinated action with SceneGraph.
+  /// Presumably, the geometry associated with `old_id` is no longer relevant to
+  /// the simulation. It needs to be independently removed from SceneGraph
+  /// (otherwise it will still contribute to collisions and cause problems
+  /// with MBP).
+  /// @throws std::exception if `old_id` is not a geometry associated with
+  /// `body`.
+  void SwapCollisionGeometries(const Body<T>& body,
+                               geometry::GeometryId old_id,
+                               geometry::GeometryId new_id);
+
   /// Returns an array of GeometryId's identifying the different contact
   /// geometries for `body` previously registered with a SceneGraph.
   /// @note This method can be called at any time during the lifetime of `this`

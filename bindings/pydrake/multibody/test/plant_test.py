@@ -224,6 +224,32 @@ class TestPlant(unittest.TestCase):
             self.assertEqual(body1_friction.static_friction(), 1.1)
             self.assertEqual(body1_friction.dynamic_friction(), 0.8)
 
+            # Swap geometries.
+            if True:
+                old_count = plant.num_collision_geometries()
+                old_id = plant.GetCollisionGeometriesForBody(body)[0]
+                new_id = GeometryId.get_new_id()
+                print(f"Old id: {old_id}")
+                print(f"New id: {new_id}")
+                self.assertEqual(old_id,
+                    plant.GetCollisionGeometriesForBody(body)[0])
+                plant.SwapCollisionGeometries(body, old_id, new_id)
+                self.assertEqual(old_count, plant.num_collision_geometries())
+                self.assertEqual(new_id,
+                    plant.GetCollisionGeometriesForBody(body)[0])
+                with self.assertRaises(Exception):
+                    # old_id is no longer valid, should throw.
+                    plant.SwapCollisionGeometries(body, old_id, new_id)
+                # Swap them back so the rest of the test can run; finalizing when
+                # the collision geometry doesn't actually exist in SceneGraph is an
+                # error.
+                plant.SwapCollisionGeometries(body, new_id, old_id)
+                self.assertEqual(old_id,
+                    plant.GetCollisionGeometriesForBody(body)[0])
+                print(f"Old id: {old_id}")
+                print(f"New id: {new_id}")
+
+
         # Confirm that passing the diagram context into the plant (a common
         # user error) throws a RuntimeError instead of crashing.
         plant.Finalize()

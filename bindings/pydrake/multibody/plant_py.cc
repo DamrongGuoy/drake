@@ -779,6 +779,9 @@ void DoScalarDependentDefinitions(py::module m, T) {
             py::arg("coulomb_friction"),
             cls_doc.RegisterCollisionGeometry
                 .doc_5args_body_X_BG_shape_name_coulomb_friction)
+        .def("SwapCollisionGeometries", &Class::SwapCollisionGeometries,
+            py::arg("body"), py::arg("old_id"), py::arg("new_id"),
+            cls_doc.SwapCollisionGeometries.doc)
         .def("GetFloatingBaseBodies", &Class::GetFloatingBaseBodies,
             cls_doc.GetFloatingBaseBodies.doc)
         .def("get_source_id", &Class::get_source_id, cls_doc.get_source_id.doc)
@@ -798,7 +801,7 @@ void DoScalarDependentDefinitions(py::module m, T) {
             cls_doc.GetBodyFrameIdIfExists.doc)
         .def("GetCollisionGeometriesForBody",
             &Class::GetCollisionGeometriesForBody, py::arg("body"),
-            py_rvp::reference_internal,
+            py_rvp::copy, //reference_internal,
             cls_doc.GetCollisionGeometriesForBody.doc)
         .def("num_collision_geometries", &Class::num_collision_geometries,
             cls_doc.num_collision_geometries.doc)
@@ -886,6 +889,10 @@ void DoScalarDependentDefinitions(py::module m, T) {
         .def("is_finalized", &Class::is_finalized, cls_doc.is_finalized.doc)
         .def("Finalize", py::overload_cast<>(&Class::Finalize),
             cls_doc.Finalize.doc)
+        .def("set_discrete_contact_solver", &Class::set_discrete_contact_solver, py::arg("solver"),
+            cls_doc.set_discrete_contact_solver.doc)
+        .def("get_discrete_contact_solver", &Class::get_discrete_contact_solver,
+            cls_doc.get_discrete_contact_solver.doc)
         .def("set_contact_model", &Class::set_contact_model, py::arg("model"),
             cls_doc.set_contact_model.doc)
         .def("get_contact_model", &Class::get_contact_model,
@@ -1286,6 +1293,14 @@ PYBIND11_MODULE(plant, m) {
         // Legacy alias. TODO(jwnimmer-tri) Deprecate this constant.
         .value("kPointContactOnly", Class::kPointContactOnly,
             cls_doc.kPointContactOnly.doc);
+  }
+
+  {
+    using Class = DiscreteContactSolver;
+    constexpr auto& cls_doc = doc.DiscreteContactSolver;
+    py::enum_<Class>(m, "DiscreteContactSolver", cls_doc.doc)
+        .value("kSap", Class::kSap, cls_doc.kSap.doc)
+        .value("kTamsi", Class::kTamsi, cls_doc.kTamsi.doc);
   }
 
   {

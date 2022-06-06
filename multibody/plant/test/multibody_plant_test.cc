@@ -1753,6 +1753,24 @@ GTEST_TEST(MultibodyPlantTest, CollisionGeometryRegistration) {
   EXPECT_TRUE(sphere2_props.GetProperty<double>(
                   geometry::internal::kMaterialGroup,
                   geometry::internal::kHcDissipation) == sphere2_dissipation);
+
+  // Validate geometry swapping.
+  ASSERT_EQ(plant.GetCollisionGeometriesForBody(sphere2)[0], sphere2_id);
+  const GeometryId temp_id = GeometryId::get_new_id();
+  EXPECT_EQ(MultibodyPlantTester::FindBodyByGeometryId(plant, sphere2_id),
+            sphere2.index());
+  EXPECT_THROW(MultibodyPlantTester::FindBodyByGeometryId(plant, temp_id),
+               std::exception);
+  plant.SwapCollisionGeometries(sphere2, sphere2_id, temp_id);
+  EXPECT_EQ(plant.GetCollisionGeometriesForBody(sphere2)[0], temp_id);
+  EXPECT_NE(plant.GetCollisionGeometriesForBody(sphere2)[0], sphere2_id);
+  EXPECT_EQ(MultibodyPlantTester::FindBodyByGeometryId(plant, temp_id),
+            sphere2.index());
+  EXPECT_THROW(MultibodyPlantTester::FindBodyByGeometryId(plant, sphere2_id),
+               std::exception);
+  // sphere2_id is no longer a collision geometry for sphere2.
+  EXPECT_THROW(plant.SwapCollisionGeometries(sphere2, sphere2_id, temp_id),
+               std::exception);
 }
 
 // Verifies the process of visual geometry registration with a SceneGraph.

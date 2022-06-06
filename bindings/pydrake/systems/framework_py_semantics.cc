@@ -414,7 +414,12 @@ void DoScalarDependentDefinitions(py::module m) {
             [](Context<T>* self, const Context<U>& source) {
               self->SetTimeStateAndParametersFrom(source);
             },
-            py::arg("source"), doc.Context.SetTimeStateAndParametersFrom.doc);
+            py::arg("source"), doc.Context.SetTimeStateAndParametersFrom.doc)
+        .def("SetStateAndParametersFrom",
+            [](Context<T>* self, const Context<U>& source) {
+              self->SetStateAndParametersFrom(source);
+            },
+            py::arg("source"), doc.Context.SetStateAndParametersFrom.doc);
       };
   type_visit(
       bind_context_methods_templated_on_a_secondary_scalar, CommonScalarPack{});
@@ -491,7 +496,7 @@ void DoScalarDependentDefinitions(py::module m) {
           // reference cycle as a workaround for #14355. We should find a
           // better way?
           // Keep alive, reference: `self` keeps `return` alive.
-          py::keep_alive<1, 0>(),
+        //   py::keep_alive<1, 0>(),
           // Keep alive, ownership: `system` keeps `self` alive.
           py::keep_alive<2, 1>(), doc.DiagramBuilder.AddSystem.doc)
       .def(
@@ -505,7 +510,7 @@ void DoScalarDependentDefinitions(py::module m) {
           // reference cycle as a workaround for #14355. We should find a
           // better way?
           // Keep alive, reference: `self` keeps `return` alive.
-          py::keep_alive<1, 0>(),
+        //   py::keep_alive<1, 0>(),
           // Keep alive, ownership: `system` keeps `self` alive.
           py::keep_alive<3, 1>(), doc.DiagramBuilder.AddNamedSystem.doc)
       .def("empty", &DiagramBuilder<T>::empty, doc.DiagramBuilder.empty.doc)

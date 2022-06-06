@@ -602,7 +602,8 @@ void DoScalarDependentDefinitions(py::module m, T) {
         .def("get_default_angle", &Class::get_default_angle,
             cls_doc.get_default_angle.doc)
         .def("set_default_angle", &Class::set_default_angle, py::arg("angle"),
-            cls_doc.set_default_angle.doc);
+            cls_doc.set_default_angle.doc)
+        .def("set_default_damping", &Class::set_default_damping, py::arg("damping"), cls_doc.set_default_damping.doc);
   }
 
   // UniversalJoint

@@ -389,7 +389,15 @@ PYBIND11_MODULE(primitives, m) {
             },
             py::arg("state"), py::arg("position"),
             doc.StateInterpolatorWithDiscreteDerivative.set_initial_position
-                .doc_2args_state_position);
+                .doc_2args_state_position)
+        .def(
+            "set_initial_state",
+            [](const StateInterpolatorWithDiscreteDerivative<T>* self,
+                Context<T>* context, const Eigen::Ref<const VectorX<T>>& position, const Eigen::Ref<const VectorX<T>>& velocity) {
+              self->set_initial_state(context, position, velocity);
+            },
+            py::arg("context"), py::arg("position"), py::arg("velocity"),
+            doc.StateInterpolatorWithDiscreteDerivative.set_initial_state.doc_3args_context_position_velocity);
 
     DefineTemplateClassWithDefault<SharedPointerSystem<T>, LeafSystem<T>>(
         m, "SharedPointerSystem", GetPyParam<T>(), doc.SharedPointerSystem.doc)

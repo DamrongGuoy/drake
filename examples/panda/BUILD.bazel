@@ -1,0 +1,155 @@
+# -*- python -*-
+# This file contains rules for Bazel; see drake/doc/bazel.rst.
+
+load(
+    "@drake//tools/skylark:drake_py.bzl",
+    "drake_py_binary",
+    "drake_py_library",
+)
+load("@drake//tools/skylark:test_tags.bzl", "vtk_test_tags")
+load("//tools/install:install_data.bzl", "install_data")
+load("//tools/lint:lint.bzl", "add_lint_tests")
+load("//tools/skylark:test_tags.bzl", "vtk_test_tags")
+
+
+
+# Python - libraries
+
+drake_py_library(
+    name = "differential_ik",
+    srcs = ["src/differential_ik.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "discrete_filter",
+    srcs = ["src/discrete_filter.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "rate_limiter",
+    srcs = ["src/rate_limiter.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "scenarios",
+    srcs = ["src/scenarios.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "utils_drake",
+    srcs = ["src/utils_drake.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "panda_station",
+    srcs = ["src/panda_station.py"],
+    data = ["//examples/panda:data"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+        ":scenarios",
+        ":utils_drake",
+        ":differential_ik",
+        ":discrete_filter",
+        ":rate_limiter",
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "panda_env",
+    srcs = ["envs/panda_env.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+        ":panda_station",
+        ":utils_drake",
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "push_env",
+    srcs = ["envs/push_env.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+        ":panda_env"
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "push_traj_env",
+    srcs = ["envs/push_traj_env.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+        ":push_env"
+    ],
+    testonly = True,
+)
+
+drake_py_library(
+    name = "scoop_env",
+    srcs = ["envs/scoop_env.py"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bindings/pydrake",
+        ":panda_env"
+    ],
+    testonly = True,
+)
+
+# Python - binary
+
+drake_py_binary(
+    name = "test_push",
+    srcs = ["test_push.py"],
+    data = ["//examples/panda:data"],
+    deps = [
+        ":push_traj_env",
+        "//bindings/pydrake",
+    ],
+    testonly = True,
+)
+
+drake_py_binary(
+    name = "test_scoop",
+    srcs = ["test_scoop.py"],
+    deps = [
+        ":scoop_env",
+        "//bindings/pydrake",
+    ],
+    testonly = True,
+)
+
+
+install_data()
+
+add_lint_tests()

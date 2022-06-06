@@ -922,12 +922,12 @@ template <typename T>
 void GeometryState<T>::AssignRole(SourceId source_id, GeometryId geometry_id,
                                   IllustrationProperties properties,
                                   RoleAssign assign) {
-  if (properties.HasProperty("phong", "diffuse_map")) {
-    static logging::Warn log_once(
-        "Explicitly defined values for the ('phong', 'diffuse_map') property "
-        "are not currently used in illustration roles -- only perception "
-        "roles");
-  }
+  // if (properties.HasProperty("phong", "diffuse_map")) {
+  //   static logging::Warn log_once(
+  //       "Explicitly defined values for the ('phong', 'diffuse_map') property "
+  //       "are not currently used in illustration roles -- only perception "
+  //       "roles");
+  // }
 
   // TODO(SeanCurtis-TRI): We want to remove this warning. For that to happen,
   // we need systems dependent on illustration properties to recognize if there

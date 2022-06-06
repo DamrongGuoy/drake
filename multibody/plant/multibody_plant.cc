@@ -22,6 +22,7 @@
 #include "drake/math/rotation_matrix.h"
 #include "drake/multibody/contact_solvers/sparse_linear_operator.h"
 #include "drake/multibody/hydroelastics/hydroelastic_engine.h"
+#include "drake/multibody/plant/compliant_contact_manager.h"
 #include "drake/multibody/plant/discrete_contact_pair.h"
 #include "drake/multibody/plant/externally_applied_spatial_force.h"
 #include "drake/multibody/plant/hydroelastic_traction_calculator.h"
@@ -767,6 +768,28 @@ geometry::GeometryId MultibodyPlant<T>::RegisterCollisionGeometry(
   props.AddProperty(geometry::internal::kMaterialGroup,
                     geometry::internal::kFriction, coulomb_friction);
   return RegisterCollisionGeometry(body, X_BG, shape, name, std::move(props));
+}
+
+template <typename T>
+void MultibodyPlant<T>::SwapCollisionGeometries(const Body<T>& body,
+                                                GeometryId old_id,
+                                                GeometryId new_id) {
+  DRAKE_ASSERT(body.index() < num_bodies());
+  if (geometry_id_to_body_index_.erase(old_id) == 0) {
+    throw std::logic_error(fmt::format(
+        "Can't swap geometry ids for body '{}', geometry is {} is not"
+        " a collision geometry for the body",
+        body.name(), old_id));
+  }
+  DRAKE_DEMAND(geometry_id_to_body_index_.count(new_id) == 0);
+  geometry_id_to_body_index_[new_id] = body.index();
+  for (GeometryId& id : collision_geometries_[body.index()]) {
+    if (id == old_id) {
+      id = new_id;
+      break;
+    }
+  }
+  return;
 }
 
 template <typename T>
