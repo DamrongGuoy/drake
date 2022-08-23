@@ -51,10 +51,6 @@ void DoScalarDependentDefinitions(py::module m, T) {
         .def(py::init<>(), cls_doc.ctor.doc_0args)
         .def(py::init<std::vector<int>, std::vector<Vector3<T>>>(),
             py::arg("face_data"), py::arg("vertices"), cls_doc.ctor.doc_2args)
-        .def("TransformVertices", &Class::TransformVertices, py::arg("X_NM"),
-            cls_doc.TransformVertices.doc)
-        .def("ReverseFaceWinding", &Class::ReverseFaceWinding,
-            cls_doc.ReverseFaceWinding.doc)
         .def("num_faces", &Class::num_faces, cls_doc.num_faces.doc)
         .def("area", &Class::area, py::arg("f"), cls_doc.area.doc)
         .def("total_area", &Class::total_area, cls_doc.total_area.doc)

@@ -93,10 +93,6 @@ class TestGeometryHydro(unittest.TestCase):
         dut.face_data()
         copy.copy(dut)
 
-        # Sanity check the mutators.
-        dut.TransformVertices(X_NM=RigidTransform())
-        dut.ReverseFaceWinding()
-
         # Now check the SurfacePolygon bindings.
         polygon = dut.element(e=0)
         self.assertEqual(polygon.num_vertices(), 3)
