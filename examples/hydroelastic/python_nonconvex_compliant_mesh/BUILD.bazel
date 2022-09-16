@@ -1,0 +1,52 @@
+# -*- python -*-
+
+load("//tools/skylark:drake_py.bzl", "drake_py_binary")
+load("//tools/lint:lint.bzl", "add_lint_tests")
+load("//tools/install:install_data.bzl", "install_data")
+load("@drake//tools/workspace:forward_files.bzl", "forward_files")
+load(
+    "//tools/workspace/models_internal:files.bzl",
+    "veggies_mesh_files",
+)
+
+package(default_visibility = ["//visibility:private"])
+
+# _VEGGIES_MESHES = forward_files(
+#     srcs = ["@models_intenal//:" + x for x in veggies_mesh_files()],
+#     dest_prefix = "",
+#     strip_prefix = "@models_internal//:veggies/",
+#     visibility = ["//visibility:private"],
+# )
+#
+# install_data(
+#     extra_prod_models = _VEGGIES_MESHES,
+# )
+
+drake_py_binary(
+    name = "drop_pepper_py",
+    srcs = ["drop_pepper.py"],
+    data = [
+        ":sdf_files",
+        # ":models",
+    ],
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+
+filegroup(
+    name = "sdf_files",
+    srcs = [
+        "bell_pepper_no_stem_color.png",
+        "bell_pepper_no_stem_normal.png",
+        "bell_pepper_no_stem_occlusion_roughness_metallic.png",
+        "pepper.sdf",
+        "table.sdf",
+        "yellow_bell_pepper_no_stem_low.mtl",
+        "yellow_bell_pepper_no_stem_low.obj",
+        "yellow_bell_pepper_no_stem_low.vtk",
+    ],
+)
+
+add_lint_tests()
