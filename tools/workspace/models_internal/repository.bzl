@@ -8,9 +8,9 @@ def models_internal_repository(
     github_archive(
         name = name,
         repository = "RobotLocomotion/models",
-        local_repository_override = "/home/damrongguoy/GitHub/DamrongGuoy/RobotLocomotion_models", # noqa
-        commit = "e6bb254c786ef4d67aea7e88d141b3bb2618e964",
-        sha256 = "e246342c6d4e895dbc9d4d7206889114e6a6c99857987708f01066d839978beb",  # noqa
+        # XXX Temporary git sha from RobotLocomotion/models/pull/19.
+        commit = "72854ca8a04e98670de6821e078fa9baf1fbbd91",
+        sha256 = "c7f5a7319658b41bb33ee6676f7e70abd141c85da0860e953d65094af463a991",  # noqa
         build_file = ":package.BUILD.bazel",
         mirrors = mirrors,
     )
