@@ -11,16 +11,16 @@ load(
 
 package(default_visibility = ["//visibility:private"])
 
-# _VEGGIES_MESHES = forward_files(
-#     srcs = ["@models_intenal//:" + x for x in veggies_mesh_files()],
-#     dest_prefix = "",
-#     strip_prefix = "@models_internal//:veggies/",
-#     visibility = ["//visibility:private"],
-# )
-#
-# install_data(
-#     extra_prod_models = _VEGGIES_MESHES,
-# )
+_VEGGIES_MESHES = forward_files(
+    srcs = ["@models_intenal//:" + x for x in veggies_mesh_files()],
+    dest_prefix = "",
+    strip_prefix = "@models_internal//:veggies/",
+    visibility = ["//visibility:private"],
+)
+
+install_data(
+    extra_prod_models = _VEGGIES_MESHES,
+)
 
 drake_py_binary(
     name = "drop_pepper_py",
