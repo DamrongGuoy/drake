@@ -12,7 +12,7 @@ load(
 package(default_visibility = ["//visibility:private"])
 
 _VEGGIES_MESHES = forward_files(
-    srcs = ["@models_intenal//:" + x for x in veggies_mesh_files()],
+    srcs = ["@models_internal//:" + x for x in veggies_mesh_files()],
     dest_prefix = "",
     strip_prefix = "@models_internal//:veggies/",
     visibility = ["//visibility:private"],
