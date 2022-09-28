@@ -38,6 +38,9 @@ filegroup(
     name = "models",
     srcs = [
         "bowl.sdf",
+        "floatie.sdf",
+        "floatie_full.obj",
+        "floatie_full.vtk",
         "pepper.sdf",
         "table.sdf",
     ] + _VEGGIES_MESHES + _DISHES_FILES,

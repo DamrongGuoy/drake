@@ -27,6 +27,7 @@ def make_pepper_table(contact_model, contact_surface_representation,
     multibody_plant_config = \
         MultibodyPlantConfig(
             time_step=time_step,
+            discrete_contact_solver="sap",
             contact_model=contact_model,
             contact_surface_representation=contact_surface_representation)
 # We pose the table, so that its top surface is on World's X-Y plane.
@@ -57,6 +58,11 @@ def make_pepper_table(contact_model, contact_surface_representation,
             "drake/examples/hydroelastic/python_nonconvex_compliant_mesh/"
             "bowl.sdf")
     parser.AddModelFromFile(bowl_sdf_file_name)
+    floatie_sdf_file_name = \
+        FindResourceOrThrow(
+            "drake/examples/hydroelastic/python_nonconvex_compliant_mesh/"
+            "floatie.sdf")
+    parser.AddModelFromFile(floatie_sdf_file_name)
     # TODO(DamrongGuoy): Let users override hydroelastic modulus, dissipation,
     #  and resolution hint from the two SDF files above.
 
@@ -74,13 +80,15 @@ def make_pepper_table(contact_model, contact_surface_representation,
 
 
 def simulate_diagram(diagram, pepper_table_plant, state_logger,
-                     pepper_position, bowl_position,
+                     pepper_position, bowl_position, floatie_position,
                      simulation_time, target_realtime_rate):
     q_init_val = np.array([
         1, 0, 0, 0, pepper_position[0], pepper_position[1], pepper_position[2],
-        1, 0, 0, 0, bowl_position[0], bowl_position[1], bowl_position[2]
+        1, 0, 0, 0, bowl_position[0], bowl_position[1], bowl_position[2],
+        1, 0, 0, 0, floatie_position[0], floatie_position[1], floatie_position[2]
     ])
     v_init_val = np.hstack((np.zeros(3), np.zeros(3),
+                            np.zeros(3), np.zeros(3),
                             np.zeros(3), np.zeros(3)))
     qv_init_val = np.concatenate((q_init_val, v_init_val))
 
@@ -106,8 +114,8 @@ def simulate_diagram(diagram, pepper_table_plant, state_logger,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--simulation_time", type=float, default=3,
-        help="Desired duration of the simulation in seconds. Default 3.")
+        "--simulation_time", type=float, default=2,
+        help="Desired duration of the simulation in seconds. Default 2.")
     parser.add_argument(
         "--contact_model", type=str, default="hydroelastic_with_fallback",
         help="Contact model. Options are: 'point', 'hydroelastic', "
@@ -118,24 +126,29 @@ if __name__ == "__main__":
         help="Contact-surface representation for hydroelastics. "
              "Options are: 'triangle' or 'polygon'. Default 'polygon'.")
     parser.add_argument(
-        "--time_step", type=float, default=0.001,
+        "--time_step", type=float, default=0.01,
         help="The fixed time step period (in seconds) of discrete updates "
              "for the multibody plant modeled as a discrete system. "
              "If zero, we will use an integrator for a continuous system. "
-             "Non-negative. Default 0.001.")
+             "Non-negative. Default 0.01.")
     parser.add_argument(
         "--pepper_position", nargs=3, metavar=('x', 'y', 'z'),
-        default=[0, -0.15, 0.10],
+        default=[0, -0.10, 0.25],
         help="Pepper's initial position of the bottom of the pepper: "
-             "x, y, z (in meters) in World frame. Default: 0 -0.15 0.10")
+             "x, y, z (in meters) in World frame. Default: 0 -0.10 0.25")
     parser.add_argument(
         "--bowl_position", nargs=3, metavar=('x', 'y', 'z'),
-        default=[0, -0.07, 0.061],
+        default=[0, -0.03, 0.061],
         help="Bowl's initial position of its center: "
-             "x, y, z (in meters) in World frame. Default: 0 -0.07 0.061")
+             "x, y, z (in meters) in World frame. Default: 0 -0.03 0.061")
     parser.add_argument(
-        "--target_realtime_rate", type=float, default=1.0,
-        help="Target realtime rate. Default 1.0.")
+        "--floatie_position", nargs=3, metavar=('x', 'y', 'z'),
+        default=[0, -0.1, 0.20],
+        help="Floatie's initial position of its center: "
+             "x, y, z (in meters) in World frame. Default: 0 -0.1 0.20")
+    parser.add_argument(
+        "--target_realtime_rate", type=float, default=0.3,
+        help="Target realtime rate. Default 0.3.")
     args = parser.parse_args()
 
     diagram, pepper_table_plant, state_logger = make_pepper_table(
@@ -145,6 +158,7 @@ if __name__ == "__main__":
         diagram, pepper_table_plant, state_logger,
         np.array(args.pepper_position),
         np.array(args.bowl_position),
+        np.array(args.floatie_position),
         args.simulation_time, args.target_realtime_rate)
     print("\nFinal state variables:")
     print(state_samples[:, -1])

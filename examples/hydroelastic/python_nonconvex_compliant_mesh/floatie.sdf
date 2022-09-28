@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <sdf version="1.7" xmlns:drake="drake.mit.edu">
-  <model name="yellow_bell_pepper_no_stem">
-    <link name="yellow_bell_pepper_no_stem">
+  <model name="floatie">
+    <link name="floatie">
       <pose>0 0 0 0 0 0</pose>
       <inertial>
-        <pose>0.000537 -0.00272 0.0384 0 0 0</pose>
+        <pose>0 0 0 0 0 0</pose>
         <mass>0.159</mass>
         <inertia>
           <ixx> 0.000101</ixx>
@@ -15,24 +15,24 @@
           <izz> 0.000107</izz>
         </inertia>
       </inertial>
-      <visual name="yellow_bell_pepper_no_stem">
+      <visual name="floatie">
         <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
-            <uri>yellow_bell_pepper_no_stem_low.obj</uri>
-            <scale>1 1 1</scale>
+            <uri>floatie_full.obj</uri>
+            <scale>0.001 0.001 0.001</scale>
           </mesh>
         </geometry>
-	<material>
-          <diffuse>0.7 0.7 0 0.5</diffuse>
+	    <material>
+          <diffuse>0.7 0.7 0 1.0</diffuse>
         </material>
       </visual>
       <collision name="collision">
         <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
-            <uri>yellow_bell_pepper_no_stem_low.vtk</uri>
-            <scale>1 1 1</scale>
+            <uri>floatie_full.vtk</uri>
+            <scale>0.001 0.001 0.001</scale>
           </mesh>
         </geometry>
         <drake:proximity_properties>
@@ -50,10 +50,10 @@
       </collision>
     </link>
     <frame name="origin">
-      <pose relative_to="yellow_bell_pepper_no_stem">0 0 0 0 0 0</pose>
+      <pose relative_to="floatie">0 0 0 0 0 0</pose>
     </frame>
     <frame name="flush_bottom_center__z_up">
-      <pose relative_to="yellow_bell_pepper_no_stem">0 0 0 0 0 0</pose>
+      <pose relative_to="floatie">0 0 0 0 0 0</pose>
     </frame>
   </model>
 </sdf>
