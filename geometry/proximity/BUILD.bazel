@@ -848,6 +848,33 @@ drake_cc_googletest(
     ],
 )
 
+filegroup(
+    name = "bunny_vtk_files",
+    testonly = 1,
+    srcs = [
+        "test/MeshImprovement/box_diamondcubic.vtk",
+        "test/MeshImprovement/bubble.vtk",
+        "test/MeshImprovement/bunny.vtk",
+        "test/MeshImprovement/pepper.vtk",
+        "test/MeshImprovement/teddy.vtk",
+    ],
+)
+
+drake_cc_googletest(
+    name = "bunny_mesh_refiner_test",
+    data = [
+        ":bunny_vtk_files",
+    ],
+    deps = [
+        ":make_mesh_field",
+        ":mesh_to_vtk",
+        ":volume_mesh_refiner",
+        ":vtk_to_volume_mesh",
+        "//common:find_resource",
+        "//common/test_utilities",
+    ],
+)
+
 drake_cc_googletest(
     name = "bvh_test",
     deps = [
