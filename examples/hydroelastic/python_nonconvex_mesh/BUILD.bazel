@@ -46,6 +46,9 @@ drake_py_binary(
 filegroup(
     name = "models",
     srcs = [
+        "bunny.obj",
+        "bunny_problem.vtk",
+        "bunny_fixed.vtk",
         "bowl.sdf",
         "pepper.sdf",
         "table.sdf",

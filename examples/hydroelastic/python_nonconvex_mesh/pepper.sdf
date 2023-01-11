@@ -19,22 +19,24 @@
         <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
-            <uri>yellow_bell_pepper_no_stem_low.obj</uri>
+            <uri>bunny.obj</uri>
             <scale>1 1 1</scale>
           </mesh>
         </geometry>
-      </visual>
+        <material>
+          <diffuse>0.5 0.5 0 0.2</diffuse>
+        </material>      </visual>
       <collision name="collision">
         <pose>0 0 0 0 0 0</pose>
         <geometry>
           <mesh>
-            <uri>yellow_bell_pepper_no_stem_low.vtk</uri>
+            <uri>bunny_fixed.vtk</uri>
             <scale>1 1 1</scale>
           </mesh>
         </geometry>
         <drake:proximity_properties>
           <drake:compliant_hydroelastic/>
-          <drake:hydroelastic_modulus>5.0e4</drake:hydroelastic_modulus>
+          <drake:hydroelastic_modulus>5.0e5</drake:hydroelastic_modulus>
           <!-- Most shapes (capsule, cylinder, ellipsoid, sphere) need
             drake:mesh_resolution_hint, but the resolution hint is no-op
             for the mesh geometry. That's why we do not set it here. -->

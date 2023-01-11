@@ -87,7 +87,7 @@ def simulate_diagram(diagram, plant,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--simulation_time", type=float, default=2,
+        "--simulation_time", type=float, default=0.50,
         help="Desired duration of the simulation in seconds. "
              "Default %(default)s.")
     parser.add_argument(
@@ -95,26 +95,26 @@ if __name__ == "__main__":
         help="Contact model. Options are: 'point', 'hydroelastic', "
              "'hydroelastic_with_fallback'. Default %(default)s.")
     parser.add_argument(
-        "--time_step", type=float, default=0.01,
+        "--time_step", type=float, default=0.001,
         help="The fixed time step period (in seconds) of discrete updates "
              "for the multibody plant modeled as a discrete system. "
              "Strictly positive. Default %(default)s.")
     parser.add_argument(
         "--pepper_position", nargs=3, metavar=('x', 'y', 'z'),
-        default=[0, -0.15, 0.10],
+        default=[0, 0, -0.04],
         help="Pepper's initial position of the bottom of the pepper: "
              "x, y, z (in meters) in World frame. Default %(default)s.")
     parser.add_argument(
-        "--pepper_wz", type=float, default=150,
+        "--pepper_wz", type=float, default=0,
         help="Pepper's initial angular velocity in the z-axis in rad/s. "
              "Default %(default)s.")
     parser.add_argument(
         "--bowl_position", nargs=3, metavar=('x', 'y', 'z'),
-        default=[0, -0.07, 0.061],
+        default=[0, 0, 0.23],
         help="Bowl's initial position of its center: "
              "x, y, z (in meters) in World frame. Default %(default)s.")
     parser.add_argument(
-        "--target_realtime_rate", type=float, default=1.0,
+        "--target_realtime_rate", type=float, default=0.05,
         help="Target realtime rate. Set to 0 to run as fast as it can. "
              "Default %(default)s.")
     args = parser.parse_args()

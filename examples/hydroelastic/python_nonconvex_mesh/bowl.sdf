@@ -24,7 +24,7 @@
           </mesh>
         </geometry>
         <material>
-          <diffuse>0.7 0.7 0.7 0.5</diffuse>
+          <diffuse>0.7 0.7 0.7 0.9</diffuse>
         </material>
       </visual>
       <collision name="collision">
