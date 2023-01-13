@@ -12,16 +12,20 @@
 #include "drake/multibody/plant/deformable_model.h"
 #include "drake/multibody/plant/multibody_plant.h"
 #include "drake/multibody/plant/multibody_plant_config_functions.h"
+#include "drake/multibody/tree/rigid_body.h"
+#include "drake/multibody/tree/spatial_inertia.h"
 #include "drake/systems/analysis/simulator.h"
 #include "drake/systems/framework/diagram.h"
 #include "drake/systems/framework/diagram_builder.h"
 #include "drake/systems/framework/leaf_system.h"
 
-DEFINE_double(simulation_time, 8.0, "Desired duration of the simulation [s].");
-DEFINE_double(realtime_rate, 0.0, "Desired real time rate.");
+DEFINE_double(simulation_time, 2.0, "Desired duration of the simulation [s].");
+DEFINE_double(realtime_rate, 0.1, "Desired real time rate.");
 DEFINE_double(time_step, 1.0e-2,
               "Discrete time step for the system [s]. Must be positive.");
-DEFINE_double(E, 1e4, "Young's modulus of the deformable body [Pa].");
+// Larger E, stiffer materials. Rubber is about 1e7 to 1e8 Pascals.
+// Steel is about 2e11 Pascals.
+DEFINE_double(E, 1e6, "Young's modulus of the deformable body [Pa].");
 DEFINE_double(nu, 0.4, "Poisson's ratio of the deformable body, unitless.");
 DEFINE_double(density, 1000, "Mass density of the deformable body [kg/m³].");
 DEFINE_double(beta, 0.005,
@@ -42,6 +46,9 @@ using drake::multibody::DeformableBodyId;
 using drake::multibody::DeformableModel;
 using drake::multibody::MultibodyPlantConfig;
 using drake::multibody::Parser;
+using drake::multibody::RigidBody;
+using drake::multibody::SpatialInertia;
+using drake::multibody::UnitInertia;
 using drake::multibody::fem::DeformableBodyConfig;
 using drake::systems::Context;
 using Eigen::Vector2d;
@@ -72,20 +79,47 @@ int do_main() {
    queries can be performed against deformable geometries.) */
   ProximityProperties rigid_proximity_props;
   /* Set the friction coefficient close to that of rubber against rubber. */
-  const CoulombFriction<double> surface_friction(1.0, 1.0);
-  AddContactMaterial({}, {}, surface_friction, &rigid_proximity_props);
-  rigid_proximity_props.AddProperty(geometry::internal::kHydroGroup,
-                                    geometry::internal::kRezHint, 1.0);
-  /* Set up a ground. */
-  Box ground{4, 4, 4};
-  const RigidTransformd X_WG(Eigen::Vector3d{0, 0, -2.0});
-  plant.RegisterCollisionGeometry(plant.world_body(), X_WG, ground,
-                                  "ground_collision", rigid_proximity_props);
-  IllustrationProperties illustration_props;
-  illustration_props.AddProperty("phong", "diffuse",
-                                 Vector4d(0.7, 0.5, 0.4, 0.8));
-  plant.RegisterVisualGeometry(plant.world_body(), X_WG, ground,
-                               "ground_visual", std::move(illustration_props));
+  const CoulombFriction<double> kSurfaceFriction(1.0, 1.0);
+  {
+    AddContactMaterial({}, {}, kSurfaceFriction, &rigid_proximity_props);
+    rigid_proximity_props.AddProperty(geometry::internal::kHydroGroup,
+                                      geometry::internal::kRezHint, 1.0);
+  }
+
+  /* Set up an orange ground. */
+  {
+    // 30 x 30 x 1 centimeter is about twice the bunny in width.
+    Box ground{0.30, 0.30, 0.01};
+    const RigidTransformd X_WG(Eigen::Vector3d{0, 0, -0.005});
+    plant.RegisterCollisionGeometry(plant.world_body(), X_WG, ground,
+                                    "ground_collision", rigid_proximity_props);
+    IllustrationProperties illustration_props;
+    illustration_props.AddProperty("phong", "diffuse",
+                                   Vector4d(0.7, 0.5, 0.4, 0.8));
+    plant.RegisterVisualGeometry(plant.world_body(), X_WG, ground,
+                                 "ground_visual", illustration_props);
+  }
+
+  /* Drop a yellow brick. */
+  // 15 x 15 x 4 centimeter is about the same as the bunny's width.
+  {
+    Box brick_geometry{0.15, 0.15, 0.04};
+    const RigidBody<double>& brick_body = plant.AddRigidBody(
+        "Brick",
+        SpatialInertia<double>{/*mass*/ 0.5, /*p_BoBcm*/ Vector3d::Zero(),
+                                        UnitInertia<double>::SolidBox(
+                                            brick_geometry.width(),
+                                            brick_geometry.depth(),
+                                            brick_geometry.height())});
+    const RigidTransformd X_WC(Eigen::Vector3d{0, 0, 0.20});
+    plant.RegisterCollisionGeometry(brick_body, X_WC, brick_geometry,
+                                    "brick_collision", rigid_proximity_props);
+    IllustrationProperties brick_illustration_props;
+    brick_illustration_props.AddProperty("phong", "diffuse",
+                                         Vector4d(0.7, 0.7, 0, 0.8));
+    plant.RegisterVisualGeometry(brick_body, X_WC, brick_geometry,
+                                 "brick_visual", brick_illustration_props);
+  }
 
   /* Set up the deformable bunny. */
   auto owned_deformable_model =
@@ -98,18 +132,37 @@ int do_main() {
   deformable_config.set_mass_density(FLAGS_density);
   deformable_config.set_stiffness_damping_coefficient(FLAGS_beta);
 
-  const std::string bunny_vtk =
-      FindResourceOrThrow("drake/examples/multibody/bunny/bunny.vtk");
-  auto bunny_mesh = std::make_unique<Mesh>(bunny_vtk, 1.0);
+  auto bunny_mesh = std::make_unique<Mesh>(
+      FindResourceOrThrow("drake/examples/multibody/bunny/bunny_fixed.vtk"),
+      1.0);
+  // Bunny's bounding box is about 15 x 12 x 16 centimeters like this.
+  // X: -0.09, 0.06
+  // Y: -0.06, 0.06
+  // Z:  0.03, 0.19
+  // The center of bounding box is around (-0.015, 0, 0.11).
+  //
+  // To pose the bunny upside down on the floor. Rotate 180 degrees around X,
+  // then move it up by 19 centimeters.
+  // RollPitchYawd(M_PI, 0, 0), Vector3d(0, 0, 0.19)
+  //
+  // To pose the bunny upside down above the floor. Rotate 180 degrees around X,
+  // then move it up by 29 centimeters.
+  // RollPitchYawd(M_PI, 0, 0), Vector3d(0, 0, 0.29)
+  //
+  // To pose the bunny on the floor, displace Z down 3.5 centimeters
+  // (RollPitchYawd(0, 0, 0), Vector3d(0, 0, -0.035)).
   const RigidTransformd X_WB(RollPitchYawd(0, 0, 0),
-                             Vector3d(0, 0, 0.1));
+                             Vector3d(0, 0, -0.035));
+
   auto bunny_instance =
       std::make_unique<GeometryInstance>(X_WB, std::move(bunny_mesh), "bunny");
   /* Minimumly required proximity properties for deformable bodies: A valid
    Coulomb friction coefficient. */
-  ProximityProperties deformable_proximity_props;
-  AddContactMaterial({}, {}, surface_friction, &deformable_proximity_props);
-  bunny_instance->set_proximity_properties(deformable_proximity_props);
+  {
+    ProximityProperties deformable_proximity_props;
+    AddContactMaterial({}, {}, kSurfaceFriction, &deformable_proximity_props);
+    bunny_instance->set_proximity_properties(deformable_proximity_props);
+  }
 
   deformable_model->RegisterDeformableBody(std::move(bunny_instance),
                                            deformable_config, 1.0);

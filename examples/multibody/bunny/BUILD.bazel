@@ -10,6 +10,8 @@ drake_cc_binary(
     name = "bunny",
     data = [
         "bunny.vtk",
+        "bunny_fixed.vtk",
+        "bunny_problem.vtk",
     ],
     srcs = [
         "bunny.cc",
