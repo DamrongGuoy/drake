@@ -101,6 +101,15 @@ drake_jupyter_py_binary(
 )
 
 drake_jupyter_py_binary(
+    name = "hydro_compliant_cylinder_compliant_box",
+    add_test_rule = 1,
+    test_timeout = "moderate",
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+drake_jupyter_py_binary(
     name = "rendering_multibody_plant",
     add_test_rule = 1,
     deps = [
