@@ -73,11 +73,11 @@ GTEST_TEST(BubbleMeshTest, VolumeMeshRefiner) {
                           "/bubble.vtk");
   VolumeMesh<double> test_mesh = internal::ReadVtkToVolumeMesh(test_file);
 
-  ASSERT_EQ(test_mesh.num_vertices(), 101);
-  ASSERT_EQ(test_mesh.num_elements(), 257);
-  ASSERT_EQ(internal::DetectNullTetrahedron(test_mesh).size(), 60);
-  ASSERT_EQ(internal::DetectNullInteriorTriangle(test_mesh).size(), 96);
-  ASSERT_EQ(internal::DetectNullInteriorEdge(test_mesh).size(), 36);
+  ASSERT_EQ(test_mesh.num_vertices(), 89);
+  EXPECT_EQ(test_mesh.num_elements(), 215);
+  EXPECT_EQ(internal::DetectNullTetrahedron(test_mesh).size(), 69);
+  EXPECT_EQ(internal::DetectNullInteriorTriangle(test_mesh).size(), 115);
+  EXPECT_EQ(internal::DetectNullInteriorEdge(test_mesh).size(), 46);
   {
     internal::WriteVolumeMeshToVtk(
         "bubble_null_tetrahedron.vtk",
@@ -88,8 +88,8 @@ GTEST_TEST(BubbleMeshTest, VolumeMeshRefiner) {
 
   internal::VolumeMeshRefiner refiner(test_mesh);
   VolumeMesh<double> refined_mesh = refiner.refine();
-  EXPECT_EQ(refined_mesh.num_vertices(), 137);
-  EXPECT_EQ(refined_mesh.num_elements(), 445);
+  EXPECT_EQ(refined_mesh.num_vertices(), 135);
+  EXPECT_EQ(refined_mesh.num_elements(), 449);
   EXPECT_EQ(internal::DetectNullTetrahedron(refined_mesh).size(), 0);
   EXPECT_EQ(internal::DetectNullInteriorTriangle(refined_mesh).size(), 0);
   EXPECT_EQ(internal::DetectNullInteriorEdge(refined_mesh).size(), 0);
@@ -107,11 +107,11 @@ GTEST_TEST(TeddyMeshTest, VolumeMeshRefiner) {
                           "/teddy.vtk");
   VolumeMesh<double> test_mesh = internal::ReadVtkToVolumeMesh(test_file);
 
-  ASSERT_EQ(test_mesh.num_vertices(), 984);
-  ASSERT_EQ(test_mesh.num_elements(), 2820);
-  ASSERT_EQ(internal::DetectNullTetrahedron(test_mesh).size(), 76);
-  ASSERT_EQ(internal::DetectNullInteriorTriangle(test_mesh).size(), 131);
-  ASSERT_EQ(internal::DetectNullInteriorEdge(test_mesh).size(), 55);
+  ASSERT_EQ(test_mesh.num_vertices(), 335);
+  EXPECT_EQ(test_mesh.num_elements(), 859);
+  EXPECT_EQ(internal::DetectNullTetrahedron(test_mesh).size(), 110);
+  EXPECT_EQ(internal::DetectNullInteriorTriangle(test_mesh).size(), 185);
+  EXPECT_EQ(internal::DetectNullInteriorEdge(test_mesh).size(), 75);
   {
     internal::WriteVolumeMeshToVtk(
         "teddy_null_tetrahedron.vtk",
@@ -126,8 +126,8 @@ GTEST_TEST(TeddyMeshTest, VolumeMeshRefiner) {
 
   internal::VolumeMeshRefiner refiner(test_mesh);
   VolumeMesh<double> refined_mesh = refiner.refine();
-  EXPECT_EQ(refined_mesh.num_vertices(), 1039);
-  EXPECT_EQ(refined_mesh.num_elements(), 3071);
+  EXPECT_EQ(refined_mesh.num_vertices(), 410);
+  EXPECT_EQ(refined_mesh.num_elements(), 1207);
   EXPECT_EQ(internal::DetectNullTetrahedron(refined_mesh).size(), 0);
   EXPECT_EQ(internal::DetectNullInteriorTriangle(refined_mesh).size(), 0);
   EXPECT_EQ(internal::DetectNullInteriorEdge(refined_mesh).size(), 0);
