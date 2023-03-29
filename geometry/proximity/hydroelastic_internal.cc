@@ -20,6 +20,7 @@
 #include "drake/geometry/proximity/make_mesh_from_vtk.h"
 #include "drake/geometry/proximity/make_sphere_field.h"
 #include "drake/geometry/proximity/make_sphere_mesh.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
 #include "drake/geometry/proximity/tessellation_strategy.h"
 #include "drake/geometry/proximity/volume_to_surface_mesh.h"
@@ -226,6 +227,13 @@ std::optional<RigidGeometry> MakeRigidRepresentation(
   auto mesh = make_unique<TriangleSurfaceMesh<double>>(
       MakeCylinderSurfaceMesh<double>(cylinder, edge_length));
 
+  {
+    static int count = 0;
+    std::string file_name = fmt::format("rigid_cylinder_mesh_{}.vtk", count++);
+    WriteSurfaceMeshToVtk(file_name, *mesh,
+                         "Debug_hydroelastic_rigid_cylinder_mesh");
+  }
+
   return RigidGeometry(RigidMesh(move(mesh)));
 }
 
@@ -328,6 +336,14 @@ std::optional<SoftGeometry> MakeSoftRepresentation(
   const double edge_length = validator.Extract(props, kHydroGroup, kRezHint);
   auto mesh = make_unique<VolumeMesh<double>>(
       MakeCylinderVolumeMeshWithMa<double>(cylinder, edge_length));
+
+  {
+    static int count = 0;
+    std::string file_name = fmt::format("compliant_cylinder_mesh_{}.vtk",
+                                        count++);
+    WriteVolumeMeshToVtk(file_name, *mesh,
+                         "Debug_hydroelastic_compliant_cylinder_mesh");
+  }
 
   const double hydroelastic_modulus =
       validator.Extract(props, kHydroGroup, kElastic);

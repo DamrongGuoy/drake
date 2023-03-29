@@ -340,6 +340,7 @@ drake_cc_library(
         ":make_mesh_from_vtk",
         ":make_sphere_field",
         ":make_sphere_mesh",
+        ":mesh_to_vtk",
         ":obj_to_surface_mesh",
         ":tessellation_strategy",
         ":triangle_surface_mesh",
