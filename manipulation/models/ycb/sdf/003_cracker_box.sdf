@@ -51,6 +51,26 @@
             <size>0.158000 0.207400 0.065800</size>
           </box>
         </geometry>
+        <drake:proximity_properties>
+          <drake:compliant_hydroelastic/>
+          <drake:hydroelastic_modulus>
+            <!-- 1e7 Pa for objects of size in centimeters of HDPE plastic
+             with Young's modulus 1 GPa -->
+            1e7
+          </drake:hydroelastic_modulus>
+          <drake:mesh_resolution_hint>
+            <!-- 1 cm mesh resolution for objects of size in centimeters -->
+            0.01
+          </drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>
+            1.25
+          </drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>
+            0.1
+          </drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
       <collision name="point_collision1">
         <pose>0.079500 0.104200 0.033400 0 0 0 </pose>
@@ -59,6 +79,14 @@
             <radius>1e-7</radius>
           </sphere>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint>1</drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>1.25</drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>0.1</drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
       <collision name="point_collision2">
         <pose>0.079500 -0.104200 0.033400 0 0 0 </pose>
@@ -67,6 +95,14 @@
             <radius>1e-7</radius>
           </sphere>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint>1</drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>1.25</drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>0.1</drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
       <collision name="point_collision3">
         <pose>-0.079500 0.104200 0.033400 0 0 0 </pose>
@@ -75,6 +111,14 @@
             <radius>1e-7</radius>
           </sphere>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint>1</drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>1.25</drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>0.1</drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
       <collision name="point_collision4">
         <pose>-0.079500 -0.104200 0.033400 0 0 0 </pose>
@@ -83,6 +127,14 @@
             <radius>1e-7</radius>
           </sphere>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint>1</drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>1.25</drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>0.1</drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
       <collision name="point_collision5">
         <pose>0.079500 0.104200 -0.033400 0 0 0 </pose>
@@ -91,6 +143,14 @@
             <radius>1e-7</radius>
           </sphere>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint>1</drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>1.25</drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>0.1</drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
       <collision name="point_collision6">
         <pose>0.079500 -0.104200 -0.033400 0 0 0 </pose>
@@ -99,6 +159,14 @@
             <radius>1e-7</radius>
           </sphere>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint>1</drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>1.25</drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>0.1</drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
       <collision name="point_collision7">
         <pose>-0.079500 0.104200 -0.033400 0 0 0 </pose>
@@ -107,6 +175,14 @@
             <radius>1e-7</radius>
           </sphere>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint>1</drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>1.25</drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>0.1</drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
       <collision name="point_collision8">
         <pose>-0.079500 -0.104200 -0.033400 0 0 0 </pose>
@@ -115,6 +191,14 @@
             <radius>1e-7</radius>
           </sphere>
         </geometry>
+        <drake:proximity_properties>
+          <drake:rigid_hydroelastic/>
+          <drake:mesh_resolution_hint>1</drake:mesh_resolution_hint>
+          <drake:mu_dynamic>0.5</drake:mu_dynamic>
+          <drake:mu_static>0.5</drake:mu_static>
+          <drake:hunt_crossley_dissipation>1.25</drake:hunt_crossley_dissipation>
+          <drake:relaxation_time>0.1</drake:relaxation_time>
+        </drake:proximity_properties>
       </collision>
     </link>
   </model>
