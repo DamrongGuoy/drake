@@ -7,6 +7,8 @@ The ball is dropped on an edge of the paddle and bounces off.
 import argparse
 import numpy as np
 
+from pydrake.geometry import Rgba
+from pydrake.geometry import StartMeshcat
 from pydrake.math import RigidTransform
 from pydrake.math import RollPitchYaw
 from pydrake.multibody.parsing import Parser
@@ -19,6 +21,8 @@ from pydrake.systems.analysis import PrintSimulatorStatistics
 from pydrake.systems.framework import DiagramBuilder
 from pydrake.systems.primitives import VectorLogSink
 from pydrake.visualization import AddDefaultVisualization
+from pydrake.visualization import ApplyVisualizationConfig
+from pydrake.visualization import VisualizationConfig
 
 
 def make_ball_paddle(contact_model, contact_surface_representation,
@@ -52,7 +56,13 @@ def make_ball_paddle(contact_model, contact_surface_representation,
 
     plant.Finalize()
 
-    AddDefaultVisualization(builder=builder)
+    meshcat = StartMeshcat()
+    ApplyVisualizationConfig(
+      config = VisualizationConfig(
+                 default_proximity_color = Rgba(r=1, g=0, b=0, a=0.25),
+                 enable_alpha_sliders = True),
+      builder = builder, meshcat = meshcat)
+
 
     nx = plant.num_positions() + plant.num_velocities()
     state_logger = builder.AddSystem(VectorLogSink(nx))
