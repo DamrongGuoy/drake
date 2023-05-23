@@ -156,6 +156,14 @@ drake_jupyter_py_binary(
     ],
 )
 
+drake_jupyter_py_binary(
+    name = "experiment_CCM_contact_surfaces",
+    add_test_rule = 1,
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
 _NOTEBOOKS = glob(
     ["*.ipynb"],
     allow_empty = False,
