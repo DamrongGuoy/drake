@@ -32,7 +32,7 @@
                 <pose>0 0 0 0 0 0</pose>
                 <geometry>
                     <mesh>
-                        <uri>cylinder.obj</uri>
+                        <uri>cylinder_collision_medium.obj</uri>
                         <scale>1.0 1.0 1.0</scale>
                         <drake:declare_convex/>
                     </mesh>

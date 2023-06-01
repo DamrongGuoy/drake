@@ -8,6 +8,10 @@ from pydrake.multibody.plant import (
     AddMultibodyPlant,
     MultibodyPlantConfig,
 )
+from pydrake.multibody.meshcat import (
+    ContactVisualizer,
+    ContactVisualizerParams
+)
 from pydrake.multibody.parsing import (
     ProcessModelDirectives,
     LoadModelDirectives,
@@ -125,6 +129,8 @@ class GamepadControl(LeafSystem):
 
         output.set_value(self._paddle_state_index, x_y_theta_limited)
 
+        self._meshcat.Flush()
+
     def OutputPaddlePosition(self, context, output):
         """Actually sets the output port of this system to hold the current commanded positions.
         """
@@ -132,6 +138,43 @@ class GamepadControl(LeafSystem):
             context.get_discrete_state(
                 self._paddle_state_index).value())
 
+from pydrake.common.value import AbstractValue
+from pydrake.geometry import GeometryId
+from pydrake.multibody.plant import ContactResults
+
+class PaddleContactFilter(LeafSystem):
+    def __init__(self, scene_graph):
+        super().__init__()  # Don't forget to initialize the base class.
+        self._scene_graph = scene_graph
+        self._paddle_geometry_id = self.FindPaddleGeometryId()
+        self.DeclareAbstractInputPort(
+            name="contact_results",
+            model_value=AbstractValue.Make(ContactResults()))
+        self.DeclareAbstractOutputPort(
+            name="contact_results",
+            alloc=lambda: AbstractValue.Make(ContactResults()),
+            calc=self.FilterContactResultOutput)
+
+    def FindPaddleGeometryId(self):
+        model_inspector = self._scene_graph.model_inspector()
+        for id in model_inspector.GetAllGeometryIds():
+            if (model_inspector.GetName(id) == 'paddle::paddle_collision'):
+                return id
+        print(f"PaddleContactFilter::FindPaddleGeometryId: "
+              f"Cannot find paddle::paddle_collision geometry")
+        exit(1)
+
+    def SelectPaddleContact(self, hydroelastic_contact_info):
+        id_M = hydroelastic_contact_info.contact_surface().id_M()
+        id_N = hydroelastic_contact_info.contact_surface().id_N()
+        return id_M == self._paddle_geometry_id or\
+               id_N == self._paddle_geometry_id
+
+    def FilterContactResultOutput(self, context, output):
+        output.set_value(
+            self.get_input_port().
+                Eval(context).
+                    SelectHydroelastic(self.SelectPaddleContact))
 
 def run(*, local_dir):
     """Runs a simulation from the given model directives.
@@ -197,13 +240,30 @@ def run(*, local_dir):
 
     # Set visualization configuration.
     visualization_config = VisualizationConfig()
-    visualization_config.publish_contacts = True
+    # We will enable contact visualization with our custom code.
+    visualization_config.publish_contacts = False
     visualization_config.publish_proximity = False
     visualization_config.enable_alpha_sliders = True
     visualization_config.publish_period = 0.05
 
     # Add visualization.
     ApplyVisualizationConfig(visualization_config, builder, meshcat=meshcat)
+
+    # Filer contacts for the paddle
+    paddle_contact_filter = builder.AddSystem(
+        PaddleContactFilter(scene_graph))
+    builder.Connect(sim_plant.get_contact_results_output_port(),
+                    paddle_contact_filter.get_input_port())
+    ContactVisualizer.AddToBuilder(
+        builder= builder,
+        contact_results_port= \
+            paddle_contact_filter.get_output_port(),
+        query_object_port= scene_graph.get_query_output_port(),
+        meshcat= meshcat,
+        params= ContactVisualizerParams(
+            publish_period= visualization_config.publish_period,
+            newtons_per_meter= 2e1,
+            newton_meters_per_meter= 1e-1))
 
     # Simulator configuration (integrator and publisher parameters).
     simulator_config = SimulatorConfig(
