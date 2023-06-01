@@ -111,6 +111,23 @@ int ContactResults<T>::num_hydroelastic_contacts() const {
   }
 }
 
+template <typename T>
+ContactResults<T> ContactResults<T>::Select(
+    geometry::GeometryId selector) const {
+  ContactResults<T> results;
+  results.set_plant(plant());
+  for (int i = 0; i < this->num_hydroelastic_contacts(); ++i) {
+    if (selector ==
+            this->hydroelastic_contact_info(i).contact_surface().id_M() ||
+        selector ==
+            this->hydroelastic_contact_info(i).contact_surface().id_N()) {
+      results.AddContactInfo(&this->hydroelastic_contact_info(i));
+    }
+  }
+
+  return results;
+}
+
 }  // namespace multibody
 }  // namespace drake
 

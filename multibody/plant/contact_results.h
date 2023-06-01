@@ -58,6 +58,12 @@ class ContactResults {
   result will be non-null, but default-constructed results might have nulls. */
   const MultibodyPlant<T>* plant() const;
 
+  /** (Advanced) Experimental API to select all hydroelastic contacts with a
+   specific collision geometry. It enables users to process only contact info
+   of a manipulator and skip contact info between free bodies.
+   See issue [19494](https://github.com/RobotLocomotion/drake/issues/19494). */
+  ContactResults Select(geometry::GeometryId selector) const;
+
   // The following methods should only be called by MultibodyPlant and testing
   // fixtures and are undocumented rather than being made private with friends.
   #ifndef DRAKE_DOXYGEN_CXX
