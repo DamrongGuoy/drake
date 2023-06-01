@@ -125,6 +125,8 @@ class GamepadControl(LeafSystem):
 
         output.set_value(self._paddle_state_index, x_y_theta_limited)
 
+        self._meshcat.Flush()
+
     def OutputPaddlePosition(self, context, output):
         """Actually sets the output port of this system to hold the current commanded positions.
         """

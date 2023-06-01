@@ -155,6 +155,8 @@ void HydroelasticContactVisualizer::Update(
       // terrible visual artifacts. See the referenced issue for discussion.
       meshcat_->SetTriangleColorMesh(path + "/contact_surface", item.p_WV,
                                      item.faces, colors, false);
+      fmt::print("{}/contact_surface: {} triangles\n",
+                 path, item.faces.size());
       meshcat_->SetTransform(path + "/contact_surface",
                              RigidTransformd(-item.centroid_W));
     }
