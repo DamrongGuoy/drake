@@ -19,6 +19,7 @@ from pydrake.multibody.parsing import (
 )
 from pydrake.systems.analysis import (
     ApplySimulatorConfig,
+    PrintSimulatorStatistics,
     Simulator,
     SimulatorConfig,
 )
@@ -104,24 +105,21 @@ def run(*, local_dir):
     # Set visualization configuration.
     visualization_config = VisualizationConfig()
     # We will enable contact visualization with our custom code.
-    visualization_config.publish_contacts = False
+    # fine mesh, publish_{period default 1/64} _contact{True}  40 seconds
+    # fine mesh, publish_{period default 1/64} _contact{False} 28 seconds
+    # fine mesh, publish_{period 0.05} _contact{True}          41 seconds
+    # fine mesh, publish_{period 0.05} _contact{False}         27 seconds
+    # medium mesh, publish_{period default 1/64} _contact{True} 22 seconds
+    # medium mesh, publish_{period default 1/64} _contact{False} 17 seconds
+    # medium mesh, publish_{period 0.05} _contact{True}        23 seconds
+    # medium mesh, publish_{period 0.05} _contact{False}       17 seconds
+    visualization_config.publish_contacts = True
     visualization_config.publish_proximity = False
     visualization_config.enable_alpha_sliders = True
-    visualization_config.publish_period = 0.05
+    visualization_config.publish_period = 1.0 / 16.0;
 
     # Add visualization.
     ApplyVisualizationConfig(visualization_config, builder, meshcat=meshcat)
-
-    ContactVisualizer.AddToBuilder(
-        builder= builder,
-        contact_results_port= \
-            sim_plant.get_contact_results_output_port(),
-        query_object_port= scene_graph.get_query_output_port(),
-        meshcat= meshcat,
-        params= ContactVisualizerParams(
-            publish_period= visualization_config.publish_period,
-            newtons_per_meter= 2e1,
-            newton_meters_per_meter= 1e-1))
 
     # Simulator configuration (integrator and publisher parameters).
     simulator_config = SimulatorConfig(
@@ -132,12 +130,9 @@ def run(*, local_dir):
     simulator = Simulator(diagram)
     ApplySimulatorConfig(simulator_config, simulator)
 
-    meshcat.AddButton("Stop Simulation", "Escape")
-    print("To stop simulation, press `Stop Simulation` in the Meshcat control panel or")
-    print("press keyboard `Escape` (with Meshcat window in focus)")
-    while meshcat.GetButtonClicks("Stop Simulation") < 1:
-        simulator.AdvanceTo(simulator.get_context().get_time() + 0.5)
-    meshcat.DeleteButton("Stop Simulation")
+    simulator.AdvanceTo(15)
+
+    PrintSimulatorStatistics(simulator)
 
 
 def main():
