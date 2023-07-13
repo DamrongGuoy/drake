@@ -85,16 +85,49 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   //  determining whether the two geometries are touching or not. For now, we
   //  use this number.
   const double kEps = 1e-14;
-  const double kNan = std::numeric_limits<double>::quiet_NaN();
 
   // Returns NaN in nhat when min_distance is 0 or almost 0.
   // TODO(DamrongGuoy): In the future, we should return nhat_BA_W as the
   //  outward face normal when the two objects are touching.
   if (std::abs(result.min_distance) < kEps) {
-    pair_data->nhat_BA_W = Eigen::Vector3d(kNan, kNan, kNan);
+    pair_data->nhat_BA_W = nhat_BA_W(a, b, pair_data->p_ACa, pair_data->p_BCb);
   } else {
     pair_data->nhat_BA_W = (p_WCa - p_WCb) / result.min_distance;
   }
+}
+
+Eigen::Vector3d nhat_BA_W(const fcl::CollisionObjectd& a,
+                          const fcl::CollisionObjectd& b,
+                          const Eigen::Vector3d& p_ACa,
+                          const Eigen::Vector3d& p_BCb) {
+  if (a.collisionGeometry()->getNodeType() == fcl::GEOM_SPHERE) {
+    const Eigen::Vector3d nhat_AB_A = p_ACa.normalized();
+    const Eigen::Vector3d nhat_BA_A = -nhat_AB_A;
+    math::RotationMatrixd R_WA(a.getRotation());
+    const Eigen::Vector3d nhat_BA_W = R_WA * nhat_BA_A;
+    return nhat_BA_W;
+  }
+  if (b.collisionGeometry()->getNodeType() == fcl::GEOM_SPHERE) {
+    const Eigen::Vector3d nhat_BA_B = p_BCb.normalized();
+    math::RotationMatrixd R_WB(b.getRotation());
+    const Eigen::Vector3d nhat_BA_W = R_WB * nhat_BA_B;
+    return nhat_BA_W;
+  }
+  if (b.collisionGeometry()->getNodeType() == fcl::GEOM_BOX) {
+    const auto& b_box =
+        *static_cast<const fcl::Boxd*>(b.collisionGeometry().get());
+    GeometryId dummy_id;
+    math::RigidTransformd X_WB(math::RotationMatrixd(b.getRotation()),
+                               b.getTranslation());
+    Eigen::Vector3d p_WCb = X_WB * p_BCb;
+    const SignedDistanceToPoint<double> box_to_witness =
+        point_distance::DistanceToPoint<double>(dummy_id, X_WB, p_WCb)(b_box);
+
+    return box_to_witness.grad_W;
+  }
+
+  const double kNan = std::numeric_limits<double>::quiet_NaN();
+  return Eigen::Vector3d(kNan, kNan, kNan);
 }
 
 bool RequiresFallback(const fcl::CollisionObjectd& a,

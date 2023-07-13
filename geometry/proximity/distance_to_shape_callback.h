@@ -196,6 +196,11 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
 
 //@}
 
+Eigen::Vector3d nhat_BA_W(const fcl::CollisionObjectd& a,
+                          const fcl::CollisionObjectd& b,
+                          const Eigen::Vector3d& p_ACa,
+                          const Eigen::Vector3d& p_BCb);
+
 /* Reports if the given geometries require using the fallback. */
 bool RequiresFallback(const fcl::CollisionObjectd& a,
                       const fcl::CollisionObjectd& b);
@@ -211,7 +216,12 @@ bool RequiresFallback(const fcl::CollisionObjectd& a,
  @param request         The distance request parameters.
  @param result          The structure to capture the computation results in.
  @tparam T Computation scalar type.
- @pre The pair should *not* be (Halfspace, X), unless X is Sphere.  */
+ @pre The pair should *not* be (Halfspace, X), unless X is Sphere.
+
+ @note The poses of the objects are specified in two places. For FCL fallback,
+ the fcl::ColliionObject `a` and `b` must contain their own poses, and, for the
+ code in Drake, it demands the parameter X_WA and X_WB. For now, they are
+ redundant. */
 template <typename T>
 void ComputeNarrowPhaseDistance(const fcl::CollisionObjectd& a,
                                 const math::RigidTransform<T>& X_WA,

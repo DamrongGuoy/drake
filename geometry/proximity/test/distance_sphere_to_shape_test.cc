@@ -433,38 +433,6 @@ GTEST_TEST(ComputeNarrowPhaseDistance, OrderInvariance) {
   EXPECT_TRUE(CompareMatrices(result_SB.nhat_BA_W, -result_BS.nhat_BA_W));
 }
 
-// When a sphere is just touching a shape, confirms that the two witness
-// points are at the same locations and nhat_BA_W is not NaN.  Other unit
-// tests already checked the same code path as this test. Here we add this
-// test to emphasize this special case.  We use Sphere-Box as a
-// representative sample.
-GTEST_TEST(ComputeNarrowPhaseDistance, sphere_touches_shape) {
-  // Sphere
-  const double radius = 1;
-  CollisionObjectd sphere(make_shared<Sphered>(radius));
-  const GeometryId sphere_id = GeometryId::get_new_id();
-  EncodedData(sphere_id, true).write_to(&sphere);
-
-  // Box [-1,1]x[-1,1]x[-1,1].
-  const double side = 2;
-  CollisionObjectd box(make_shared<Boxd>(side, side, side));
-  const GeometryId box_id = GeometryId::get_new_id();
-  EncodedData(box_id, true).write_to(&box);
-  const RigidTransformd X_WB(RigidTransformd::Identity());
-  const fcl::DistanceRequestd request{};
-
-  // The sphere touches the box in the middle of a face of the box.
-  const RigidTransformd X_WS(Vector3d{radius + side / 2., 0, 0});
-  SignedDistancePair<double> result;
-  ComputeNarrowPhaseDistance<double>(sphere, X_WS, box, X_WB, request, &result);
-  const auto p_WCs = X_WS * result.p_ACa;
-  const auto p_WCb = X_WB * result.p_BCb;
-  EXPECT_EQ(p_WCs, p_WCb);
-  EXPECT_FALSE((isnan(result.nhat_BA_W.array())).any());
-  // The sphere A touches the box B on the right face (+x) of the box.
-  EXPECT_EQ(Vector3d(1, 0, 0), result.nhat_BA_W);
-}
-
 template <typename T>
 class CallbackScalarSupport : public ::testing::Test {
  public:

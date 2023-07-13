@@ -1007,6 +1007,15 @@ drake_cc_googletest(
 )
 
 drake_cc_googletest(
+    name = "distance_to_shape_touching_test",
+    deps = [
+        ":distance_to_shape_callback",
+        "//common:essential",
+        "//math:geometric_transform",
+    ],
+)
+
+drake_cc_googletest(
     name = "field_intersection_test",
     deps = [
         ":contact_surface_utility",
