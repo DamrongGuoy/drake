@@ -1,0 +1,22 @@
+package(default_visibility = ["//visibility:private"])
+
+load(
+    "@drake//tools/skylark:drake_cc.bzl",
+    "drake_cc_binary",
+)
+load("//tools/lint:lint.bzl", "add_lint_tests")
+
+drake_cc_binary(
+    name = "NaN_grad",
+    srcs = ["NaN_grad.cc"],
+    deps = [
+        "//common:default_scalars",
+        "//geometry:scene_graph",
+        "//math:geometric_transform",
+        "//multibody/parsing",
+        "//multibody/plant",
+        "//systems/framework:diagram",
+    ],
+)
+
+add_lint_tests(enable_clang_format_lint = False)
