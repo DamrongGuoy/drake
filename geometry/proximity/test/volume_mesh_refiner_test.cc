@@ -2,7 +2,10 @@
 
 #include <gtest/gtest.h>
 
+#include "drake/common/find_resource.h"
 #include "drake/geometry/proximity/detect_zero_simplex.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
+#include "drake/geometry/proximity/vtk_to_volume_mesh.h"
 
 namespace drake {
 namespace geometry {
@@ -10,6 +13,60 @@ namespace internal {
 namespace {
 
 using Eigen::Vector3d;
+
+/* This test takes about one hour to run. Hide it in the comment for now.
+GTEST_TEST(VolumeMeshRefinerTest, TestRefinePunyoPaw) {
+  const std::string test_file = FindResourceOrThrow(
+      "drake/geometry/test/MA-027-AY-0006_bubble35mm_fTetWild.vtk");
+  const VolumeMesh<double> test_mesh = internal::ReadVtkToVolumeMesh(test_file);
+  EXPECT_EQ(DetectTetrahedronWithAllBoundaryVertices(test_mesh).size(), 99881);
+  EXPECT_EQ(DetectInteriorTriangleWithAllBoundaryVertices(test_mesh).size(),
+            166654);
+  EXPECT_EQ(DetectInteriorEdgeWithAllBoundaryVertices(test_mesh).size(), 66733);
+  EXPECT_EQ(test_mesh.num_vertices(), 44530);
+  EXPECT_EQ(test_mesh.num_elements(), 147345);
+
+  VolumeMeshRefiner refiner(test_mesh);
+  VolumeMesh<double> refined_mesh = refiner.Refine();
+
+  EXPECT_EQ(DetectTetrahedronWithAllBoundaryVertices(refined_mesh).size(), 0);
+  EXPECT_EQ(DetectInteriorTriangleWithAllBoundaryVertices(refined_mesh).size(),
+            0);
+  EXPECT_EQ(DetectInteriorEdgeWithAllBoundaryVertices(refined_mesh).size(), 0);
+  EXPECT_EQ(refined_mesh.num_vertices(), 111355);
+  EXPECT_EQ(refined_mesh.num_elements(), 514322);
+
+  WriteVolumeMeshToVtk("MA-027-AY-0006_bubble35mm.vtk", refined_mesh,
+                       "Refined tetrahedral mesh for collision geometry");
+}
+*/
+
+/* This test takes about a minute to run. Hide it in the comment for now.
+GTEST_TEST(VolumeMeshRefinerTest, TestRefinePunyoPaw) {
+  const std::string test_file = FindResourceOrThrow(
+      "drake/geometry/test/MA-027-AY-0006_pawframe_fTetWild.vtk");
+  const VolumeMesh<double> test_mesh = internal::ReadVtkToVolumeMesh(test_file);
+  EXPECT_EQ(DetectTetrahedronWithAllBoundaryVertices(test_mesh).size(), 3379);
+  EXPECT_EQ(DetectInteriorTriangleWithAllBoundaryVertices(test_mesh).size(),
+            6412);
+  EXPECT_EQ(DetectInteriorEdgeWithAllBoundaryVertices(test_mesh).size(), 3086);
+  EXPECT_EQ(test_mesh.num_vertices(), 16011);
+  EXPECT_EQ(test_mesh.num_elements(), 59123);
+
+  VolumeMeshRefiner refiner(test_mesh);
+  VolumeMesh<double> refined_mesh = refiner.Refine();
+
+  EXPECT_EQ(DetectTetrahedronWithAllBoundaryVertices(refined_mesh).size(), 0);
+  EXPECT_EQ(DetectInteriorTriangleWithAllBoundaryVertices(refined_mesh).size(),
+            0);
+  EXPECT_EQ(DetectInteriorEdgeWithAllBoundaryVertices(refined_mesh).size(), 0);
+  EXPECT_EQ(refined_mesh.num_vertices(), 19097);
+  EXPECT_EQ(refined_mesh.num_elements(), 74860);
+
+  WriteVolumeMeshToVtk("MA-027-AY-0006_pawframe.vtk", refined_mesh,
+                       "Refined tetrahedral mesh for collision geometry");
+}
+*/
 
 GTEST_TEST(VolumeMeshRefinerTest, TestRefineTetrahedron) {
   //      +Z
