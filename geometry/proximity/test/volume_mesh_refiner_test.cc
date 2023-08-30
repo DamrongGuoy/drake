@@ -2,7 +2,10 @@
 
 #include <gtest/gtest.h>
 
+#include "drake/common/find_resource.h"
 #include "drake/geometry/proximity/detect_zero_simplex.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
+#include "drake/geometry/proximity/vtk_to_volume_mesh.h"
 
 namespace drake {
 namespace geometry {
@@ -10,6 +13,31 @@ namespace internal {
 namespace {
 
 using Eigen::Vector3d;
+
+GTEST_TEST(VolumeMeshRefinerTest, TestRefine016) {
+  const std::string test_file =
+      FindResourceOrThrow("drake/geometry/test/016.vtk");
+  const VolumeMesh<double> test_mesh = internal::ReadVtkToVolumeMesh(test_file);
+  ASSERT_EQ(DetectTetrahedronWithAllBoundaryVertices(test_mesh).size(), 746);
+  ASSERT_EQ(DetectInteriorTriangleWithAllBoundaryVertices(test_mesh).size(),
+            1188);
+  ASSERT_EQ(DetectInteriorEdgeWithAllBoundaryVertices(test_mesh).size(), 443);
+  ASSERT_EQ(test_mesh.num_vertices(), 306);
+  ASSERT_EQ(test_mesh.num_elements(), 746);
+
+  VolumeMeshRefiner refiner(test_mesh);
+  VolumeMesh<double> refined_mesh = refiner.Refine();
+
+  EXPECT_EQ(DetectTetrahedronWithAllBoundaryVertices(refined_mesh).size(), 0);
+  EXPECT_EQ(DetectInteriorTriangleWithAllBoundaryVertices(refined_mesh).size(),
+            0);
+  EXPECT_EQ(DetectInteriorEdgeWithAllBoundaryVertices(refined_mesh).size(), 0);
+  EXPECT_EQ(refined_mesh.num_vertices(), 749);
+  EXPECT_EQ(refined_mesh.num_elements(), 3158);
+
+  WriteVolumeMeshToVtk("016_refined.vtk", refined_mesh,
+                       "Refined tetrahedral mesh for collision geometry");
+}
 
 GTEST_TEST(VolumeMeshRefinerTest, TestRefineTetrahedron) {
   //      +Z

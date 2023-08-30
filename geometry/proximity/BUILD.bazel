@@ -1424,9 +1424,14 @@ drake_cc_googletest(
 
 drake_cc_googletest(
     name = "volume_mesh_refiner_test",
+    data = [
+        "//geometry:test_vtk_files",
+    ],
     deps = [
         ":mesh_to_vtk",
         ":volume_mesh_refiner",
+        ":vtk_to_volume_mesh",
+        "//common:find_resource",
     ],
 )
 
