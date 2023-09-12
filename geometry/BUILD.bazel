@@ -629,8 +629,10 @@ filegroup(
     name = "test_vtk_files",
     testonly = 1,
     srcs = [
+        "test/MA-027-AY-0006_bubble35mm_coarse_250faces_fTetWild.vtk",
         "test/MA-027-AY-0006_bubble35mm_fTetWild.vtk",
         "test/MA-027-AY-0006_pawframe_fTetWild.vtk",
+        "test/MA-081-PT-0003_chest_centerslice_plus5mm_fine_fTetWild.vtk",
         "test/non_convex_mesh.vtk",
         "test/one_negative_tetrahedron.vtk",
         "test/one_tetrahedron.vtk",
