@@ -108,6 +108,30 @@ drake_jupyter_py_binary(
     ],
 )
 
+filegroup(
+    name = "models",
+    srcs = [
+        "@drake_models//:veggies/bell_pepper_no_stem_color.png",
+        "@drake_models//:veggies/bell_pepper_no_stem_normal.png",
+        "@drake_models//:veggies/bell_pepper_no_stem_occlusion_roughness_metallic.png",  # noqa
+        "@drake_models//:veggies/yellow_bell_pepper_no_stem_low.mtl",
+        "@drake_models//:veggies/yellow_bell_pepper_no_stem_low.obj",
+        "@drake_models//:veggies/yellow_bell_pepper_no_stem_low.vtk",
+    ],
+    visibility = ["//:__pkg__"],
+)
+drake_jupyter_py_binary(
+    name = "hydro_lots_of_peppers",
+    data = [
+        ":models",
+    ],
+    add_test_rule = 1,
+    test_timeout = "moderate",
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
 drake_jupyter_py_binary(
     name = "rendering_multibody_plant",
     add_test_rule = 1,
