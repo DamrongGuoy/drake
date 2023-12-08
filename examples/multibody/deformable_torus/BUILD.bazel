@@ -13,6 +13,7 @@ drake_cc_binary(
     data = [
         "simple_gripper.sdf",
         "torus.vtk",
+        "//examples/hydroelastic/python_nonconvex_mesh:models",
     ],
     test_rule_args = [
         "-simulation_time=0.1",

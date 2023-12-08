@@ -160,6 +160,11 @@ int do_main() {
   AddContactMaterial({}, {}, surface_friction, &rigid_proximity_props);
   rigid_proximity_props.AddProperty(geometry::internal::kHydroGroup,
                                     geometry::internal::kRezHint, 1.0);
+  rigid_proximity_props.AddProperty(
+      geometry::internal::kHydroGroup, geometry::internal::kComplianceType,
+      geometry::internal::HydroelasticType::kSoft);
+  rigid_proximity_props.AddProperty(geometry::internal::kHydroGroup,
+                                    geometry::internal::kElastic, 1e7);
   /* Set up a ground. */
   Box ground{4, 4, 4};
   const RigidTransformd X_WG(Eigen::Vector3d{0, 0, -2});
@@ -189,6 +194,11 @@ int do_main() {
   plant.RegisterCollisionGeometry(right_finger, X_BG, Box(0.007, 0.081, 0.028),
                                   "left_finger_collision",
                                   rigid_proximity_props);
+
+  parser.AddModelsFromUrl(
+      "package://drake/examples/hydroelastic/python_nonconvex_mesh/pepper.sdf");
+  plant.WeldFrames(plant.world_frame(),
+                   plant.GetFrameByName("yellow_bell_pepper_no_stem"));
 
   /* Set up a deformable torus. */
   auto owned_deformable_model =

@@ -17,7 +17,7 @@ filegroup(
         "@drake_models//:veggies/yellow_bell_pepper_no_stem_low.obj",
         "@drake_models//:veggies/yellow_bell_pepper_no_stem_low.vtk",
     ],
-    visibility = ["//:__pkg__"],
+    visibility = ["//visibility:public"]
 )
 
 drake_py_binary(
