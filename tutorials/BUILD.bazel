@@ -164,6 +164,45 @@ drake_jupyter_py_binary(
 )
 
 drake_jupyter_py_binary(
+    name = "test_ContactVolumes",
+    add_test_rule = 1,
+    data = [
+        "@drake_models//:dishes",
+        "@drake_models//:veggies",
+    ],
+    test_timeout = "moderate",
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+drake_jupyter_py_binary(
+    name = "test_EDContact_BoxBowl",
+    add_test_rule = 1,
+    data = [
+        "@drake_models//:dishes",
+        ":data_files",
+    ],
+    test_timeout = "moderate",
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+drake_jupyter_py_binary(
+    name = "test_EnergyDensityContact",
+    add_test_rule = 1,
+    data = [
+        "@drake_models//:dishes",
+        ":data_files",
+    ],
+    test_timeout = "moderate",
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+drake_jupyter_py_binary(
     name = "updating_costs_and_constraints",
     add_test_rule = 1,
     deps = [
@@ -191,6 +230,13 @@ drake_py_test(
     tags = ["lint"],
     deps = [
         "@rules_python//python/runfiles",
+    ],
+)
+
+filegroup(
+    name = "data_files",
+    srcs = [
+        "cube.vtk",
     ],
 )
 

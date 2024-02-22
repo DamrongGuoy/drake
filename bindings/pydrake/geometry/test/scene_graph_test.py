@@ -596,6 +596,8 @@ class TestGeometrySceneGraph(unittest.TestCase):
         results = query_object.ComputePointPairPenetration()
         self.assertEqual(len(results), 0)
         if T != Expression:
+            results = query_object.ComputeContactVolumes()
+            self.assertEqual(len(results), 0)
             hydro_rep = mut.HydroelasticContactRepresentation.kTriangle
             results = query_object.ComputeContactSurfaces(
                 representation=hydro_rep)
@@ -729,3 +731,10 @@ class TestGeometrySceneGraph(unittest.TestCase):
             # APIs available to both Triangle and Polygon-based fields.
             field.EvaluateAtVertex(v=0)
             field.EvaluateCartesian(e=0, p_MQ=(0.25, 0.25, 0))
+
+            if contact_surface.HasGradE_M():
+                contact_surface.EvaluateGradE_M_W(index=0)
+            if contact_surface.HasGradE_N():
+                contact_surface.EvaluateGradE_N_W(index=0)
+            if contact_surface.HasCentroidalValue():
+                contact_surface.EvaluateCentroidalValue(face_index=0)

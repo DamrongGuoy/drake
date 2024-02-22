@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "drake/geometry/proximity/polygon_surface_mesh.h"
+#include "drake/geometry/proximity/polygon_surface_mesh_field.h"
 #include "drake/geometry/proximity/triangle_surface_mesh.h"
 #include "drake/geometry/proximity/triangle_surface_mesh_field.h"
 #include "drake/geometry/proximity/volume_mesh.h"
@@ -76,6 +78,17 @@ void WriteTriangleSurfaceMeshFieldLinearToVtk(
     const std::string& title);
 
 //@}
+
+// Self explanatory helper to write a polygonal mesh into a stream.
+void WriteVtkPolygonMesh(std::ofstream& out,
+                         const PolygonSurfaceMesh<double>& mesh);
+
+// Self explanatory function to write a field defined on a polygonal surface
+// mesh into a file.
+void WritePolygonSurfaceMeshFieldLinearToVtk(
+    const std::string& file_name, const std::string& field_name,
+    const PolygonSurfaceMeshFieldLinear<double, double>& field,
+    const std::string& title);
 
 }  // namespace internal
 }  // namespace geometry

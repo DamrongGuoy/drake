@@ -2228,12 +2228,16 @@ class ProximityEngineHydro : public testing::Test {
     }
     std::sort(ids.begin(), ids.end());
 
-    int n = 0;
+    // TODO(DamrongGuoy) Revert back to interleaving soft_properties and
+    //  rigid_properties when we have a separated test fixture for
+    //  ComputeContactVolume that will use only soft_properties.
+    // int n = 0;
     const Sphere sphere{r};
     for (const auto& id : ids) {
       engine_.AddDynamicGeometry(sphere, {}, id,
-                                 (n % 2) ? soft_properties : rigid_properties);
-      ++n;
+                             // (n % 2) ? soft_properties : rigid_properties);
+                                 soft_properties);
+      // ++n;
     }
   }
 
@@ -2255,6 +2259,30 @@ TEST_F(ProximityEngineHydro, ComputeContactSurfacesResultOrdering) {
   for (size_t i = 0; i < poses_.size(); ++i) {
     EXPECT_EQ(results1[i].id_M(), results2[i].id_M());
     EXPECT_EQ(results1[i].id_N(), results2[i].id_N());
+  }
+}
+
+// TODO(DamrongGuoy)  Create a separate test fixture for ComputeContactVolume().
+//  Right now, we have a plumbing issue that ComputeContactVolume() only
+//  works with geometry::Mesh that also has compliant-hydroelastic
+//  representation.  The other geometry::Shape is not supported.  This test
+//  fixture uses geometry::Sphere not geometry::Mesh.
+TEST_F(ProximityEngineHydro, ComputeContactVolumesResultOrdering) {
+  engine_.UpdateWorldPoses(poses_);
+  const auto results1 = engine_.ComputeContactVolumes(poses_);
+  EXPECT_EQ(results1.size(), 0);
+
+  engine_.UpdateWorldPoses(poses_);
+  const auto results2 = engine_.ComputeContactVolumes(poses_);
+  EXPECT_EQ(results2.size(), 0);
+
+  // Right now this is zero iteration in this for loop.  We keep it here for
+  // future tests.
+  for (size_t i = 0; i < results1.size(); ++i) {
+    EXPECT_EQ(results1[i].first.id_M(), results2[i].first.id_M());
+    EXPECT_EQ(results1[i].first.id_N(), results2[i].first.id_N());
+    EXPECT_EQ(results1[i].second.id_M(), results2[i].second.id_M());
+    EXPECT_EQ(results1[i].second.id_N(), results2[i].second.id_N());
   }
 }
 
