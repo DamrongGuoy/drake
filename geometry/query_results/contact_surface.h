@@ -190,22 +190,28 @@ class ContactSurface {
   //@{
 
   /** Constructs a %ContactSurface with a triangle mesh representation. */
-  ContactSurface(GeometryId id_M, GeometryId id_N,
-                 std::unique_ptr<TriangleSurfaceMesh<T>> mesh_W,
-                 std::unique_ptr<TriangleSurfaceMeshFieldLinear<T, T>> e_MN,
-                 std::unique_ptr<std::vector<Vector3<T>>> grad_eM_W = nullptr,
-                 std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W = nullptr)
+  ContactSurface(
+      GeometryId id_M, GeometryId id_N,
+      std::unique_ptr<TriangleSurfaceMesh<T>> mesh_W,
+      std::unique_ptr<TriangleSurfaceMeshFieldLinear<T, T>> e_MN,
+      std::unique_ptr<std::vector<Vector3<T>>> grad_eM_W = nullptr,
+      std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W = nullptr,
+      std::unique_ptr<std::vector<T>> e_MN_at_face_centroids = nullptr)
       : ContactSurface(id_M, id_N, std::move(mesh_W), std::move(e_MN),
-                       std::move(grad_eM_W), std::move(grad_eN_W), 0) {}
+                       std::move(grad_eM_W), std::move(grad_eN_W), 0,
+                       std::move(e_MN_at_face_centroids)) {}
 
   /** Constructs a %ContactSurface with a polygonal mesh representation. */
-  ContactSurface(GeometryId id_M, GeometryId id_N,
-                 std::unique_ptr<PolygonSurfaceMesh<T>> mesh_W,
-                 std::unique_ptr<PolygonSurfaceMeshFieldLinear<T, T>> e_MN,
-                 std::unique_ptr<std::vector<Vector3<T>>> grad_eM_W = nullptr,
-                 std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W = nullptr)
+  ContactSurface(
+      GeometryId id_M, GeometryId id_N,
+      std::unique_ptr<PolygonSurfaceMesh<T>> mesh_W,
+      std::unique_ptr<PolygonSurfaceMeshFieldLinear<T, T>> e_MN,
+      std::unique_ptr<std::vector<Vector3<T>>> grad_eM_W = nullptr,
+      std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W = nullptr,
+      std::unique_ptr<std::vector<T>> e_MN_at_face_centroids = nullptr)
       : ContactSurface(id_M, id_N, std::move(mesh_W), std::move(e_MN),
-                       std::move(grad_eM_W), std::move(grad_eN_W), 0) {}
+                       std::move(grad_eM_W), std::move(grad_eN_W), 0,
+                       std::move(e_MN_at_face_centroids)) {}
 
   ~ContactSurface();
 
@@ -362,6 +368,15 @@ class ContactSurface {
    @pre `index ∈ [0, mesh().num_faces())`.  */
   const Vector3<T>& EvaluateGradE_N_W(int index) const;
 
+  /** @returns `true` if `this` contains field values at face centroids */
+  bool HasCentroidalValue() const { return e_MN_at_face_centroids_ != nullptr; }
+
+  /** Returns the value of eₘₙ at the centroid of the face.  It might be
+   different from the interpolated value from tri_e_MN() or poly_e_MN().
+   @throws std::exception if HasCentroidalValue() returns false.
+   @pre `face_index ∈ [0, mesh().num_faces())`.  */
+  const T& EvaluateCentroidalValue(int face_index) const;
+
   //@}
 
   // TODO(#12173): Consider NaN==NaN to be true in equality tests.
@@ -382,10 +397,11 @@ class ContactSurface {
 
   // Main delegation constructor. The extra int parameter is to introduce a
   // disambiguation mechanism.
-  ContactSurface(GeometryId id_M, GeometryId id_N, MeshVariant mesh_W,
-                 FieldVariant e_MN,
-                 std::unique_ptr<std::vector<Vector3<T>>> grad_eM_W,
-                 std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W, int);
+  ContactSurface(
+      GeometryId id_M, GeometryId id_N, MeshVariant mesh_W, FieldVariant e_MN,
+      std::unique_ptr<std::vector<Vector3<T>>> grad_eM_W,
+      std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W, int,
+      std::unique_ptr<std::vector<T>> e_MN_at_face_centroids = nullptr);
 
   // Swaps M and N (modifying the data in place to reflect the change).
   void SwapMAndN();
@@ -407,6 +423,7 @@ class ContactSurface {
   // See class documentation for elaboration.
   std::unique_ptr<std::vector<Vector3<T>>> grad_eM_W_;
   std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W_;
+  std::unique_ptr<std::vector<T>> e_MN_at_face_centroids_;
 
   template <typename U>
   friend class ContactSurfaceTester;

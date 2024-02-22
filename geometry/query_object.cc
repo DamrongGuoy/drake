@@ -147,6 +147,19 @@ QueryObject<T>::ComputeContactSurfaces(
 
 template <typename T>
 template <typename T1>
+typename std::enable_if_t<
+    scalar_predicate<T1>::is_bool,
+    std::vector<std::pair<ContactSurface<T>, ContactSurface<T>>>>
+QueryObject<T>::ComputeContactVolumes() const {
+  ThrowIfNotCallable();
+
+  FullPoseUpdate();
+  const GeometryState<T>& state = geometry_state();
+  return state.ComputeContactVolumes();
+}
+
+template <typename T>
+template <typename T1>
 typename std::enable_if_t<scalar_predicate<T1>::is_bool, void>
 QueryObject<T>::ComputeContactSurfacesWithFallback(
     HydroelasticContactRepresentation representation,
@@ -269,6 +282,7 @@ const GeometryState<T>& QueryObject<T>::geometry_state() const {
 
 DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_NONSYMBOLIC_SCALARS(
     (&QueryObject<T>::template ComputeContactSurfaces<T>,
+     &QueryObject<T>::template ComputeContactVolumes<T>,
      &QueryObject<T>::template ComputeContactSurfacesWithFallback<T>));
 
 template void QueryObject<double>::ComputeDeformableContact<double>(

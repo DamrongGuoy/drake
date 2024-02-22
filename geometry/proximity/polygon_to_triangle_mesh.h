@@ -16,6 +16,16 @@ namespace internal {
 TriangleSurfaceMesh<double> MakeTriangleFromPolygonMesh(
     const PolygonSurfaceMesh<double>& poly_mesh);
 
+/** Creates a triangle mesh from a polygon mesh by refining each polygon
+ around its centroid. The triangle mesh has the exact same vertices as the
+ polygon mesh plus its face centroids. To whatever degree the polygon mesh has
+ duplicate vertices, the resulting triangle mesh will have the same. The
+ triangles will likewise mirror the winding present in the polygon mesh.
+
+ @pre Each polygon in poly_mesh is convex. */
+TriangleSurfaceMesh<double> MakeTriangleFromPolygonMeshWithCentroids(
+    const PolygonSurfaceMesh<double>& poly_mesh);
+
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake

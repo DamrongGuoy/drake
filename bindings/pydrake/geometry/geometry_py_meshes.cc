@@ -9,6 +9,7 @@
 #include "drake/bindings/pydrake/geometry/geometry_py.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
 #include "drake/geometry/proximity/polygon_surface_mesh.h"
+#include "drake/geometry/proximity/polygon_to_triangle_mesh.h"
 #include "drake/geometry/proximity/triangle_surface_mesh.h"
 #include "drake/geometry/proximity/volume_mesh.h"
 #include "drake/geometry/proximity/volume_to_surface_mesh.h"
@@ -147,6 +148,22 @@ void DoScalarIndependentDefinitions(py::module m) {
   // NOLINTNEXTLINE(build/namespaces): Emulate placement in namespace.
   using namespace drake::geometry;
   constexpr auto& doc = pydrake_doc.drake.geometry;
+
+  // MakeTriangleFromPolygonMesh
+  {
+    constexpr char internal_doc[] = "(internal use only)";
+    m.def("_MakeTriangleFromPolygonMesh",
+        &drake::geometry::internal::MakeTriangleFromPolygonMesh,
+        py::arg("poly_mesh"), internal_doc);
+  }
+
+  // MakeTriangleFromPolygonMeshWithCentroids
+  {
+    constexpr char internal_doc[] = "(internal use only)";
+    m.def("_MakeTriangleFromPolygonMeshWithCentroids",
+          &drake::geometry::internal::MakeTriangleFromPolygonMeshWithCentroids,
+          py::arg("poly_mesh"), internal_doc);
+  }
 
   // SurfacePolygon
   {

@@ -145,6 +145,65 @@ void WriteTriangleSurfaceMeshFieldLinearToVtk(
   WriteMeshFieldLinearToVtk(file_name, field_name, field, title);
 }
 
+void WriteVtkPolygonMesh(std::ofstream& out,
+                         const PolygonSurfaceMesh<double>& mesh) {
+  const int num_points = mesh.num_vertices();
+  out << "DATASET UNSTRUCTURED_GRID\n";
+  out << "POINTS " << num_points << " double\n";
+  for (int v = 0; v < mesh.num_vertices(); ++v) {
+    const Vector3<double>& p_MV = mesh.vertex(v);
+    out << fmt::format("{:12.8f} {:12.8f} {:12.8f}\n", p_MV.x(), p_MV.y(),
+                       p_MV.z());
+  }
+  out << std::endl;
+
+  // Number of polygons.
+  const int num_elements = mesh.num_elements();
+
+  // Count number of integers used to describe connectivity in this file.
+  // First column per element is the number of points in the polygon. This must
+  // be accounted for.
+  int num_integers = num_elements;
+  for (int i = 0; i < num_elements; ++i) {
+    const auto& element = mesh.element(i);
+    num_integers += element.num_vertices();
+  }
+
+  out << "CELLS " << num_elements << " " << num_integers << std::endl;
+  for (int i = 0; i < num_elements; ++i) {
+    const auto& element = mesh.element(i);
+    out << fmt::format("{}", element.num_vertices());
+    for (int v = 0; v < element.num_vertices(); ++v) {
+      out << fmt::format(" {:6d}", element.vertex(v));
+    }
+    out << std::endl;
+  }
+  out << std::endl;
+
+  // See: https://www.princeton.edu/~efeibush/viscourse/vtk.pdf
+  const int kVtkCellTypePolygon = 7;
+
+  out << "CELL_TYPES " << num_elements << std::endl;
+  for (int i = 0; i < num_elements; ++i) {
+    out << fmt::format("{}\n", kVtkCellTypePolygon);
+  }
+  out << std::endl;
+}
+
+void WritePolygonSurfaceMeshFieldLinearToVtk(
+    const std::string& file_name, const std::string& field_name,
+    const PolygonSurfaceMeshFieldLinear<double, double>& field,
+    const std::string& title) {
+  std::ofstream file(file_name);
+  if (file.fail()) {
+    throw std::runtime_error(fmt::format("Cannot create file: {}.", file_name));
+  }
+  WriteVtkHeader(file, title);
+  WriteVtkPolygonMesh(file, field.mesh());
+  WriteVtkScalarField(file, field_name, field);
+  file.close();
+}
+
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake

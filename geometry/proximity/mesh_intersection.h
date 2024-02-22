@@ -449,7 +449,8 @@ ComputeContactSurfaceFromSoftVolumeRigidSurface(
     const TriangleSurfaceMesh<double>& mesh_R,
     const Bvh<Obb, TriangleSurfaceMesh<double>>& bvh_R,
     const math::RigidTransform<T>& X_WR,
-    HydroelasticContactRepresentation representation);
+    HydroelasticContactRepresentation representation,
+    bool filter_face_normal_along_field_gradient = true);
 
 }  // namespace internal
 }  // namespace geometry

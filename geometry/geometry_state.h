@@ -584,6 +584,15 @@ class GeometryState {
                                                     kinematics_data_.X_WGs);
   }
 
+  /** Implementation of QueryObject::ComputeContactVolumes().  */
+  template <typename T1 = T>
+  typename std::enable_if_t<
+      scalar_predicate<T1>::is_bool,
+      std::vector<std::pair<ContactSurface<T>, ContactSurface<T>>>>
+  ComputeContactVolumes() const {
+    return geometry_engine_->ComputeContactVolumes(kinematics_data_.X_WGs);
+  }
+
   /** Implementation of QueryObject::ComputeContactSurfacesWithFallback().  */
   template <typename T1 = T>
   typename std::enable_if_t<scalar_predicate<T1>::is_bool, void>

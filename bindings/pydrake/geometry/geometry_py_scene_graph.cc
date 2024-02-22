@@ -558,6 +558,9 @@ void DefineQueryObject(py::module m, T) {
           .def("ComputeContactSurfaces",
               &Class::template ComputeContactSurfaces<T>,
               py::arg("representation"), cls_doc.ComputeContactSurfaces.doc)
+          .def("ComputeContactVolumes",
+              &Class::template ComputeContactVolumes<T>,
+              cls_doc.ComputeContactVolumes.doc)
           .def(
               "ComputeContactSurfacesWithFallback",
               [](const Class* self,
@@ -695,6 +698,10 @@ void DefineContactSurface(py::module m, T) {
             cls_doc.EvaluateGradE_M_W.doc)
         .def("EvaluateGradE_N_W", &Class::EvaluateGradE_N_W, py::arg("index"),
             cls_doc.EvaluateGradE_N_W.doc)
+        .def("HasCentroidalValue", &Class::HasCentroidalValue,
+            cls_doc.HasCentroidalValue.doc)
+        .def("EvaluateCentroidalValue", &Class::EvaluateCentroidalValue,
+            py::arg("face_index"), cls_doc.EvaluateCentroidalValue.doc)
         .def("Equal", &Class::Equal, py::arg("surface"), cls_doc.Equal.doc);
     DefCopyAndDeepCopy(&cls);
   }
