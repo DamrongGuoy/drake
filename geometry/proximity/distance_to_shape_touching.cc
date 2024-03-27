@@ -6,6 +6,8 @@
 #include <vector>
 
 #include "drake/common/drake_throw.h"
+#include "drake/common/fmt_eigen.h"
+#include "drake/common/text_logging.h"
 
 namespace drake {
 namespace geometry {
@@ -70,6 +72,15 @@ Vector3d PointOnBoxSurfaceHelper(const Vector3d& p_BQ, const fcl::Boxd& box_B) {
     if (diff <= kEps) n(i) = 1.0;
   }
   // Throw if p_BQ is strictly inside the box.
+  if (n == Vector3d::Zero()) {
+    drake::log()->info(
+        "PointOnBoxSurfaceHelper:\n"
+        "    p_BQ = [{}]\n"
+        "    half_size = [{}]\n"
+        "    half_size - p_BQ.cwiseAbs() = [{}]",
+        fmt_eigen(p_BQ.transpose()), fmt_eigen(half_size.transpose()),
+        fmt_eigen((half_size - p_BQ.cwiseAbs()).transpose()));
+  }
   DRAKE_THROW_UNLESS(n != Vector3d::Zero());
 
   return n;

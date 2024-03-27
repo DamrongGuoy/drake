@@ -36,6 +36,33 @@ drake_jupyter_py_binary(
 )
 
 drake_jupyter_py_binary(
+    name = "debug_ComputeSignedDistancePair",
+    add_test_rule = 0,
+    data = [
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_0.bin",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_0.gltf",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_1.bin",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_1.gltf",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_2.bin",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_2.gltf",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_3.bin",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_3.gltf",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_4.bin",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_4.gltf",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_5.bin",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_5.gltf",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_6.bin",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_6.gltf",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_7.bin",
+        "@drake_models//:iiwa_description/meshes/iiwa7/visual/link_7.gltf",
+    ],
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+
+drake_jupyter_py_binary(
     name = "licensed_solvers_deepnote",
     add_test_rule = 0,
     deps = [
