@@ -13,6 +13,7 @@
 #include "drake/common/eigen_types.h"
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/proximity/proximity_utilities.h"
+#include "drake/geometry/proximity/volume_mesh_boundary.h"
 #include "drake/geometry/query_results/signed_distance_to_point.h"
 #include "drake/math/rigid_transform.h"
 
@@ -49,11 +50,14 @@ struct CallbackData {
       fcl::CollisionObjectd* query_in, const double threshold_in,
       const Vector3<T>& p_WQ_W_in,
       const std::unordered_map<GeometryId, math::RigidTransform<T>>* X_WGs_in,
+      const std::unordered_map<GeometryId, VolumeMeshBoundary>*
+          mesh_signed_distances_in,
       std::vector<SignedDistanceToPoint<T>>* distances_in)
       : query_point(*query_in),
         threshold(threshold_in),
         p_WQ_W(p_WQ_W_in),
         X_WGs(*X_WGs_in),
+        mesh_signed_distances(*mesh_signed_distances_in),
         distances(*distances_in) {
     DRAKE_DEMAND(query_in != nullptr);
     DRAKE_DEMAND(X_WGs_in != nullptr);
@@ -71,6 +75,9 @@ struct CallbackData {
 
   /* The T-valued pose of every geometry.  */
   const std::unordered_map<GeometryId, math::RigidTransform<T>>& X_WGs;
+
+  const std::unordered_map<GeometryId, VolumeMeshBoundary>&
+      mesh_signed_distances;
 
   /* The accumulator for results.  */
   std::vector<SignedDistanceToPoint<T>>& distances;
@@ -167,6 +174,10 @@ class DistanceToPoint {
   /* Overload to compute distance to a sphere.  */
   SignedDistanceToPoint<T> operator()(const fcl::Sphered& sphere);
 
+  /* Overload to compute distance to a mesh represented as a
+   water-tight boundary surface enclosing a volume.  */
+  SignedDistanceToPoint<T> operator()(const VolumeMeshBoundary& mesh);
+
   /* Reports the "sign" of x with a small modification; Sign(0) --> 1.
    @tparam U  Templated to allow DistanceToPoint<AutoDiffXd> to still compute
               Sign<double> or Sign<AutoDiffXd> as needed.  */
@@ -249,6 +260,9 @@ struct ScalarSupport<AutoDiffXd> {
       case fcl::GEOM_BOX:
       case fcl::GEOM_HALFSPACE:
       case fcl::GEOM_CAPSULE:
+      // Both drake::geometry::Mesh and drake::geometry::Convex use
+      // fcl::GEOM_CONVEX.  There is no fcl::GEOM_MESH.
+      case fcl::GEOM_CONVEX:
         return true;
       default:
         return false;

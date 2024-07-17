@@ -2,6 +2,7 @@
 
 #include "drake/common/default_scalars.h"
 #include "drake/common/drake_bool.h"
+#include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
 
 namespace drake {
 namespace geometry {
@@ -381,6 +382,20 @@ SignedDistanceToPoint<T> DistanceToPoint<T>::operator()(
 }
 
 template <typename T>
+SignedDistanceToPoint<T> DistanceToPoint<T>::operator()(
+    const VolumeMeshBoundary& mesh_G) {
+  const Vector3<double> p_GQ = ExtractDoubleOrThrow(X_WG_.inverse() * p_WQ_);
+  const auto d = CalcSignedDistanceToSurfaceMesh(
+      p_GQ, mesh_G.tri_mesh(), mesh_G.tri_bvh(), mesh_G.feature_normal());
+  const double distance = d.signed_distance;
+  const Vector3<T> p_GN_G = d.nearest_point;
+  const Vector3<T> grad_G = d.gradient;
+  const Vector3<T> grad_W = X_WG_.rotation() * grad_G;
+
+  return SignedDistanceToPoint<T>{geometry_id_, p_GN_G, distance, grad_W};
+}
+
+template <typename T>
 template <int dim, typename U>
 int DistanceToPoint<T>::ExtremalAxis(const Vector<U, dim>& p,
                                      const Vector<double, dim>& bounds) {
@@ -497,6 +512,9 @@ bool ScalarSupport<double>::is_supported(fcl::NODE_TYPE node_type) {
     case fcl::GEOM_ELLIPSOID:
     case fcl::GEOM_HALFSPACE:
     case fcl::GEOM_SPHERE:
+    // Both drake::geometry::Mesh and drake::geometry::Convex use
+    // fcl::GEOM_CONVEX.  There is no fcl::GEOM_MESH.
+    case fcl::GEOM_CONVEX:
       return true;
     default:
       return false;
@@ -564,6 +582,17 @@ bool Callback(fcl::CollisionObjectd* object_A_ptr,
       case fcl::GEOM_SPHERE:
         distance = distance_to_point(
             *static_cast<const fcl::Sphered*>(collision_geometry));
+        break;
+      // Both drake::geometry::Mesh and drake::geometry::Convex use
+      // fcl::GEOM_CONVEX.  There is no fcl::GEOM_MESH.
+      case fcl::GEOM_CONVEX:
+        if (data.mesh_signed_distances.contains(geometry_id)) {
+          distance =
+              distance_to_point(data.mesh_signed_distances.at(geometry_id));
+        } else {
+          // Returning false tells fcl to continue to other objects.
+          return false;
+        }
         break;
       default:
         // Returning false tells fcl to continue to other objects.

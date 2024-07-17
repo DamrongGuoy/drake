@@ -501,6 +501,18 @@ GTEST_TEST(DistanceToPoint, Sphere) {
                           false /* gradient ill defined */));
 }
 
+GTEST_TEST(DistanceToPoint, Mesh) {
+  const GeometryId mesh_geometry_id = GeometryId::get_new_id();
+  const Vector3d p_WQ{10, 10, 10};
+
+  DistanceToPoint<double> distance_to_point(mesh_geometry_id,
+                                            RigidTransformd::Identity(), p_WQ);
+  auto d = distance_to_point(VolumeMeshBoundary(VolumeMesh<double>(
+      {VolumeElement{0, 1, 2, 3}}, {Vector3d::Zero(), Vector3d::UnitX(),
+                                    Vector3d::UnitY(), Vector3d::UnitZ()})));
+  EXPECT_LT(d.distance, 20);
+}
+
 // TODO(SeanCurtis-TRI): Point-to-cylinder with AutoDiff has been "disabled".
 //  However, this has been done at the callback level and these tests are
 //  structured to exercise DistanceToPoint directly. This is a short-term
@@ -644,7 +656,13 @@ void TestScalarShapeSupport() {
   const GeometryId other_id = GeometryId::get_new_id();
   std::unordered_map<GeometryId, RigidTransform<T>> X_WGs{
       {point_id, X_WQ}, {other_id, RigidTransform<T>::Identity()}};
-  CallbackData<T> data{&query_point, threshold, p_WQ, &X_WGs, &distances};
+  std::unordered_map<GeometryId, VolumeMeshBoundary> mesh_data{
+      {other_id, VolumeMeshBoundary(VolumeMesh<double>(
+                     {VolumeElement{0, 1, 2, 3}},
+                     {Vector3d::Zero(), Vector3d::UnitX(), Vector3d::UnitY(),
+                      Vector3d::UnitZ()}))}};
+  CallbackData<T> data{&query_point, threshold,  p_WQ,
+                       &X_WGs,       &mesh_data, &distances};
 
   // The Drake-supported geometries (minus Mesh which isn't supported by
   // ProximityEngine yet).
@@ -697,9 +715,20 @@ void TestScalarShapeSupport() {
     EXPECT_EQ(distances.size(), (ExpectedResult<T, fcl::Sphered>()));
   }
 
-  // Convex
-  // TODO(SeanCurtis-TRI): Add convex that is *not* supported; create a small
-  // utility test to generate a tetrahedron.
+  // Convex and Mesh
+  // Both drake::geometry::Mesh and drake::geometry::Convex use fcl::Convexd.
+  // There is no fcl::Meshd.
+  {
+    // We use invalid fcl::Convexd because the specification itself is not
+    // relevant.  The mesh's signed-distance data is already stored in
+    // CallbackData.
+    run_callback(make_shared<fcl::Convexd>(
+        make_shared<const std::vector<Vector3d>>(),  // vertices
+        0,                                           // num_faces
+        make_shared<const std::vector<int>>(),       // faces
+        false));                                     // throw_if_invalid
+    EXPECT_EQ(distances.size(), (ExpectedResult<T, fcl::Convexd>()));
+  }
 }
 
 // This test simply confirms which scalar-shape combinations produce answers

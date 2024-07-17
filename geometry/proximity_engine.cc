@@ -27,6 +27,7 @@
 #include "drake/geometry/proximity/make_mesh_from_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
 #include "drake/geometry/proximity/penetration_as_point_pair_callback.h"
+#include "drake/geometry/proximity/polygon_to_triangle_mesh.h"
 #include "drake/geometry/proximity/volume_to_surface_mesh.h"
 #include "drake/geometry/proximity/vtk_to_volume_mesh.h"
 #include "drake/geometry/read_obj.h"
@@ -483,6 +484,9 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   // surface.
   void ImplementGeometry(const Convex& convex, void* user_data) override {
     ImplementFromConvexHull(convex, user_data);
+
+    // Set up data for ComputeSignedDistanceToPoint() from convex meshes.
+    ImplementMeshSdfData(convex, user_data);
   }
 
   void ImplementGeometry(const Cylinder& cylinder, void* user_data) override {
@@ -513,9 +517,12 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   }
 
   void ImplementGeometry(const Mesh& mesh, void* user_data) override {
-    // TODO(SeanCurtis-TRI): This will need to change when we finally support
-    // general meshes for contact.
+    // Continue to call ImplementFromConvexHull() because we need it for
+    // non-ComputeSignedDistanceToPoint().
     ImplementFromConvexHull(mesh, user_data);
+
+    // Set up data for ComputeSignedDistanceToPoint() from non-convex meshes.
+    ImplementMeshSdfData(mesh, user_data);
   }
 
   void ImplementGeometry(const Sphere& sphere, void* user_data) override {
@@ -602,8 +609,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
 
     std::vector<SignedDistanceToPoint<T>> distances;
 
-    point_distance::CallbackData<T> data{&query_point, threshold, p_WQ, &X_WGs,
-                                         &distances};
+    point_distance::CallbackData<T> data{
+        &query_point, threshold, p_WQ, &X_WGs, &mesh_sdf_data_, &distances};
 
     // Perform query of point vs dynamic objects.
     dynamic_tree_.distance(&query_point, &data, point_distance::Callback<T>);
@@ -904,6 +911,32 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     ProcessGeometriesForDeformableContact(mesh, user_data);
   }
 
+  // Populate the proximity representation of Mesh for
+  // ComputeSignedDistanceToPoint. It could be .vtk tetrahedral mesh or
+  // .obj triangle mesh.
+  void ImplementMeshSdfData(const Mesh& mesh, void* user_data) {
+    const ReifyData& data = *static_cast<ReifyData*>(user_data);
+    if (mesh.extension() == ".vtk") {
+      // Assume the .vtk file is a tetrahedral mesh.  If that's not true,
+      // we'll get an error.
+      VolumeMesh<double> volume_mesh = MakeVolumeMeshFromVtk<double>(mesh);
+      mesh_sdf_data_.emplace(data.id, VolumeMeshBoundary(volume_mesh));
+    } else if (mesh.extension() == ".obj") {
+      mesh_sdf_data_.emplace(data.id,
+                             VolumeMeshBoundary(ReadObjToTriangleSurfaceMesh(
+                                 mesh.filename(), mesh.scale())));
+    }
+  }
+
+  // Populate the proximity representation of Convex for
+  // ComputeSignedDistanceToPoint.
+  void ImplementMeshSdfData(const Convex& convex, void* user_data) {
+    const PolygonSurfaceMesh<double>& hull = convex.GetConvexHull();
+    const ReifyData& data = *static_cast<ReifyData*>(user_data);
+    mesh_sdf_data_.emplace(
+        data.id, VolumeMeshBoundary(MakeTriangleFromPolygonMesh(hull)));
+  }
+
   // The BVH of all dynamic geometries; this depends on *all* inputs.
   // TODO(SeanCurtis-TRI): Ultimately, this should probably be a cache entry.
   FclDynamicAABBTreeCollisionManager dynamic_tree_;
@@ -934,6 +967,12 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   // The deformable geometries registered here are not included in
   // `dynamic_objects_` and `dynamic_tree_`.
   deformable::Geometries geometries_for_deformable_contact_;
+
+  // Data for ComputeSignedDistanceToPoint from meshes. The corresponding
+  // geometry could be a tetrahedral mesh (Mesh(.vtk)), a triangle mesh
+  // (Mesh(.obj)), or a convex hull (Convex(.obj) and Convex(.vtk)). Their
+  // common requirement is to be water-tight.
+  std::unordered_map<GeometryId, VolumeMeshBoundary> mesh_sdf_data_{};
 };
 
 template <typename T>
