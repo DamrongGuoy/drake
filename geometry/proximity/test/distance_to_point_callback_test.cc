@@ -501,6 +501,34 @@ GTEST_TEST(DistanceToPoint, Sphere) {
                           false /* gradient ill defined */));
 }
 
+// Simple smoke test for signed distance to Mesh or Convex. Separately we test
+// the actual calculation in calc_signed_distance_to_surface_mesh_test.
+// The objective of this test is to verify that there is a code path to the
+// right function.
+GTEST_TEST(DistanceToPoint, Mesh) {
+  const GeometryId mesh_geometry_id = GeometryId::get_new_id();
+  const Vector3d p_WQ{10, 10, 10};
+  DistanceToPoint<double> distance_to_point(mesh_geometry_id,
+                                            RigidTransformd::Identity(), p_WQ);
+  // Test a general case with a standard tetrahedron.
+  {
+    auto d = distance_to_point(VolumeMeshBoundary(VolumeMesh<double>(
+        {VolumeElement{0, 1, 2, 3}}, {Vector3d::Zero(), Vector3d::UnitX(),
+                                      Vector3d::UnitY(), Vector3d::UnitZ()})));
+    EXPECT_LT(d.distance, 20);
+  }
+  // Test an exception with a zero-volume mesh with knife edges.
+  {
+    // All vertices of the tetrahedron is on the X-Y plane.
+    const VolumeMesh<double> one_flat_tetrahedron_M(
+        {VolumeElement(0, 1, 2, 3)}, {Vector3d::Zero(), Vector3d::UnitX(),
+                                      Vector3d::UnitY(), Vector3d(1, 1, 0)});
+    DRAKE_EXPECT_THROWS_MESSAGE(
+        distance_to_point(VolumeMeshBoundary(one_flat_tetrahedron_M)),
+        "DistanceToPoint from meshes:.*");
+  }
+}
+
 // TODO(SeanCurtis-TRI): Point-to-cylinder with AutoDiff has been "disabled".
 //  However, this has been done at the callback level and these tests are
 //  structured to exercise DistanceToPoint directly. This is a short-term
@@ -616,7 +644,7 @@ int ExpectedResult() {
     return 1;
   }
   if constexpr (std::is_same_v<T, AutoDiffXd>) {
-    if (std::is_same_v<S, fcl::Cylinderd> ||
+    if (std::is_same_v<S, fcl::Convexd> || std::is_same_v<S, fcl::Cylinderd> ||
         std::is_same_v<S, fcl::Ellipsoidd>) {
       return 0;
     }
@@ -644,7 +672,13 @@ void TestScalarShapeSupport() {
   const GeometryId other_id = GeometryId::get_new_id();
   std::unordered_map<GeometryId, RigidTransform<T>> X_WGs{
       {point_id, X_WQ}, {other_id, RigidTransform<T>::Identity()}};
-  CallbackData<T> data{&query_point, threshold, p_WQ, &X_WGs, &distances};
+  std::unordered_map<GeometryId, VolumeMeshBoundary> mesh_data{
+      {other_id, VolumeMeshBoundary(VolumeMesh<double>(
+                     std::vector<VolumeElement>{{0, 1, 2, 3}},
+                     std::vector<Vector3d>{
+                         {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 0, 1}}))}};
+  CallbackData<T> data{&query_point, threshold,  p_WQ,
+                       &X_WGs,       &mesh_data, &distances};
 
   // The Drake-supported geometries (minus Mesh which isn't supported by
   // ProximityEngine yet).
@@ -697,9 +731,17 @@ void TestScalarShapeSupport() {
     EXPECT_EQ(distances.size(), (ExpectedResult<T, fcl::Sphered>()));
   }
 
-  // Convex
-  // TODO(SeanCurtis-TRI): Add convex that is *not* supported; create a small
-  // utility test to generate a tetrahedron.
+  // Convex and Mesh
+  // drake::geometry::{Mesh, Convex} use fcl::Convexd.
+  {
+    // Here we can use an empty fcl::Convexd because, unlike other shapes,
+    // the mesh's signed-distance data was stored in the CallbackData<T>.
+    auto no_vertices = make_shared<const std::vector<Vector3d>>();
+    auto no_faces = make_shared<const std::vector<int>>();
+    run_callback(make_shared<fcl::Convexd>(no_vertices, 0 /* num_faces */,
+                                           no_faces, false /* no throw */));
+    EXPECT_EQ(distances.size(), (ExpectedResult<T, fcl::Convexd>()));
+  }
 }
 
 // This test simply confirms which scalar-shape combinations produce answers
