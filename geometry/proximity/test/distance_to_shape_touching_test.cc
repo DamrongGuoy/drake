@@ -574,6 +574,36 @@ GTEST_TEST(BoxBoxGradient, InputWithNumericalErrors) {
                       -Vector3d::UnitX()));
 }
 
+GTEST_TEST(BoxBoxGradient, Issue21947_00) {
+  const fcl::Boxd box_A(0.05, 0.55, 0.3);
+  const fcl::Boxd box_B(0.25, 0.2, 0.15);
+  const RigidTransformd X_WA(
+      RollPitchYawd(0, 0, 1.570000000000001),
+      Vector3d(1.2500000000000009, -2.9878953394393027e-16, 0.15));
+  const RigidTransformd X_WB(
+      RollPitchYawd(3.141592653589793, 0, 0),
+      Vector3d(1.25, 0, 0.15));
+
+  // IMPORTANT: Each of these witness points is near the center of its box.
+  // Witness points are supposed to be on the surfaces.
+  const Vector3d p_ACa(1.71304e-17, 6.66134e-16, 8.32667e-17);
+  const Vector3d p_BCb(2.22045e-16, 6.93889e-17, 8.32667e-17);
+
+  // Confirm that the witness points co-locate in World's frame.
+  ASSERT_TRUE(CompareMatrices(X_WA * p_ACa, X_WB * p_BCb, 1e-14));
+  // Confirm that PointOnBoxSurfaceHelper() classified the witness points as
+  // non-surface points.
+  ASSERT_EQ(PointOnBoxSurfaceHelper(p_ACa, box_A), Vector3d(0, 0, 0));
+  ASSERT_EQ(PointOnBoxSurfaceHelper(p_BCb, box_B), Vector3d(0, 0, 0));
+
+  // Calling BoxBoxGradient() will abort due to DRAKE_UNREACHABLE() because
+  // none of the fifteen directions is a separating vector; the two boxes
+  // overlap deeply.
+  EXPECT_TRUE(
+      CompareMatrices(BoxBoxGradient(box_A, box_B, X_WA, X_WB, p_ACa, p_BCb),
+                      -Vector3d::UnitX()));
+}
+
 }  // namespace
 }  // namespace shape_distance
 }  // namespace internal

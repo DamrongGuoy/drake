@@ -190,6 +190,13 @@ void CalcDistanceFallback(const fcl::CollisionObjectd& a,
 }
 
 /* For the double scalar, computes the signed distance between the two objects.
+
+   Notice that the pose of each object is specified twice:
+     1. as a part of `a` and `b`, e.g. via the constructor:
+        CollisionObject(const shared_ptr<fcl::CollisionGeometry<S>>& cgeom,
+                        const Matrix3<S>& R,
+                        const Vector3<S>& T)
+     2. the parameters X_WA and X_WB
  */
 template <>
 void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,

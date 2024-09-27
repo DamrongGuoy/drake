@@ -46,11 +46,45 @@ using fcl::Halfspaced;
 using fcl::Sphered;
 using math::RigidTransform;
 using math::RigidTransformd;
+using math::RollPitchYawd;
 using math::RotationMatrix;
 using math::RotationMatrixd;
 using std::make_shared;
 
 constexpr double kInf = std::numeric_limits<double>::infinity();
+
+GTEST_TEST(CalcDistanceFallback, issue21947_00) {
+  auto box_A = make_shared<Boxd>(0.05, 0.55, 0.3);
+  auto box_B = make_shared<Boxd>(0.25, 0.2, 0.15);
+  fcl::DistanceRequestd request{};
+  request.enable_nearest_points = true;
+  request.enable_signed_distance = true;
+  request.gjk_solver_type = fcl::GJKSolverType::GST_LIBCCD;
+  request.distance_tolerance = 1e-6;
+  const GeometryId id_a = GeometryId::get_new_id();
+  const GeometryId id_b = GeometryId::get_new_id();
+  const RigidTransformd X_WA(
+      RollPitchYawd(0, 0, 1.570000000000001),
+      Vector3d(1.2500000000000009, -2.9878953394393027e-16, 0.15));
+  const RigidTransformd X_WB(RollPitchYawd(3.141592653589793, 0, 0),
+                             Vector3d(1.25, 0, 0.15));
+  CollisionObjectd obj_a(box_A, X_WA.rotation().matrix(), X_WA.translation());
+  CollisionObjectd obj_b(box_B, X_WB.rotation().matrix(), X_WB.translation());
+  EncodedData(id_a, true).write_to(&obj_a);
+  EncodedData(id_b, true).write_to(&obj_b);
+
+  SignedDistancePair<double> distance_pair{};
+
+  // Calling CalcDistanceFallback() aborts the program with this message:
+  // "abort: Failure at geometry/proximity/distance_to_shape_touching.cc:228 in
+  // BoxBoxGradient(): condition 'Unreachable code was reached?!' failed."
+  //
+  // BoxBoxGradient() shouldn't be called because the two boxes are in deep
+  // penetration. They are not touching.
+  //
+  CalcDistanceFallback<double>(obj_a, X_WA, obj_b, X_WB, request,
+                               &distance_pair);
+}
 
 // TODO(SeanCurtis-TRI): Troll through proximity_engine_test and pull/remove all
 // tests there that more rightly belong here.
