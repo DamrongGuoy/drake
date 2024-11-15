@@ -124,6 +124,19 @@ drake_jupyter_py_binary(
 )
 
 drake_jupyter_py_binary(
+    name = "play_SignedDistance_EDContact",
+    add_test_rule = 1,
+    data = [
+        "@drake_models//:dishes",
+        "@drake_models//:veggies",
+    ],
+    test_timeout = "moderate",
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+drake_jupyter_py_binary(
     name = "pyplot_animation_multibody_plant",
     add_test_rule = 1,
     deps = [
