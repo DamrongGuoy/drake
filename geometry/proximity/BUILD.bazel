@@ -28,6 +28,7 @@ drake_cc_package_library(
         ":deformable_field_intersection",
         ":deformable_mesh_intersection",
         ":detect_zero_simplex",
+        ":feature_normal_set",
         ":field_intersection",
         ":hydroelastic_internal",
         ":inflate_mesh",
@@ -287,6 +288,7 @@ drake_cc_library(
     deps = [
         ":bv",
         ":bvh",
+        ":feature_normal_set",
         ":proximity_utilities",
         ":triangle_surface_mesh",
         ":volume_mesh",
@@ -334,6 +336,22 @@ drake_cc_library(
         "//common:essential",
         "//math:geometric_transform",
         "@fcl_internal//:fcl",
+    ],
+)
+
+drake_cc_library(
+    name = "feature_normal_set",
+    srcs = [
+        "feature_normal_set.cc",
+    ],
+    hdrs = [
+        "feature_normal_set.h",
+    ],
+    deps = [
+        ":triangle_surface_mesh",
+        "//common:essential",
+        "//common:sorted_pair",
+        "//math:geometric_transform",
     ],
 )
 
@@ -1267,6 +1285,17 @@ drake_cc_googletest(
         "//common:essential",
         "//common/test_utilities",
         "//math:geometric_transform",
+    ],
+)
+
+drake_cc_googletest(
+    name = "feature_normal_set_test",
+    deps = [
+        ":feature_normal_set",
+        ":volume_mesh",
+        ":volume_to_surface_mesh",
+        "//common/test_utilities:eigen_matrix_compare",
+        "//common/test_utilities:expect_throws_message",
     ],
 )
 
