@@ -7,6 +7,7 @@
 #include "drake/bindings/pydrake/common/type_pack.h"
 #include "drake/bindings/pydrake/documentation_pybind.h"
 #include "drake/bindings/pydrake/geometry/geometry_py.h"
+#include "drake/geometry/proximity/feature_normal_set.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
 #include "drake/geometry/proximity/polygon_surface_mesh.h"
 #include "drake/geometry/proximity/triangle_surface_mesh.h"
@@ -147,6 +148,22 @@ void DoScalarIndependentDefinitions(py::module m) {
   // NOLINTNEXTLINE(build/namespaces): Emulate placement in namespace.
   using namespace drake::geometry;
   constexpr auto& doc = pydrake_doc.drake.geometry;
+
+  // FeatureNormalSet
+  {
+    using Class = FeatureNormalSet;
+    constexpr auto& cls_doc = doc.FeatureNormalSet;
+    py::class_<Class> cls(m, "FeatureNormalSet", cls_doc.doc);
+    cls  // BR
+        .def(py::init<TriangleSurfaceMesh<double>>(), py::arg("mesh_M"),
+             cls_doc.ctor.doc)
+        .def("vertex_normal", &Class::vertex_normal, py::arg("v"),
+             cls_doc.vertex_normal.doc)
+        .def("edge_normal_of_vertex_pair",
+             &Class::edge_normal_of_vertex_pair,
+             py::arg("u"), py::arg("v"),
+             cls_doc.edge_normal_of_vertex_pair.doc);
+  }
 
   // SurfacePolygon
   {

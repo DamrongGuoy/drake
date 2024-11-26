@@ -53,6 +53,12 @@ class FeatureNormalSet {
   static std::variant<FeatureNormalSet, std::string> MaybeCreate(
       const TriangleSurfaceMesh<double>& mesh_M);
 
+  FeatureNormalSet(const TriangleSurfaceMesh<double>& mesh_M) {
+    FeatureNormalSet f = std::get<FeatureNormalSet>(MaybeCreate(mesh_M));
+    vertex_normals_ = std::move(f.vertex_normals_);
+    edge_normals_ = std::move(f.edge_normals_);
+  }
+
   // Returns the normal at a vertex `v` as the angle-weighted average of face
   // normals of triangles sharing the vertex. The weight of a triangle is the
   // angle at vertex `v` in that triangle.
@@ -80,6 +86,14 @@ class FeatureNormalSet {
     auto it = edge_normals_.find(uv);
     DRAKE_THROW_UNLESS(it != edge_normals_.end());
     return it->second;
+  }
+
+  const Vector3<double> edge_normal_of_vertex_pair(int u, int v) const {
+    auto it = edge_normals_.find(SortedPair<int>(u, v));
+    if (it != edge_normals_.end())
+      return it->second;
+    else
+      return Vector3<double>::Zero();
   }
 
  private:

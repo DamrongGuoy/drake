@@ -11,6 +11,28 @@ from pydrake.common import FindResourceOrThrow
 
 
 class TestGeometryMeshes(unittest.TestCase):
+    def test_feature_normal_set(self):
+        # Create a mesh out of two triangles forming a quad.
+        #
+        #     0______1
+        #      |b  /|      Two triangles: a and b.
+        #      |  / |      Four vertices: 0, 1, 2, and 3.
+        #      | /a |
+        #      |/___|
+        #     2      3
+
+        t_a = mut.SurfaceTriangle(v0=3, v1=1, v2=2)
+        t_b = mut.SurfaceTriangle(v0=2, v1=1, v2=0)
+        v0 = (-1,  1, 0)
+        v1 = (1,  1, 0)
+        v2 = (-1, -1, 0)
+        v3 = (1, -1, 0)
+        tri_mesh = mut.TriangleSurfaceMesh(triangles=(t_a, t_b),
+                                      vertices=(v0, v1, v2, v3))
+        dut = mut.FeatureNormalSet(mesh_M=tri_mesh)
+        dut.vertex_normal(v=0)
+        dut.edge_normal_of_vertex_pair(u=0, v=1)
+
     def test_polygon_surface_mesh(self):
         # Default constructor.
         mut.PolygonSurfaceMesh()
