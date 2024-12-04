@@ -11,8 +11,8 @@
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/proximity/calc_distance_to_surface_mesh.h"
 #include "drake/geometry/proximity/contact_surface_utility.h"
-#include "drake/geometry/proximity/mesh_intersection.h"
 #include "drake/geometry/proximity/make_mesh_field.h"
+#include "drake/geometry/proximity/mesh_intersection.h"
 #include "drake/geometry/proximity/volume_to_surface_mesh.h"
 #include "drake/math/rigid_transform.h"
 
@@ -74,7 +74,7 @@ HackToCallComputeContactSurfaceFromSoftVolumeRigidSurface(
       representation);
 }
 
-}
+}  // namespace
 
 template <typename T>
 std::pair<std::unique_ptr<ContactSurface<T>>,

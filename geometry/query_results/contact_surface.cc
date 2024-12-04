@@ -13,13 +13,15 @@ template <typename T>
 ContactSurface<T>::ContactSurface(
     GeometryId id_M, GeometryId id_N, MeshVariant mesh_W, FieldVariant e_MN,
     std::unique_ptr<std::vector<Vector3<T>>> grad_eM_W,
-    std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W, int)
+    std::unique_ptr<std::vector<Vector3<T>>> grad_eN_W, int,
+    std::unique_ptr<std::vector<T>> e_MN_at_face_centroids)
     : id_M_(id_M),
       id_N_(id_N),
       mesh_W_(std::move(mesh_W)),
       e_MN_(std::move(e_MN)),
       grad_eM_W_(std::move(grad_eM_W)),
-      grad_eN_W_(std::move(grad_eN_W)) {
+      grad_eN_W_(std::move(grad_eN_W)),
+      e_MN_at_face_centroids_(std::move(e_MN_at_face_centroids)){
   // If defined the gradient values must map 1-to-1 onto elements.
   if (is_triangle()) {
     DRAKE_THROW_UNLESS(grad_eM_W_ == nullptr ||
@@ -39,6 +41,8 @@ ContactSurface<T>::ContactSurface(
   if constexpr (scalar_predicate<T>::is_bool) {
     if (id_N_ < id_M_) SwapMAndN();
   }
+  DRAKE_THROW_UNLESS(e_MN_at_face_centroids_ == nullptr ||
+                     ssize(*e_MN_at_face_centroids_) == num_faces());
 }
 
 template <typename T>
@@ -56,6 +60,9 @@ void ContactSurface<T>::SwapMAndN() {
 
   // Note: the scalar field does not depend on the order of M and N.
   std::swap(grad_eM_W_, grad_eN_W_);
+
+  // TODO(DamrongGuoy) Convince myself that e_MN_at_face_centroids_ does
+  //  not change when we swap M and N.
 }
 
 template <typename T>
@@ -117,6 +124,19 @@ const Vector3<T>& ContactSurface<T>::EvaluateGradE_N_W(int index) const {
 }
 
 template <typename T>
+const T& ContactSurface<T>::EvaluateCentroidalValue(int face_index) const {
+  if (!HasCentroidalValue()) {
+    throw std::runtime_error(
+        "ContactSurface::EvaluateCentroidalValue() invalid; no field "
+        "values at face centroids are stored."
+        );
+  }
+  DRAKE_THROW_UNLESS(0 <= face_index &&
+                     face_index < ssize(*e_MN_at_face_centroids_));
+  return (*e_MN_at_face_centroids_)[face_index];
+}
+
+template <typename T>
 bool ContactSurface<T>::Equal(const ContactSurface<T>& surface) const {
   // Confirm we have the same representation. Technically, mesh and field
   // representations are linked, but we'll test both to be safe.
@@ -134,6 +154,7 @@ bool ContactSurface<T>::Equal(const ContactSurface<T>& surface) const {
   // TODO(SeanCurtis-TRI) This isn't testing the following quantities:
   //  1. Geometry ids
   //  2. Gradients.
+  //  3. Stored values at face centroids.
 
   // All checks passed.
   return true;
