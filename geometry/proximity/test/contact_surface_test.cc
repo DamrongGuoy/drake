@@ -308,6 +308,25 @@ GTEST_TEST(ContactSurfaceTest, ConstituentGradients) {
     EXPECT_TRUE(surface.HasGradE_N());
     EXPECT_EQ(surface.EvaluateGradE_N_W(1), grad_e[1]);
   }
+
+  vector<double> centroidal_values;
+  for (int i = 0; i < surface_mesh->num_elements(); ++i) {
+    centroidal_values.push_back(i);
+  }
+  {
+    // Case: store field values at face centroids
+    const ContactSurface<double> surface(
+        id_A, id_B, make_unique<TriangleSurfaceMesh<double>>(*surface_mesh),
+        make_e_field(surface_mesh.get()), make_unique<vector<Vector3d>>(grad_e),
+        make_unique<vector<Vector3d>>(grad_e2),
+        make_unique<vector<double>>(centroidal_values));
+    EXPECT_TRUE(surface.HasGradE_M());
+    EXPECT_EQ(surface.EvaluateGradE_M_W(1), grad_e[1]);
+    EXPECT_TRUE(surface.HasGradE_N());
+    EXPECT_EQ(surface.EvaluateGradE_N_W(1), grad_e2[1]);
+    EXPECT_TRUE(surface.HasCentroidalValue());
+    EXPECT_EQ(surface.EvaluateCentroidalValue(1), centroidal_values[1]);
+  }
 }
 
 // Tests copy constructor of ContactSurface.
