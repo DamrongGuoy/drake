@@ -35,9 +35,9 @@ namespace internal {
  ∅), and their union is the full boundary ∂Ω of the overlapping volume.
 
  The ContactSurface refers to a linear field that at each point x ∈ ∂Ω provides
- the unsigned distance from x to N, when x ∈ ∂Ωₘ, or from x to M, when x ∈ ∂Ωₙ.
+ the signed distance from x to N, when x ∈ ∂Ωₘ, or from x to M, when x ∈ ∂Ωₙ.
 
- Return the boundary surface of overlapping gometries, represented as a
+ Return the boundary surface of overlapping geometries, represented as a
  std::pair of ContactSurface(s).  The pair stores ∂Ωₘ and ∂Ωₙ separately.
 
  Warning: Be careful with the convention explained in ContactSurface
