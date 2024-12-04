@@ -49,8 +49,8 @@ class ComputeContactVolumeTest : public ::testing::Test {
   ComputeContactVolumeTest()
       : box_mesh0_M_(MakeBoxVolumeMeshWithMa<double>(box_)),
         box_bvh0_M_(box_mesh0_M_),
-      // Get a mesh of an octahedron from a sphere specification by
-      // specifying very coarse resolution hint.
+        // Get a mesh of an octahedron from a sphere specification by
+        // specifying very coarse resolution hint.
         octahedron_mesh1_N_(MakeSphereVolumeMesh<double>(
             sphere_, 10 * sphere_.radius(),
             TessellationStrategy::kSingleInteriorVertex)),
@@ -98,12 +98,10 @@ TEST_F(ComputeContactVolumeTest, ComputeContactVolume) {
       ASSERT_GT(s1.num_vertices(), 0);
       ASSERT_TRUE(s1.is_triangle());
       const std::vector<double>& distances = s1.tri_e_MN().values();
-      EXPECT_NEAR(*std::min_element(distances.begin(),
-                                  distances.end()),
-                0, 1e-14);
-      EXPECT_NEAR(*std::max_element(distances.begin(),
-                                  distances.end()),
-                0.03, 1e-14);
+      EXPECT_NEAR(*std::min_element(distances.begin(), distances.end()), 0,
+                  1e-14);
+      EXPECT_NEAR(*std::max_element(distances.begin(), distances.end()), 0.03,
+                  1e-14);
       WriteTriangleSurfaceMeshFieldLinearToVtk("first_boundary.vtk", "distance",
                                                s1.tri_e_MN(),
                                                "compute_contact_volume");
@@ -115,11 +113,9 @@ TEST_F(ComputeContactVolumeTest, ComputeContactVolume) {
       ASSERT_GT(s2.num_vertices(), 0);
       ASSERT_TRUE(s2.is_triangle());
       const std::vector<double>& distances = s2.tri_e_MN().values();
-      EXPECT_NEAR(
-          *std::min_element(distances.begin(), distances.end()), 0,
-          1e-14);
-      EXPECT_NEAR(*std::max_element(distances.begin(),
-                                    distances.end()),
+      EXPECT_NEAR(*std::min_element(distances.begin(), distances.end()), 0,
+                  1e-14);
+      EXPECT_NEAR(*std::max_element(distances.begin(), distances.end()),
                   0.01 * std::sqrt(3.0), 1e-14);
       WriteTriangleSurfaceMeshFieldLinearToVtk("second_boundary.vtk",
                                                "distance", s2.tri_e_MN(),
