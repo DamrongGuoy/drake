@@ -9,6 +9,8 @@
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/proximity/bvh.h"
 #include "drake/geometry/proximity/contact_surface_utility.h"
+#include "drake/geometry/proximity/hydroelastic_internal.h"
+#include "drake/geometry/proximity/mesh_distance_boundary.h"
 #include "drake/geometry/proximity/polygon_surface_mesh.h"
 #include "drake/geometry/proximity/polygon_surface_mesh_field.h"
 #include "drake/geometry/proximity/posed_half_space.h"
@@ -31,7 +33,7 @@ namespace internal {
  boundary with ∂Ω. For each of these volumes, the boundary can be split into two
  sub-domains ∂Ωₘ and ∂Ωₙ, each associated with one of the original geometries M
  and N respectively. ∂Ωₘ is included in the boundary of geometry M and ∂Ωₙ is
- included in the boundary of geometry N. ∂Ωₘ and ∂Ωₙ are disoint (∂Ωₘ ∩ ∂Ωₙ =
+ included in the boundary of geometry N. ∂Ωₘ and ∂Ωₙ are disjoint (∂Ωₘ ∩ ∂Ωₙ =
  ∅), and their union is the full boundary ∂Ω of the overlapping volume.
 
  The ContactSurface refers to a linear field that at each point x ∈ ∂Ω provides
@@ -49,8 +51,7 @@ namespace internal {
    If id_M > id_N, the labels will be swapped and the normals of the mesh
    reversed (to maintain the documented invariants). Comparing the input
    parameters with the members of the resulting ContactSurface will reveal if
-   such a swap has occurred.
-*/
+   such a swap has occurred. */
 template <typename T>
 std::pair<std::unique_ptr<ContactSurface<T>>,
           std::unique_ptr<ContactSurface<T>>>
@@ -60,6 +61,33 @@ ComputeContactVolume(const GeometryId id_M, const VolumeMesh<double>& mesh_M,
                      const VolumeMesh<double>& mesh_N,
                      const Bvh<Obb, VolumeMesh<double>>& bvh_N,
                      const math::RigidTransform<T>& X_WN,
+                     HydroelasticContactRepresentation representation);
+// TODO(DamrongGuoy) Remove the above version and rename this one
+//  ComputeContactVolume().
+//
+// @note MeshDistanceBoundary(s) are stored in ProximityEngine. It is used for
+// calculating signed distances. See this line:
+// https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1152
+//
+// @note hydroelastic::SoftGeometry are in hydroelastic::Geometries, which is
+// available in ProximityEngine. See this line:
+// https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1142
+template <typename T>
+std::pair<std::unique_ptr<ContactSurface<T>>,
+          std::unique_ptr<ContactSurface<T>>>
+ComputeContactVolumeNew(const GeometryId id_M,
+                     const MeshDistanceBoundary& boundary_M,
+                     const math::RigidTransform<T>& X_WM,
+                     const GeometryId id_N,
+                     const MeshDistanceBoundary& boundary_N,
+                     const math::RigidTransform<T>& X_WN,
+                     // We need these two additional parameters because we don't
+                     // have code to mutually clip two boundary surface meshes.
+                     // Their pressure fields are ignored because we
+                     // resampling the signed distances from boundary_M and
+                     // boundary_N on the contact surfaces.
+                     const hydroelastic::SoftGeometry& volume_M,
+                     const hydroelastic::SoftGeometry& volume_N,
                      HydroelasticContactRepresentation representation);
 
 }  // namespace internal
