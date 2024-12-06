@@ -94,8 +94,52 @@ ComputeContactVolume(const GeometryId id_M, const VolumeMesh<double>& mesh_M,
           representation)};
 }
 
-DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_NONSYMBOLIC_SCALARS(
-    (&ComputeContactVolume<T>))
+template <typename T>
+PolygonSurfaceMesh<T> HackToIntersectSurfaceWithVolume(
+    // Provide triangle mesh
+    const GeometryId id_R, const MeshDistanceBoundary& boundary_R,
+    const math::RigidTransform<T>& X_WR,
+    // Provide tetrahedral mesh
+    const GeometryId id_S, const hydroelastic::SoftGeometry& volume_S,
+    const math::RigidTransform<T>& X_WS) {
+  std::unique_ptr<ContactSurface<T>> hydro_contact_surface =
+      ComputeContactSurfaceFromSoftVolumeRigidSurface(
+          // Compliant volume
+          id_S, volume_S.pressure_field(), volume_S.bvh(), X_WS,
+          // Rigid surface
+          id_R, boundary_R.tri_mesh(), boundary_R.tri_bvh(), X_WR,
+          HydroelasticContactRepresentation::kPolygon);
+
+  // Copy the contact mesh because ContactSurface::poly_mesh_W() is read-only.
+  PolygonSurfaceMesh<T> contact_mesh_W(hydro_contact_surface->poly_mesh_W());
+
+  // TODO(DamrongGuoy): Reverse face winding of the contact mesh if needed.
+
+  return contact_mesh_W;
+}
+
+template <typename T>
+std::pair<std::unique_ptr<ContactSurface<T>>,
+          std::unique_ptr<ContactSurface<T>>>
+ComputeContactVolumeNew(const GeometryId id_M,
+                     const MeshDistanceBoundary& boundary_M,
+                     const math::RigidTransform<T>& X_WM,
+                     const GeometryId id_N,
+                     const MeshDistanceBoundary& boundary_N,
+                     const math::RigidTransform<T>& X_WN,
+                     const hydroelastic::SoftGeometry& volume_M,
+                     const hydroelastic::SoftGeometry& volume_N,
+                     HydroelasticContactRepresentation /*representation*/) {
+  PolygonSurfaceMesh<T> bdΩₘ_W = HackToIntersectSurfaceWithVolume(
+      id_M, boundary_M, X_WM, id_N, volume_N, X_WN);
+  PolygonSurfaceMesh<T> bdΩₙ_W = HackToIntersectSurfaceWithVolume(
+      id_N, boundary_N, X_WN, id_M, volume_M, X_WM);
+  return {nullptr, nullptr};
+}
+
+DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_NONSYMBOLIC_SCALARS((
+    &ComputeContactVolume<T>,
+    &ComputeContactVolumeNew<T>));
 
 }  // namespace internal
 }  // namespace geometry
