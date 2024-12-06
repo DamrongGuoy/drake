@@ -2,14 +2,17 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "drake/common/default_scalars.h"
+#include "drake/common/extract_double.h"
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/proximity/calc_distance_to_surface_mesh.h"
+#include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
 #include "drake/geometry/proximity/contact_surface_utility.h"
 #include "drake/geometry/proximity/make_mesh_field.h"
 #include "drake/geometry/proximity/mesh_intersection.h"
@@ -113,33 +116,88 @@ PolygonSurfaceMesh<T> HackToIntersectSurfaceWithVolume(
   // Copy the contact mesh because ContactSurface::poly_mesh_W() is read-only.
   PolygonSurfaceMesh<T> contact_mesh_W(hydro_contact_surface->poly_mesh_W());
 
-  // TODO(DamrongGuoy): Reverse face winding of the contact mesh if needed.
+  // TODO(DamrongGuoy): Reverse face winding of the contact mesh
+  //  according to the order of id_R and id_S if needed.
 
   return contact_mesh_W;
+}
+
+template <typename T>
+std::unique_ptr<ContactSurface<T>> MakeSignedDistanceContactSurface(
+    const GeometryId id_A, const GeometryId id_B,
+    const PolygonSurfaceMesh<T>& bdΩₐ_W, const MeshDistanceBoundary& boundary_B,
+    const math::RigidTransform<T>& X_WB) {
+  if (!std::holds_alternative<FeatureNormalSet>(boundary_B.feature_normal())) {
+    throw std::runtime_error(
+        "MakeSignedDistanceContactSurface: " +
+        std::get<std::string>(boundary_B.feature_normal()));
+  }
+  const FeatureNormalSet& feature_normals_B =
+      std::get<FeatureNormalSet>(boundary_B.feature_normal());
+  const math::RigidTransform<T> X_BW = X_WB.inverse();
+  int num_vertices = bdΩₐ_W.num_vertices();
+  std::vector<double> signed_distance_at_vertices;
+  for (int i = 0; i < num_vertices; ++i) {
+    Vector3<T> p_WV = bdΩₐ_W.vertex(i);
+    Vector3<T> p_BV = X_BW * p_WV;
+    Vector3<double> p_BVd = ExtractDoubleOrThrow(p_BV);
+    SignedDistanceToSurfaceMesh sd = CalcSignedDistanceToSurfaceMesh(
+        p_BVd, boundary_B.tri_mesh(), boundary_B.tri_bvh(), feature_normals_B);
+    // The values of signed distances are frame-independent.
+    signed_distance_at_vertices.push_back(sd.signed_distance);
+  }
+  std::vector<T> signed_distance_at_centroids;
+  int num_faces = bdΩₐ_W.num_faces();
+  for (int i = 0; i < num_faces; ++i) {
+    Vector3<T> p_WC = bdΩₐ_W.element_centroid(i);
+    Vector3<T> p_BC = X_BW * p_WC;
+    Vector3<double> p_BCd = ExtractDoubleOrThrow(p_BC);
+    SignedDistanceToSurfaceMesh sd = CalcSignedDistanceToSurfaceMesh(
+        p_BCd, boundary_B.tri_mesh(), boundary_B.tri_bvh(), feature_normals_B);
+    signed_distance_at_centroids.push_back(sd.signed_distance);
+  }
+
+  // TODO(DamrongGuoy) 1. Check order of id_A and id_B.
+  //                   2. Replace nullptr
+  return std::make_unique<ContactSurface<T>>(
+      id_A, id_B,
+      // mesh_W
+      std::unique_ptr<PolygonSurfaceMesh<T>>(nullptr),
+      // e_MN
+      std::unique_ptr<PolygonSurfaceMeshFieldLinear<T, T>>(nullptr),
+      // grad_eM_W
+      std::unique_ptr<std::vector<Vector3<T>>>(nullptr),
+      // grad_eN_W
+      std::unique_ptr<std::vector<Vector3<T>>>(nullptr),
+      // e_MN_at_face_centroids
+      std::make_unique<std::vector<T>>(
+          std::move(signed_distance_at_centroids)));
 }
 
 template <typename T>
 std::pair<std::unique_ptr<ContactSurface<T>>,
           std::unique_ptr<ContactSurface<T>>>
 ComputeContactVolumeNew(const GeometryId id_M,
-                     const MeshDistanceBoundary& boundary_M,
-                     const math::RigidTransform<T>& X_WM,
-                     const GeometryId id_N,
-                     const MeshDistanceBoundary& boundary_N,
-                     const math::RigidTransform<T>& X_WN,
-                     const hydroelastic::SoftGeometry& volume_M,
-                     const hydroelastic::SoftGeometry& volume_N,
-                     HydroelasticContactRepresentation /*representation*/) {
+                        const MeshDistanceBoundary& boundary_M,
+                        const math::RigidTransform<T>& X_WM,
+                        const GeometryId id_N,
+                        const MeshDistanceBoundary& boundary_N,
+                        const math::RigidTransform<T>& X_WN,
+                        const hydroelastic::SoftGeometry& volume_M,
+                        const hydroelastic::SoftGeometry& volume_N) {
   PolygonSurfaceMesh<T> bdΩₘ_W = HackToIntersectSurfaceWithVolume(
       id_M, boundary_M, X_WM, id_N, volume_N, X_WN);
   PolygonSurfaceMesh<T> bdΩₙ_W = HackToIntersectSurfaceWithVolume(
       id_N, boundary_N, X_WN, id_M, volume_M, X_WM);
+
+  std::unique_ptr<ContactSurface<T>> contact_bdΩₘ_W =
+      MakeSignedDistanceContactSurface(id_M, id_N, bdΩₘ_W, boundary_N, X_WN);
+
   return {nullptr, nullptr};
 }
 
-DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_NONSYMBOLIC_SCALARS((
-    &ComputeContactVolume<T>,
-    &ComputeContactVolumeNew<T>));
+DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_NONSYMBOLIC_SCALARS(
+    (&ComputeContactVolume<T>, &ComputeContactVolumeNew<T>));
 
 }  // namespace internal
 }  // namespace geometry
