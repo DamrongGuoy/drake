@@ -22,7 +22,6 @@ drake_cc_package_library(
         ":bvh",
         ":bvh_updater",
         ":collision_filter",
-        ":compute_contact_volume",
         ":contact_surface_utility",
         ":deformable_contact_geometries",
         ":deformable_contact_internal",
@@ -189,6 +188,10 @@ drake_cc_library(
     name = "compute_contact_volume",
     srcs = ["compute_contact_volume.cc"],
     hdrs = ["compute_contact_volume.h"],
+    internal = True,
+    visibility = [
+        "//geometry:__pkg__",
+    ],
     deps = [
         ":bvh",
         ":calc_distance_to_surface_mesh",
