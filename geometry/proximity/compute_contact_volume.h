@@ -65,6 +65,8 @@ ComputeContactVolume(const GeometryId id_M, const VolumeMesh<double>& mesh_M,
 // TODO(DamrongGuoy) Remove the above version and rename this one
 //  ComputeContactVolume().
 //
+// Return a pair of polygonal contact surfaces bounding the contact volume.
+//
 // @note MeshDistanceBoundary(s) are stored in ProximityEngine. It is used for
 // calculating signed distances. See this line:
 // https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1152
@@ -76,19 +78,18 @@ template <typename T>
 std::pair<std::unique_ptr<ContactSurface<T>>,
           std::unique_ptr<ContactSurface<T>>>
 ComputeContactVolumeNew(const GeometryId id_M,
-                     const MeshDistanceBoundary& boundary_M,
-                     const math::RigidTransform<T>& X_WM,
-                     const GeometryId id_N,
-                     const MeshDistanceBoundary& boundary_N,
-                     const math::RigidTransform<T>& X_WN,
-                     // We need these two additional parameters because we don't
-                     // have code to mutually clip two boundary surface meshes.
-                     // Their pressure fields are ignored because we
-                     // resampling the signed distances from boundary_M and
-                     // boundary_N on the contact surfaces.
-                     const hydroelastic::SoftGeometry& volume_M,
-                     const hydroelastic::SoftGeometry& volume_N,
-                     HydroelasticContactRepresentation representation);
+                        const MeshDistanceBoundary& boundary_M,
+                        const math::RigidTransform<T>& X_WM,
+                        const GeometryId id_N,
+                        const MeshDistanceBoundary& boundary_N,
+                        const math::RigidTransform<T>& X_WN,
+                        // We need these two additional parameters because we
+                        // don't have code to mutually clip two boundary surface
+                        // meshes. Their pressure fields are ignored because we
+                        // resampling the signed distances from boundary_M and
+                        // boundary_N on the contact surfaces.
+                        const hydroelastic::SoftGeometry& volume_M,
+                        const hydroelastic::SoftGeometry& volume_N);
 
 }  // namespace internal
 }  // namespace geometry
