@@ -193,6 +193,8 @@ drake_cc_library(
         ":bvh",
         ":calc_distance_to_surface_mesh",
         ":contact_surface_utility",
+        ":distance_to_point_callback",
+        ":hydroelastic_internal",
         ":make_mesh_field",
         ":mesh_field",
         ":mesh_intersection",
