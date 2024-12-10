@@ -51,55 +51,42 @@ namespace internal {
    If id_M > id_N, the labels will be swapped and the normals of the mesh
    reversed (to maintain the documented invariants). Comparing the input
    parameters with the members of the resulting ContactSurface will reveal if
-   such a swap has occurred. */
+   such a swap has occurred.
+
+ Return a pair of polygonal contact surfaces bounding the contact volume.
+
+ @note MeshDistanceBoundary(s) are stored in ProximityEngine. It is used for
+ calculating signed distances. See this line:
+ https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1152
+
+ @note hydroelastic::SoftGeometry are in hydroelastic::Geometries, which is
+ available in ProximityEngine. See this line:
+ https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1142
+
+ @note Each of the two returned ContactSurface's follows the same
+ face-normal convention as documented in ContactSurface, i.e., the face
+ normals point out of N and into M when id_M < id_N.  Swapping the
+ GeometryId's will reverse the face windings of both ContactSurface's.
+
+ @note Assume the meshes involved are *double* valued -- in other words, they
+ are constant parameters in the calculation. If derivatives are to be found,
+ the point of injection is through the definition of the relative position
+ of the two meshes. */
 template <typename T>
 std::pair<std::unique_ptr<ContactSurface<T>>,
           std::unique_ptr<ContactSurface<T>>>
-ComputeContactVolume(const GeometryId id_M, const VolumeMesh<double>& mesh_M,
-                     const Bvh<Obb, VolumeMesh<double>>& bvh_M,
+ComputeContactVolume(const GeometryId id_M,
+                     const MeshDistanceBoundary& boundary_M,
                      const math::RigidTransform<T>& X_WM, const GeometryId id_N,
-                     const VolumeMesh<double>& mesh_N,
-                     const Bvh<Obb, VolumeMesh<double>>& bvh_N,
+                     const MeshDistanceBoundary& boundary_N,
                      const math::RigidTransform<T>& X_WN,
-                     HydroelasticContactRepresentation representation);
-// TODO(DamrongGuoy) Remove the above version and rename this one
-//  ComputeContactVolume().
-//
-// Return a pair of polygonal contact surfaces bounding the contact volume.
-//
-// @note MeshDistanceBoundary(s) are stored in ProximityEngine. It is used for
-// calculating signed distances. See this line:
-// https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1152
-//
-// @note hydroelastic::SoftGeometry are in hydroelastic::Geometries, which is
-// available in ProximityEngine. See this line:
-// https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1142
-//
-// @note Each of the two returned ContactSurface's follows the same
-// face-normal convention as documented in ContactSurface, i.e., the face
-// normals point out of N and into M when id_M < id_N.  Swapping the
-// GeometryId's will reverse the face windings of both ContactSurface's.
-//
-// @note Assume the meshes involved are *double* valued -- in other words, they
-// are constant parameters in the calculation. If derivatives are to be found,
-// the point of injection is through the definition of the relative position
-// of the two meshes.
-template <typename T>
-std::pair<std::unique_ptr<ContactSurface<T>>,
-          std::unique_ptr<ContactSurface<T>>>
-ComputeContactVolumeNew(const GeometryId id_M,
-                        const MeshDistanceBoundary& boundary_M,
-                        const math::RigidTransform<T>& X_WM,
-                        const GeometryId id_N,
-                        const MeshDistanceBoundary& boundary_N,
-                        const math::RigidTransform<T>& X_WN,
-                        // We need these two additional parameters because we
-                        // don't have code to mutually clip two boundary surface
-                        // meshes. Their pressure fields are ignored because we
-                        // resampling the signed distances from boundary_M and
-                        // boundary_N on the contact surfaces.
-                        const hydroelastic::SoftGeometry& volume_M,
-                        const hydroelastic::SoftGeometry& volume_N);
+                     // We need these two additional parameters because we
+                     // don't have code to mutually clip two boundary surface
+                     // meshes. Their pressure fields are ignored because we
+                     // resampling the signed distances from boundary_M and
+                     // boundary_N on the contact surfaces.
+                     const hydroelastic::SoftGeometry& volume_M,
+                     const hydroelastic::SoftGeometry& volume_N);
 
 }  // namespace internal
 }  // namespace geometry
