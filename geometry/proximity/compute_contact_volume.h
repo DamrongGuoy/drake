@@ -74,6 +74,16 @@ ComputeContactVolume(const GeometryId id_M, const VolumeMesh<double>& mesh_M,
 // @note hydroelastic::SoftGeometry are in hydroelastic::Geometries, which is
 // available in ProximityEngine. See this line:
 // https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1142
+//
+// @note Each of the two returned ContactSurface's follows the same
+// face-normal convention as documented in ContactSurface, i.e., the face
+// normals point out of N and into M when id_M < id_N.  Swapping the
+// GeometryId's will reverse the face windings of both ContactSurface's.
+//
+// @note Assume the meshes involved are *double* valued -- in other words, they
+// are constant parameters in the calculation. If derivatives are to be found,
+// the point of injection is through the definition of the relative position
+// of the two meshes.
 template <typename T>
 std::pair<std::unique_ptr<ContactSurface<T>>,
           std::unique_ptr<ContactSurface<T>>>
