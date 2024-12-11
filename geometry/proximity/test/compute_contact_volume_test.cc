@@ -98,60 +98,74 @@ TEST_F(ComputeContactVolumeTest, ComputeContactVolume) {
   const RigidTransformd X_WM = RigidTransformd::Identity();
   const RigidTransformd X_WN(0.03 * Vector3d::UnitX());
 
+  WriteVolumeMeshToVtk("first_box_mesh0_M.vtk", box_mesh0_M_, "box_mesh0_M_");
+  WriteVolumeMeshToVtk("second_octahedron_mesh1_N.vtk", octahedron_mesh1_N_,
+                       "octahedron_mesh1_N_");
+
+  std::pair<std::unique_ptr<ContactSurface<double>>,
+            std::unique_ptr<ContactSurface<double>>>
+      pair = ComputeContactVolume(first_id, box_boundary_M_, X_WM, second_id,
+                                  octahedron_boundary_N_, X_WN,
+                                  // Extra parameters because we do not have
+                                  // triangle-triangle mesh clipping yet.
+                                  box_hydro_compliant_geometry_,
+                                  octahedron_hydro_compliant_geometry_);
+
   {
-    SCOPED_TRACE("Request triangles.");
-    WriteVolumeMeshToVtk("first_box_mesh0_M.vtk", box_mesh0_M_, "box_mesh0_M_");
-    WriteVolumeMeshToVtk("second_octahedron_mesh1_N.vtk", octahedron_mesh1_N_,
-                         "octahedron_mesh1_N_");
-
-    std::pair<std::unique_ptr<ContactSurface<double>>,
-              std::unique_ptr<ContactSurface<double>>>
-        pair = ComputeContactVolume(first_id, box_boundary_M_, X_WM, second_id,
-                                    octahedron_boundary_N_, X_WN,
-                                    // Extra parameters because we do not have
-                                    // triangle-triangle mesh clipping yet.
-                                    box_hydro_compliant_geometry_,
-                                    octahedron_hydro_compliant_geometry_);
-
-    {
-      SCOPED_TRACE("First contact boundary.");
-      ASSERT_NE(pair.first.get(), nullptr);
-      const ContactSurface<double>& s1 = *pair.first.get();
-      ASSERT_GT(s1.num_vertices(), 0);
-      ASSERT_FALSE(s1.is_triangle());
-      const std::vector<double>& distances = s1.poly_e_MN().values();
-      EXPECT_NEAR(*std::min_element(distances.begin(), distances.end()),
-                  -0.01 * std::sqrt(3.0), 1e-14);
-      EXPECT_NEAR(*std::max_element(distances.begin(), distances.end()), 0,
-                  1e-14);
-      // We don't have writing polygonal data to VTK yet. We only have it for
-      // triangles.
-      // WriteTriangleSurfaceMeshFieldLinearToVtk("first_boundary.vtk",
-      //                                          "distance",
-      //                                          s1.tri_e_MN(),
-      //                                          "compute_contact_volume");
-    }
-    {
-      SCOPED_TRACE("Second contact boundary.");
-      ASSERT_NE(pair.second.get(), nullptr);
-      const ContactSurface<double>& s2 = *pair.second.get();
-      ASSERT_GT(s2.num_vertices(), 0);
-      ASSERT_FALSE(s2.is_triangle());
-      const std::vector<double>& distances = s2.poly_e_MN().values();
-      EXPECT_NEAR(*std::min_element(distances.begin(), distances.end()), -0.03,
-                  1e-14);
-      EXPECT_NEAR(*std::max_element(distances.begin(), distances.end()), 0,
-                  1e-14);
-      // We don't have writing polygonal data to VTK yet. We only have it for
-      // triangles.
-      // WriteTriangleSurfaceMeshFieldLinearToVtk("second_boundary.vtk",
-      //                                          "distance", s2.tri_e_MN(),
-      //                                          "compute_contact_volume");
-    }
+    SCOPED_TRACE("First contact boundary.");
+    ASSERT_NE(pair.first.get(), nullptr);
+    const ContactSurface<double>& s1 = *pair.first.get();
+    ASSERT_GT(s1.num_vertices(), 0);
+    ASSERT_FALSE(s1.is_triangle());
+    const std::vector<double>& distances = s1.poly_e_MN().values();
+    EXPECT_NEAR(*std::min_element(distances.begin(), distances.end()),
+                -0.01 * std::sqrt(3.0), 1e-14);
+    EXPECT_NEAR(*std::max_element(distances.begin(), distances.end()), 0,
+                1e-14);
+    // We can't write polygonal data to VTK yet. We only have it for
+    // triangles.
+    // WriteTriangleSurfaceMeshFieldLinearToVtk("first_boundary.vtk",
+    //                                          "distance",
+    //                                          s1.tri_e_MN(),
+    //                                          "compute_contact_volume");
+  }
+  {
+    SCOPED_TRACE("Second contact boundary.");
+    ASSERT_NE(pair.second.get(), nullptr);
+    const ContactSurface<double>& s2 = *pair.second.get();
+    ASSERT_GT(s2.num_vertices(), 0);
+    ASSERT_FALSE(s2.is_triangle());
+    const std::vector<double>& distances = s2.poly_e_MN().values();
+    EXPECT_NEAR(*std::min_element(distances.begin(), distances.end()), -0.03,
+                1e-14);
+    EXPECT_NEAR(*std::max_element(distances.begin(), distances.end()), 0,
+                1e-14);
+    // We can't write polygonal data to VTK yet. We only have it for
+    // triangles.
+    // WriteTriangleSurfaceMeshFieldLinearToVtk("second_boundary.vtk",
+    //                                          "distance", s2.tri_e_MN(),
+    //                                          "compute_contact_volume");
   }
 }
 
-// TODO(DamrongGuoy): Test the case when there is no contact.
+TEST_F(ComputeContactVolumeTest, ComputeContactVolume_NoContact) {
+  GeometryId first_id = GeometryId::get_new_id();
+  GeometryId second_id = GeometryId::get_new_id();
+  const RigidTransformd X_WM = RigidTransformd::Identity();
+  // N is 100 meters far away from M.
+  const RigidTransformd X_WN(100 * Vector3d::UnitX());
+
+  std::pair<std::unique_ptr<ContactSurface<double>>,
+            std::unique_ptr<ContactSurface<double>>>
+      pair = ComputeContactVolume(first_id, box_boundary_M_, X_WM, second_id,
+                                  octahedron_boundary_N_, X_WN,
+                                  // Extra parameters because we do not have
+                                  // triangle-triangle mesh clipping yet.
+                                  box_hydro_compliant_geometry_,
+                                  octahedron_hydro_compliant_geometry_);
+  EXPECT_EQ(pair.first, nullptr);
+  EXPECT_EQ(pair.second, nullptr);
+}
 
 }  // namespace
 }  // namespace internal
