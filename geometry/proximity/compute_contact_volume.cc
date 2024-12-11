@@ -38,7 +38,7 @@ namespace {
 //
 // @note The returned mesh has face normals pointing *out of* R and *into* S.
 template <typename T>
-PolygonSurfaceMesh<T> HackToIntersectSurfaceWithVolume(
+std::unique_ptr<PolygonSurfaceMesh<T>> HackToIntersectSurfaceWithVolume(
     // Provide triangle mesh
     const GeometryId id_R, const MeshDistanceBoundary& boundary_R,
     const math::RigidTransform<T>& X_WR,
@@ -53,14 +53,19 @@ PolygonSurfaceMesh<T> HackToIntersectSurfaceWithVolume(
           id_R, boundary_R.tri_mesh(), boundary_R.tri_bvh(), X_WR,
           HydroelasticContactRepresentation::kPolygon);
 
+  if (hydro_contact_surface == nullptr) {
+    return nullptr;
+  }
+
   // Copy the contact mesh because ContactSurface::poly_mesh_W() is read-only.
-  PolygonSurfaceMesh<T> mesh_W(hydro_contact_surface->poly_mesh_W());
+  auto mesh_W = std::make_unique<PolygonSurfaceMesh<T>>(
+      hydro_contact_surface->poly_mesh_W());
 
   if (hydro_contact_surface->id_M() == id_R) {
     // The ContactSurface documentation says the face normals in `mesh_W`
     // point *out of* geometry N and *into* M, so it points out of S and into R.
     // We will swap the direction, so it points out of R and into S.
-    mesh_W.ReverseFaceWinding();
+    mesh_W->ReverseFaceWinding();
   }
 
   return mesh_W;
@@ -155,19 +160,25 @@ ComputeContactVolume(const GeometryId id_M,
   // The document of HackToIntersectSurfaceWithVolume(id_R,...,id_S,...) says
   // the returned mesh has face normals pointing out of R and into S.
   // Therefore, the face normals of bdΩₘ_W point out of M and into N.
-  PolygonSurfaceMesh<T> bdΩₘ_W = HackToIntersectSurfaceWithVolume(
-      id_M, boundary_M, X_WM, id_N, volume_N, X_WN);
+  std::unique_ptr<PolygonSurfaceMesh<T>> bdΩₘ_W =
+      HackToIntersectSurfaceWithVolume(id_M, boundary_M, X_WM, id_N, volume_N,
+                                       X_WN);
   // Similarly, the face normals of bdΩₙ_W point out of N and into M.
-  PolygonSurfaceMesh<T> bdΩₙ_W = HackToIntersectSurfaceWithVolume(
-      id_N, boundary_N, X_WN, id_M, volume_M, X_WM);
+  std::unique_ptr<PolygonSurfaceMesh<T>> bdΩₙ_W =
+      HackToIntersectSurfaceWithVolume(id_N, boundary_N, X_WN, id_M, volume_M,
+                                       X_WM);
+
+  if (bdΩₘ_W == nullptr || bdΩₙ_W == nullptr) {
+    return {nullptr, nullptr};
+  }
 
   // MakeSignedDistanceContactSurface(id_A, id_B,...) requires the face
   // normals of the surface mesh point *out of* geometry A and *into*
   // geometry B.
   std::unique_ptr<ContactSurface<T>> contact_bdΩₘ_W =
-      MakeSignedDistanceContactSurface(id_M, id_N, bdΩₘ_W, boundary_N, X_WN);
+      MakeSignedDistanceContactSurface(id_M, id_N, *bdΩₘ_W, boundary_N, X_WN);
   std::unique_ptr<ContactSurface<T>> contact_bdΩₙ_W =
-      MakeSignedDistanceContactSurface(id_N, id_M, bdΩₙ_W, boundary_M, X_WM);
+      MakeSignedDistanceContactSurface(id_N, id_M, *bdΩₙ_W, boundary_M, X_WM);
 
   // The convention of face-normal direction follows ContactSurface
   // documentation, which depends on the order of GeometryId's.
