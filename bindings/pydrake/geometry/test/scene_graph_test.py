@@ -596,6 +596,8 @@ class TestGeometrySceneGraph(unittest.TestCase):
         results = query_object.ComputePointPairPenetration()
         self.assertEqual(len(results), 0)
         if T != Expression:
+            results = query_object.ComputeContactVolumes()
+            self.assertEqual(len(results), 0)
             hydro_rep = mut.HydroelasticContactRepresentation.kTriangle
             results = query_object.ComputeContactSurfaces(
                 representation=hydro_rep)
