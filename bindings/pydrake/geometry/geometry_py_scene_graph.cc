@@ -558,6 +558,9 @@ void DefineQueryObject(py::module m, T) {
           .def("ComputeContactSurfaces",
               &Class::template ComputeContactSurfaces<T>,
               py::arg("representation"), cls_doc.ComputeContactSurfaces.doc)
+          .def("ComputeContactVolumes",
+              &Class::template ComputeContactVolumes<T>,
+              cls_doc.ComputeContactVolumes.doc)
           .def(
               "ComputeContactSurfacesWithFallback",
               [](const Class* self,
