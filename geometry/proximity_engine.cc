@@ -17,6 +17,7 @@
 #include "drake/common/eigen_types.h"
 #include "drake/geometry/geometry_ids.h"
 #include "drake/geometry/proximity/collisions_exist_callback.h"
+#include "drake/geometry/proximity/compute_contact_volume.h"
 #include "drake/geometry/proximity/deformable_contact_geometries.h"
 #include "drake/geometry/proximity/deformable_contact_internal.h"
 #include "drake/geometry/proximity/distance_to_point_callback.h"
@@ -793,6 +794,44 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   }
 
   template <typename T1 = T>
+  typename std::enable_if_t<
+      scalar_predicate<T1>::is_bool,
+      std::vector<std::pair<ContactSurface<T>, ContactSurface<T>>>>
+  ComputeContactVolumes(
+      const unordered_map<GeometryId, RigidTransform<T>>& X_WGs) const {
+    std::vector<SortedPair<GeometryId>> candidates = FindCollisionCandidates();
+
+    vector<std::pair<ContactSurface<T>, ContactSurface<T>>> volumes;
+
+    for (int k = 0; k < ssize(candidates); ++k) {
+      const auto& [id0, id1] = candidates[k];
+      if (hydroelastic_geometries_.hydroelastic_type(id0) !=
+            HydroelasticType::kCompliant ||
+          hydroelastic_geometries_.hydroelastic_type(id1) !=
+            HydroelasticType::kCompliant) {
+        continue;
+      }
+      if (!mesh_sdf_data_.contains(id0) || !mesh_sdf_data_.contains(id1)) {
+        continue;
+      }
+      std::pair<std::unique_ptr<ContactSurface<T>>,
+                std::unique_ptr<ContactSurface<T>>>
+          volume_ptrs =
+              ComputeContactVolume(id0, mesh_sdf_data_.at(id0), X_WGs.at(id0),
+                                   id1, mesh_sdf_data_.at(id1), X_WGs.at(id1),
+                                   hydroelastic_geometries_.soft_geometry(id0),
+                                   hydroelastic_geometries_.soft_geometry(id1));
+      if (volume_ptrs.first == nullptr || volume_ptrs.second == nullptr) {
+        continue;
+      }
+      volumes.emplace_back(std::move(*volume_ptrs.first),
+                           std::move(*volume_ptrs.second));
+    }
+
+    return volumes;
+  }
+
+  template <typename T1 = T>
   typename std::enable_if_t<scalar_predicate<T1>::is_bool, void>
   ComputeContactSurfacesWithFallback(
       HydroelasticContactRepresentation representation,
@@ -1409,6 +1448,16 @@ ProximityEngine<T>::ComputeContactSurfaces(
 
 template <typename T>
 template <typename T1>
+typename std::enable_if_t<
+    scalar_predicate<T1>::is_bool,
+    std::vector<std::pair<ContactSurface<T>, ContactSurface<T>>>>
+ProximityEngine<T>::ComputeContactVolumes(
+    const std::unordered_map<GeometryId, RigidTransform<T>>& X_WGs) const {
+  return impl_->ComputeContactVolumes(X_WGs);
+}
+
+template <typename T>
+template <typename T1>
 typename std::enable_if_t<scalar_predicate<T1>::is_bool, void>
 ProximityEngine<T>::ComputeContactSurfacesWithFallback(
     HydroelasticContactRepresentation representation,
@@ -1473,7 +1522,8 @@ DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_SCALARS(
 
 DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_NONSYMBOLIC_SCALARS(
     (&ProximityEngine<T>::template ComputeContactSurfaces<T>,
-     &ProximityEngine<T>::template ComputeContactSurfacesWithFallback<T>));
+     &ProximityEngine<T>::template ComputeContactSurfacesWithFallback<T>,
+     &ProximityEngine<T>::template ComputeContactVolumes<T>));
 
 template void ProximityEngine<double>::ComputeDeformableContact<double>(
     DeformableContact<double>*) const;

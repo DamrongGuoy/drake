@@ -41,6 +41,9 @@ namespace internal {
 
  Return the boundary surface of overlapping geometries, represented as a
  std::pair of ContactSurface(s).  The pair stores ∂Ωₘ and ∂Ωₙ separately.
+ Each of the ContactSurface has polygonal representation.
+
+ Return a pair of nullptr if the two geometries do not overlap.
 
  Warning: Be careful with the convention explained in ContactSurface
  documentation regarding the order of the two GeometryId's and the normal
@@ -53,8 +56,6 @@ namespace internal {
    parameters with the members of the resulting ContactSurface will reveal if
    such a swap has occurred.
 
- Return a pair of polygonal contact surfaces bounding the contact volume.
-
  @note MeshDistanceBoundary(s) are stored in ProximityEngine. It is used for
  calculating signed distances. See this line:
  https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1152
@@ -62,11 +63,6 @@ namespace internal {
  @note hydroelastic::SoftGeometry are in hydroelastic::Geometries, which is
  available in ProximityEngine. See this line:
  https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1142
-
- @note Each of the two returned ContactSurface's follows the same
- face-normal convention as documented in ContactSurface, i.e., the face
- normals point out of N and into M when id_M < id_N.  Swapping the
- GeometryId's will reverse the face windings of both ContactSurface's.
 
  @note Assume the meshes involved are *double* valued -- in other words, they
  are constant parameters in the calculation. If derivatives are to be found,
