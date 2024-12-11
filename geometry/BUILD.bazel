@@ -74,6 +74,7 @@ drake_cc_library(
         "//common:default_scalars",
         "//common:sorted_pair",
         "//geometry/proximity:collision_filter",
+        "//geometry/proximity:compute_contact_volume",
         "//geometry/proximity:deformable_contact_internal",
         "//geometry/proximity:hydroelastic_internal",
         "//geometry/proximity:make_mesh_from_vtk",
