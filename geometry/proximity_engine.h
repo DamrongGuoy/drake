@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "drake/common/autodiff.h"
@@ -259,6 +260,14 @@ class ProximityEngine {
                             std::vector<ContactSurface<T>>>
   ComputeContactSurfaces(
       HydroelasticContactRepresentation representation,
+      const std::unordered_map<GeometryId, math::RigidTransform<T>>& X_WGs)
+      const;
+
+  template <typename T1 = T>
+  typename std::enable_if_t<
+      scalar_predicate<T1>::is_bool,
+      std::vector<std::pair<ContactSurface<T>, ContactSurface<T>>>>
+  ComputeContactVolumes(
       const std::unordered_map<GeometryId, math::RigidTransform<T>>& X_WGs)
       const;
 

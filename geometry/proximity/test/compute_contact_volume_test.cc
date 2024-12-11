@@ -151,6 +151,8 @@ TEST_F(ComputeContactVolumeTest, ComputeContactVolume) {
   }
 }
 
+// TODO(DamrongGuoy): Test the case when there is no contact.
+
 }  // namespace
 }  // namespace internal
 }  // namespace geometry
