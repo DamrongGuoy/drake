@@ -208,3 +208,10 @@ class TestGeometryMeshes(unittest.TestCase):
         ]
         for i, expected in enumerate(expected_vertices):
             self.assertListEqual(list(vertices[i]), expected)
+
+    def test_make_triangle_from_polygon_mesh(self):
+        polygon_mesh = mut.PolygonSurfaceMesh(
+            face_data=[len([0, 1, 2])] + [0, 1, 2],
+            vertices=[(0, 0, 0), (1, 0, 0), (0, 1, 0),])
+        dut = mut._MakeTriangleFromPolygonMesh(polygon_mesh)
+        self.assertIsInstance(dut, mut.TriangleSurfaceMesh)
