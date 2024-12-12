@@ -698,6 +698,10 @@ void DefineContactSurface(py::module m, T) {
             cls_doc.EvaluateGradE_M_W.doc)
         .def("EvaluateGradE_N_W", &Class::EvaluateGradE_N_W, py::arg("index"),
             cls_doc.EvaluateGradE_N_W.doc)
+        .def("HasCentroidalValue", &Class::HasCentroidalValue,
+            cls_doc.HasCentroidalValue.doc)
+        .def("EvaluateCentroidalValue", &Class::EvaluateCentroidalValue,
+            py::arg("face_index"), cls_doc.EvaluateCentroidalValue.doc)
         .def("Equal", &Class::Equal, py::arg("surface"), cls_doc.Equal.doc);
     DefCopyAndDeepCopy(&cls);
   }
