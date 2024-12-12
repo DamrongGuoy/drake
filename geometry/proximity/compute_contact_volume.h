@@ -43,6 +43,10 @@ namespace internal {
  std::pair of ContactSurface(s).  The pair stores ∂Ωₘ and ∂Ωₙ separately.
  Each of the ContactSurface has polygonal representation.
 
+ For the returned pair of contact surfaces {∂Ωₘ, ∂Ωₙ}, the one with smaller
+ GeometryId comes first, i.e., for id_M < id_N, the pair is {∂Ωₘ, ∂Ωₙ},
+ not {∂Ωₙ, ∂Ωₘ}.
+
  Return a pair of nullptr if the two geometries do not overlap.
 
  Warning: Be careful with the convention explained in ContactSurface
@@ -55,14 +59,6 @@ namespace internal {
    reversed (to maintain the documented invariants). Comparing the input
    parameters with the members of the resulting ContactSurface will reveal if
    such a swap has occurred.
-
- @note MeshDistanceBoundary(s) are stored in ProximityEngine. It is used for
- calculating signed distances. See this line:
- https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1152
-
- @note hydroelastic::SoftGeometry are in hydroelastic::Geometries, which is
- available in ProximityEngine. See this line:
- https://github.com/RobotLocomotion/drake/blob/47694d5ce668bba4772861b4e76e5df296b51b47/geometry/proximity_engine.cc#L1142
 
  @note Assume the meshes involved are *double* valued -- in other words, they
  are constant parameters in the calculation. If derivatives are to be found,

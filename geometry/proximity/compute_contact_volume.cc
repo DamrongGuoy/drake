@@ -182,9 +182,22 @@ ComputeContactVolume(const GeometryId id_M,
   std::unique_ptr<ContactSurface<T>> contact_bdΩₙ_W =
       MakeSignedDistanceContactSurface(id_N, id_M, *bdΩₙ_W, boundary_M, X_WM);
 
-  // The convention of face-normal direction follows ContactSurface
-  // documentation, which depends on the order of GeometryId's.
-  return {std::move(contact_bdΩₘ_W), std::move(contact_bdΩₙ_W)};
+  // Note that contact_bdΩₘ_W->id_M() is not necessarily id_M (ditto for N).
+  // The ContactSurface constructor might have switched the GeometryId's.
+  DRAKE_ASSERT(contact_bdΩₘ_W->id_M() < contact_bdΩₘ_W->id_N());
+  DRAKE_ASSERT(contact_bdΩₙ_W->id_M() < contact_bdΩₙ_W->id_N());
+
+  if (contact_bdΩₘ_W->HasGradE_N()) {
+    // The contact surface s = contact_bdΩₘ_W has the signed-distance gradient
+    // from geometry s.Id_N(), so s lies on the geometry s.Id_M(). Therefore,
+    // s should come first.
+    return {std::move(contact_bdΩₘ_W), std::move(contact_bdΩₙ_W)};
+  } else {
+    // The contact surface s = contact_bdΩₘ_W does not have the
+    // signed-distance gradient from geometry s.Id_N(), so s lies on the
+    // geometry s.Id_N(). Therefore, s should come second.
+    return {std::move(contact_bdΩₙ_W), std::move(contact_bdΩₘ_W)};
+  }
 }
 
 DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_NONSYMBOLIC_SCALARS(
