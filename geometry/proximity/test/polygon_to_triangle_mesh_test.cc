@@ -89,6 +89,53 @@ GTEST_TEST(PolyToTriMeshTest, BasicSmokeTest) {
   }
 }
 
+GTEST_TEST(PolyToTriMeshTest, MakeTriangleFromPolygonMeshWithCentroids) {
+  // clang-format off
+  const std::vector<Vector3d> vertices{
+      Vector3d::Zero(),
+      Vector3d::UnitX(),
+      Vector3d::UnitY(),
+      Vector3d::UnitZ()
+  };
+  const PolygonSurfaceMesh<double> poly_mesh_of_two_triangles({
+      3, 1, 2, 3,
+      3, 0, 1, 2,
+  }, vertices);
+  // clang-format on
+
+  const TriangleSurfaceMesh<double> tri_mesh =
+      MakeTriangleFromPolygonMeshWithCentroids(poly_mesh_of_two_triangles);
+
+  EXPECT_EQ(tri_mesh.num_vertices(), 6);
+  EXPECT_EQ(tri_mesh.num_triangles(), 6);
+
+  // First three triangles share the centroidal vertex v4 = (v1 + v2 + v3) / 3.
+  EXPECT_EQ(tri_mesh.element(0).vertex(0), 4);
+  EXPECT_EQ(tri_mesh.element(0).vertex(1), 3);
+  EXPECT_EQ(tri_mesh.element(0).vertex(2), 1);
+
+  EXPECT_EQ(tri_mesh.element(1).vertex(0), 4);
+  EXPECT_EQ(tri_mesh.element(1).vertex(1), 1);
+  EXPECT_EQ(tri_mesh.element(1).vertex(2), 2);
+
+  EXPECT_EQ(tri_mesh.element(2).vertex(0), 4);
+  EXPECT_EQ(tri_mesh.element(2).vertex(1), 2);
+  EXPECT_EQ(tri_mesh.element(2).vertex(2), 3);
+
+  // Last three triangles share the centroidal vertex v5 = (v0 + v1 + v2) / 3.
+  EXPECT_EQ(tri_mesh.element(3).vertex(0), 5);
+  EXPECT_EQ(tri_mesh.element(3).vertex(1), 2);
+  EXPECT_EQ(tri_mesh.element(3).vertex(2), 0);
+
+  EXPECT_EQ(tri_mesh.element(4).vertex(0), 5);
+  EXPECT_EQ(tri_mesh.element(4).vertex(1), 0);
+  EXPECT_EQ(tri_mesh.element(4).vertex(2), 1);
+
+  EXPECT_EQ(tri_mesh.element(5).vertex(0), 5);
+  EXPECT_EQ(tri_mesh.element(5).vertex(1), 1);
+  EXPECT_EQ(tri_mesh.element(5).vertex(2), 2);
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace geometry

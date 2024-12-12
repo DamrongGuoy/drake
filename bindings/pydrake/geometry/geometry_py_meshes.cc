@@ -157,6 +157,14 @@ void DoScalarIndependentDefinitions(py::module m) {
         py::arg("poly_mesh"), internal_doc);
   }
 
+  // MakeTriangleFromPolygonMeshWithCentroids
+  {
+    constexpr char internal_doc[] = "(internal use only)";
+    m.def("_MakeTriangleFromPolygonMeshWithCentroids",
+          &drake::geometry::internal::MakeTriangleFromPolygonMeshWithCentroids,
+          py::arg("poly_mesh"), internal_doc);
+  }
+
   // SurfacePolygon
   {
     using Class = SurfacePolygon;
