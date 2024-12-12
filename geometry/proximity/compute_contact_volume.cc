@@ -51,7 +51,9 @@ std::unique_ptr<PolygonSurfaceMesh<T>> HackToIntersectSurfaceWithVolume(
           id_S, volume_S.pressure_field(), volume_S.bvh(), X_WS,
           // Rigid surface
           id_R, boundary_R.tri_mesh(), boundary_R.tri_bvh(), X_WR,
-          HydroelasticContactRepresentation::kPolygon);
+          HydroelasticContactRepresentation::kPolygon,
+          // filter_face_normal_along_field_gradient
+          false);
 
   if (hydro_contact_surface == nullptr) {
     return nullptr;
