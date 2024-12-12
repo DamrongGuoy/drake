@@ -167,6 +167,63 @@ TEST_F(ComputeContactVolumeTest, ComputeContactVolume_NoContact) {
   EXPECT_EQ(pair.second, nullptr);
 }
 
+TEST_F(ComputeContactVolumeTest, InPairOrderByGeometryIds) {
+  GeometryId first_id = GeometryId::get_new_id();
+  GeometryId second_id = GeometryId::get_new_id();
+  const RigidTransformd X_WM = RigidTransformd::Identity();
+  const RigidTransformd X_WN(0.03 * Vector3d::UnitX());
+
+  {
+    SCOPED_TRACE("ComputeContactVolume(first_id, second_id)");
+    std::pair<std::unique_ptr<ContactSurface<double>>,
+              std::unique_ptr<ContactSurface<double>>>
+        pair = ComputeContactVolume(first_id, box_boundary_M_, X_WM, second_id,
+                                    octahedron_boundary_N_, X_WN,
+                                    // Extra parameters because we do not have
+                                    // triangle-triangle mesh clipping yet.
+                                    box_hydro_compliant_geometry_,
+                                    octahedron_hydro_compliant_geometry_);
+    // Each contact surface always has id_M(), id_N() in increasing order.
+    EXPECT_EQ(pair.first->id_M(), first_id);
+    EXPECT_EQ(pair.first->id_N(), second_id);
+    EXPECT_EQ(pair.second->id_M(), first_id);
+    EXPECT_EQ(pair.second->id_N(), second_id);
+    // First contact surface is on the first_id's geometry, so the contact
+    // surface has no grad_E_M.
+    EXPECT_FALSE(pair.first->HasGradE_M());
+    EXPECT_TRUE(pair.first->HasGradE_N());
+    // Second contact surface is on the second_id's geometry, so the contact
+    // surface has no grad_E_N.
+    EXPECT_FALSE(pair.second->HasGradE_N());
+    EXPECT_TRUE(pair.second->HasGradE_M());
+  }
+
+  {
+    SCOPED_TRACE("Switch Id's.");
+    std::pair<std::unique_ptr<ContactSurface<double>>,
+              std::unique_ptr<ContactSurface<double>>>
+        pair = ComputeContactVolume(second_id, box_boundary_M_, X_WM, first_id,
+                                    octahedron_boundary_N_, X_WN,
+                                    // Extra parameters because we do not have
+                                    // triangle-triangle mesh clipping yet.
+                                    box_hydro_compliant_geometry_,
+                                    octahedron_hydro_compliant_geometry_);
+    // Each contact surface always has id_M(), id_N() in increasing order.
+    EXPECT_EQ(pair.first->id_M(), first_id);
+    EXPECT_EQ(pair.first->id_N(), second_id);
+    EXPECT_EQ(pair.second->id_M(), first_id);
+    EXPECT_EQ(pair.second->id_N(), second_id);
+    // First contact surface is on the first_id's geometry, so the contact
+    // surface has no grad_E_M.
+    EXPECT_FALSE(pair.first->HasGradE_M());
+    EXPECT_TRUE(pair.first->HasGradE_N());
+    // Second contact surface is on the second_id's geometry, so the contact
+    // surface has no grad_E_N.
+    EXPECT_FALSE(pair.second->HasGradE_N());
+    EXPECT_TRUE(pair.second->HasGradE_M());
+  }
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace geometry

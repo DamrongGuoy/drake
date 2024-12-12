@@ -429,6 +429,9 @@ class QueryObject {
    pairs of contact surfaces ∂Ωₘ and ∂Ωₙ. Each of the ContactSurface has
    polygonal representation.  The ordering of the results is guaranteed to
    be consistent -- for fixed geometry poses, the results will remain the same.
+   For each pair of contact surfaces {∂Ωₘ, ∂Ωₙ}, the one with smaller
+   GeometryId comes first, i.e., for id_M < id_N, the pair is {∂Ωₘ, ∂Ωₙ},
+   not {∂Ωₙ, ∂Ωₘ}.
 
   Warning: Be careful with the convention explained in ContactSurface
   documentation regarding the order of the two GeometryId's and the normal
