@@ -387,7 +387,8 @@ ComputeContactSurfaceFromSoftVolumeRigidSurface(
     const TriangleSurfaceMesh<double>& mesh_R,
     const Bvh<Obb, TriangleSurfaceMesh<double>>& bvh_R,
     const math::RigidTransform<T>& X_WR,
-    HydroelasticContactRepresentation representation) {
+    HydroelasticContactRepresentation representation,
+    bool filter_face_normal_along_field_gradient) {
   auto process_intersection =
       [&X_WS, id_S,
        id_R](auto&& intersector_in) -> std::unique_ptr<ContactSurface<T>> {
@@ -426,12 +427,16 @@ ComputeContactSurfaceFromSoftVolumeRigidSurface(
 
   if (representation == HydroelasticContactRepresentation::kTriangle) {
     SurfaceVolumeIntersector<TriMeshBuilder<T>, Obb> intersector;
-    intersector.SampleVolumeFieldOnSurface(field_S, bvh_S, mesh_R, bvh_R, X_SR);
+    intersector.SampleVolumeFieldOnSurface(
+        field_S, bvh_S, mesh_R, bvh_R, X_SR,
+        filter_face_normal_along_field_gradient);
     return process_intersection(intersector);
   } else {
     // Polygon.
     SurfaceVolumeIntersector<PolyMeshBuilder<T>, Obb> intersector;
-    intersector.SampleVolumeFieldOnSurface(field_S, bvh_S, mesh_R, bvh_R, X_SR);
+    intersector.SampleVolumeFieldOnSurface(
+        field_S, bvh_S, mesh_R, bvh_R, X_SR,
+        filter_face_normal_along_field_gradient);
     return process_intersection(intersector);
   }
 }
