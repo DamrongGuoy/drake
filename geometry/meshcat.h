@@ -228,6 +228,24 @@ class Meshcat {
                  bool wireframe = false, double wireframe_line_width = 1.0,
                  SideOfFaceToRender side = kDoubleSide);
 
+  /** Sets the "object" at `path` in the scene tree to a PolygonSurfaceMesh.
+
+  @param path a "/"-delimited string indicating the path in the scene tree. See
+              @ref meshcat_path "Meshcat paths" for the semantics.
+  @param mesh is a PolygonSurfaceMesh object.
+  @param rgba is the mesh face or wireframe color.
+  @param wireframe if "true", then only the polygon edges are visualized, not
+                   the faces.
+  @param wireframe_line_width is the width in pixels.  Due to limitations in
+                              WebGL implementations, the line width may be 1
+                              regardless of the set value.
+  @pydrake_mkdoc_identifier{polygon_surface_mesh}
+  */
+  void SetObject(std::string_view path, const PolygonSurfaceMesh<double>& mesh,
+                 const Rgba& rgba = Rgba(0.1, 0.1, 0.1, 1.0),
+                 bool wireframe = false, double wireframe_line_width = 1.0,
+                 SideOfFaceToRender side = kDoubleSide);
+
   /** Sets the "object" at `path` in the scene tree to a piecewise-linear
   interpolation between the `vertices`.
 
