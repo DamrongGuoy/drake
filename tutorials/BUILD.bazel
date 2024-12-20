@@ -182,6 +182,7 @@ drake_jupyter_py_binary(
     data = [
         "@drake_models//:dishes",
         "@drake_models//:veggies",
+        ":data_files",
     ],
     test_timeout = "moderate",
     deps = [
@@ -217,6 +218,13 @@ drake_py_test(
     tags = ["lint"],
     deps = [
         "@rules_python//python/runfiles",
+    ],
+)
+
+filegroup(
+    name = "data_files",
+    srcs = [
+        "cube.vtk",
     ],
 )
 
