@@ -1110,24 +1110,68 @@ class Meshcat::Impl {
                     wireframe_line_width, side);
   }
 
+  // Helper of SetObject(..., PolygonSurfaceMesh)
+  void SetObjectPolygonSurfaceMeshShade(std::string_view path,
+                                        const PolygonSurfaceMesh<double>& mesh,
+                                        const Rgba& rgba,
+                                        SideOfFaceToRender side) {
+    SetObject(path, internal::MakeTriangleFromPolygonMesh(mesh), rgba,
+              /*wireframe*/ false, /*wireframe_line_width*/ 1, side);
+  }
+
+  // Another helper of SetObject(..., PolygonSurfaceMesh)
+  void SetObjectPolugonSurfaceMeshWireframe(
+      std::string_view path, const PolygonSurfaceMesh<double>& mesh,
+      const Rgba& rgba, double line_width) {
+    // TODO(DamrongGuoy): Use hashing, so we can draw each edge only once.
+
+    // Count the sum of number of line segments across all polygons.
+    // This number is usually twice the number of edges if the mesh is a
+    // closed manifold.  For simplicity, we will draw each edge once per its
+    // polygon. If an edge is shared by two polygons, we will draw it twice.
+    int num_line_segments = 0;
+    for (int f = 0; f < mesh.num_elements(); ++f) {
+      // The number of line segments in a polygon is the same as its number
+      // of vertices.
+      num_line_segments += mesh.element(f).num_vertices();
+    }
+
+    Eigen::Matrix3Xd start(3, num_line_segments);
+    Eigen::Matrix3Xd end(3, num_line_segments);
+    int l = 0;
+    for (int f = 0; f < mesh.num_elements(); ++f) {
+      const SurfacePolygon polygon = mesh.element(f);
+      // Example of (i, j) indexing scheme.
+      // Let's say the polygon has 5 vertices:
+      // i  4 0 1 2 3
+      // j  0 1 2 3 4
+      int i = polygon.num_vertices() - 1;
+      for (int j = 0; j < polygon.num_vertices(); ++j) {
+        int vi = polygon.vertex(i);
+        int vj = polygon.vertex(j);
+        start.col(l) = mesh.vertex(vi);
+        end.col(l) = mesh.vertex(vj);
+        i = j;
+        ++l;
+      }
+    }
+    SetLineSegments(path, start, end, line_width, rgba);
+  }
+
   // This function is public via the PIMPL.
   void SetObject(std::string_view path, const PolygonSurfaceMesh<double>& mesh,
                  const Rgba& rgba, bool wireframe, double wireframe_line_width,
                  SideOfFaceToRender side) {
     DRAKE_DEMAND(IsThread(main_thread_id_));
-    Eigen::Matrix3Xd vertices(3, mesh.num_vertices());
-    for (int i = 0; i < mesh.num_vertices(); ++i) {
-      vertices.col(i) = mesh.vertex(i);
+    if (mesh.num_elements() == 0) {
+      return;
     }
-    Eigen::Matrix3Xi faces(3, mesh.num_elements());
-    for (int i = 0; i < mesh.num_elements(); ++i) {
-      const auto& e = mesh.element(i);
-      for (int j = 0; j < 3; ++j) {
-        faces(j, i) = e.vertex(j);
-      }
+    if (!wireframe) {
+      SetObjectPolygonSurfaceMeshShade(path, mesh, rgba, side);
+    } else {
+      SetObjectPolugonSurfaceMeshWireframe(path, mesh, rgba,
+                                           wireframe_line_width);
     }
-    SetTriangleMesh(path, vertices, faces, rgba, wireframe,
-                    wireframe_line_width, side);
   }
 
   // This function is public via the PIMPL.

@@ -210,6 +210,15 @@ class TestGeometryVisualizers(unittest.TestCase):
                           wireframe=True,
                           wireframe_line_width=2.0,
                           side=meshcat.SideOfFaceToRender.kFrontSide)
+        poly_mesh = mut.PolygonSurfaceMesh(
+            face_data=[len([0, 1, 2])] + [0, 1, 2],
+            vertices=[(0, 0, 0), (1, 0, 0), (0, 1, 0),])
+        meshcat.SetObject(path="/test/polygon_surface_mesh",
+                          poly_mesh=poly_mesh,
+                          rgba=mut.Rgba(0.3, 0.3, 0.3),
+                          wireframe=True,
+                          wireframe_line_width=2.0,
+                          side=meshcat.SideOfFaceToRender.kFrontSide)
         meshcat.SetLine(path="/test/line", vertices=np.eye(3),
                         line_width=2.0, rgba=mut.Rgba(.3, .3, .3))
         meshcat.SetLineSegments(path="/test/line_segments", start=np.eye(3),

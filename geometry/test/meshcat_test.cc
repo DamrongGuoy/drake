@@ -590,6 +590,26 @@ GTEST_TEST(MeshcatTest, SetObjectWithTriangleSurfaceMesh) {
   EXPECT_FALSE(meshcat.GetPackedObject("triangle_mesh_wireframe").empty());
 }
 
+GTEST_TEST(MeshcatTest, SetObjectWithPolygonSurfaceMesh) {
+  Meshcat meshcat;
+
+  PolygonSurfaceMesh<double> mesh{// face_data
+                                  {3, 0, 1, 2},
+                                  // vertices
+                                  {{0, 0, 0}, {1, 0, 0}, {0, 1, 0}}};
+  meshcat.SetObject("polygon_mesh", mesh, Rgba(0.9, 0, 0.9, 1.0));
+  EXPECT_FALSE(meshcat.GetPackedObject("polygon_mesh").empty());
+
+  meshcat.SetObject("polygon_mesh_wireframe", mesh, Rgba(0, 0.9, 0, 1.0),
+                    true, 5.0);
+  EXPECT_FALSE(meshcat.GetPackedObject("polygon_mesh_wireframe").empty());
+
+  // Special case: no polygons, no-op.
+  PolygonSurfaceMesh<double> empty;
+  meshcat.SetObject("polygon_mesh_empty", empty);
+  EXPECT_TRUE(meshcat.GetPackedObject("polygon_mesh_empty").empty());
+}
+
 GTEST_TEST(MeshcatTest, PlotSurface) {
   Meshcat meshcat;
 
