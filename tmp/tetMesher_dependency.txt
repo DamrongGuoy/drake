@@ -1,0 +1,250 @@
+Dependency of VegaFEM/libraries/mesher/tetMesher.{h,cpp} under libraries/ directory.
+
+The tetMesher depends on 9 directories (basicAlgorithms/, include/, mesh/ mesher/,
+minivector/, objMesh/, performanceCounter/, volumetricMesh/, and windingNumber/) out
+of 55 directories in VegaFEM/libraries/.
+
+The tetMesher needs 9 directories, 43 .h files, and 30 .cpp files.
+
+I surveyed this dependency on January 14, 2025 before v4.0.5 (January 22, 2025).
+It should still mostly work. However, a few files were moved from include/ to
+private/ from the last time I inspected.
+
+My survey on January 14, 2025 missed one #include near the end of triangle.cpp.
+At line 373 of triangle.cpp, it has #include "triangle-closestPoint.cpp".
+I add it now.
+
+Damrong Guoy
+
+mesher/
++tetMesher.h
+ include "vec3d.h"
+ include "objMesh.h"
+ include "tetMesh.h"
+ include "delaunayMesher.h"
+mesher/
++tetMesher.cpp
+ include "tetMesher.h"
+ include "triangleTetIntersection.h"
+ include "objMeshOrientable.h"
+ include "windingNumber.h"
+ include "performanceCounter.h"
+=====================================================================================
+
++basicAlgorithms/
++basicAlgorithms.h (no basicAlgorithms.cpp)
+ include "range.h"
++disjointSet.h
+ include std only
++disjointSet.cpp
+ include "disjointSet.h"
++range.h (no range.cpp)
+ include none
+
++private/
++macros.h (no macros.cpp)
+ include none
++matrixMultiplyMacros.h (no matrixMultiplyMacros.cpp)
+ include none
+
++include/
++openGL-headers.h (no openGL-headers.cpp)
+  #include <GL/gl.h> 
+  #include <GL/glu.h> 
+  #include <GL/glut.h>
++triple.h (no triple.cpp)
+ include none
++vegalong.h (no vegalong.cpp)
+ include std only
++valueIndex.h
+ include none
+
++mesh/
++boundingBox.h
+ include "minivector.h"
++boundingBox.cpp
+ include "openGL-headers.h"
+ include "boundingBox.h"
+ include "triangle.h"
+ include "valueIndex.h"
++edgeKey.h (no edgeKey.cpp)
+ include std only
++geometryQuery.h
+ include "minivector.h"
++geometryQuery.cpp
+ include "geometryQuery.h"
+ include "basicAlgorithms.h"
++initPredicates.h (no initPredicates.cpp)
+ include none
++predicates.h
+ include "initPredicates.h"
++predicates.cpp
+ include "predicates.h"
++simpleSphere.h
+ include "minivector.h"
+ include "boundingBox.h"
++simpleSphere.cpp
+ include "simpleSphere.h"
++tetKey.h
+ include "triKey.h"
+ include "vec4i.h"
++tetKey.cpp
+ include "tetKey.h"
++triangle.h
+ include "boundingBox.h"
+ include "minivector.h"
++triangle.cpp
+ include "openGL-headers.h"
+ include "triangle.h"
+ include "triangle-closestPoint.cpp"
+ include "tribox3.h"
++triangle-closestPoint.cpp
+ include "triangle.h"
++tribox3.h
+ include none
++tribox3.cpp
+ include "matrixMultiplyMacros.h"
++triKey.h
+ include "vec3i.h"
+ include "edgeKey.h"
++triKey.cpp
+ include "triKey.h"
++verticesInfo.h
+ include "minivector.h"
++verticesInfo.cpp
+ include "verticesInfo.h"
+
+mesher/
++delaunayMesher.h
+ include "objMeshOctree.h"
+ include "vec3d.h"
+ include "vegalong.h"
+ include "triangle.h"
+ include "triple.h"
+ include "tetMesh.h"
+ include "tetKey.h"
+ include "triKey.h"
++delaunayMesher.cpp
+ include "delaunayMesher.h"
+ include "mat3d.h"
+ include "windingNumber.h"
+ include "verticesInfo.h"
+ include "predicates.h"
++triangleTetIntersection.h
+ include "vec3d.h"
++triangleTetIntersection.cpp
+ include "triangleTetIntersection.h"
+
++minivector/
++eig3.h
+ include none
++eig3.cpp
+ include std only
++mat3d.h
+ include "vec3d.h"
++mat3d.cpp
+ include "mat3d.h"
+ include "eig3.h"
++minivector.h (no minivector.cpp)
+ include "vec2d.h"
+ include "vec3d.h"
+ include "vec4d.h"
+ include "mat3d.h"
+ include "vec3i.h"
+ include "vec4i.h"
++vec2d.h
+ include std only
++vec2d.cpp
+ include "vec2d.h"
++vec3d.h
+ include std only
++vec3d.cpp
+ include "vec3d.h"
++vec3i.h
+ include "vec3d.h"
++vec3i.cpp
+ include "vec3i.h"
++vec4d.h (no vec4d.cpp)
+ include std only
++vec4i.h
+ include std only
++vec4i.cpp
+ include vec4i.h
+
++objMesh/
++objMesh.h
+ include "minivector.h"
++objMesh.cpp
+ include "macros.h"
+ include "disjointSet.h"
+ include "objMesh.h"
++objMeshOctree.h
+ include "octree.h"
+ include "objMesh.h"
++objMeshOctree.cpp
+ include "triple.h"
+ include "objMeshOctree.h"
++objMeshOrientable.h
+ include "objMesh.h"
++objMeshOrientable.cpp
+ include "objMeshOrientable.h"
++octree.h
+ include "minivector.h"
+ include "boundingBox.h"
+ include "triangle.h"
+ include "simpleSphere.h"
+ include "openGL-headers.h"
++octree.cpp
+ include "octree.h"
+ include "triangle.h"
+
++performanceCounter/
++performanceCounter.h (no performanceCounter.cpp)
+ include std only
+
++volumetricMesh/
++tetMesh.h
+ include "volumetricMesh.h"
+ include "vec4i.h"
++tetMesh.cpp
+ include "tetMesh.h"
+ include "volumetricMeshParser.h"
+ include "geometryQuery.h"
++volumetricMesh.h
+ include "minivector.h"
+ include "boundingBox.h"
++volumetricMesh.cpp
+ include "volumetricMeshParser.h"
+ include "volumetricMesh.h"
+ include "volumetricMeshENuMaterial.h"
+ include "volumetricMeshOrthotropicMaterial.h"
+ include "volumetricMeshMooneyRivlinMaterial.h"
+ include "range.h"
++volumetricMeshENuMaterial.h
+ include "volumetricMesh.h"
++volumetricMeshENuMaterial.cpp
+ include "volumetricMeshENuMaterial.h"
++volumetricMeshMooneyRivlinMaterial.h
+ include "volumetricMesh.h"
++volumetricMeshMooneyRivlinMaterial.cpp
+ include "volumetricMeshMooneyRivlinMaterial.h"
++volumetricMeshOrthotropicMaterial.h
+ include "volumetricMesh.h"
++volumetricMeshOrthotropicMaterial.cpp
+ include "volumetricMeshOrthotropicMaterial.h"
++volumetricMeshParser.h
+ include std only
++volumetricMeshParser.cpp
+ include "volumetricMeshParser.h"
+
++windingNumber/
++windingNumber.h
+ include "objMesh.h"
+ include "minivector.h"
++windingNumber.cpp
+ include "windingNumber.h"
+ include "macros.h"
+
+
+
+
