@@ -9,9 +9,15 @@ load(
 )
 
 drake_cc_library(
-    name = "tmpVegaTetMesher",
-    srcs = [],
-    hdrs = [],
+    name = "DrakeVega",
+    srcs = ["vega_mesh_to_drake_mesh.cc"],
+    hdrs = ["vega_mesh_to_drake_mesh.h"],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+    deps = [
+        ":volumetricMesh",
+        "//geometry/proximity:volume_mesh",
+    ],
 )
 
 drake_cc_library(
@@ -221,6 +227,20 @@ drake_cc_googletest(
         "//geometry:test_obj_files",
     ],
     deps = [
+        ":mesher",
+        "//common",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+)
+
+drake_cc_googletest(
+    name = "vega_mesh_to_drake_mesh_test",
+    data = [
+        "//geometry:test_obj_files",
+    ],
+    deps = [
+        ":DrakeVega",
         ":mesher",
         "//common",
     ],
