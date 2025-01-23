@@ -78,6 +78,7 @@ drake_cc_library(
         "boundingBox.cpp",
         "geometryQuery.cpp",
         "predicates.cpp",
+        "predicates_Shewchuk.c",
         "simpleSphere.cpp",
         "tetKey.cpp",
         "triangle.cpp",
@@ -214,4 +215,15 @@ drake_cc_library(
     ],
 )
 
-
+drake_cc_googletest(
+    name = "tetMesher_test",
+    data = [
+        "//geometry:test_obj_files",
+    ],
+    deps = [
+        ":mesher",
+        "//common",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+)
