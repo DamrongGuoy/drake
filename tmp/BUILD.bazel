@@ -1,0 +1,217 @@
+# Model after https://github.com/rpoyner-tri/drake/blob/xml-inertia-rewriter-dev/tmp/BUILD.bazel
+# and geometry/proximity/BUILD.bazel
+load(
+    "//tools/skylark:drake_cc.bzl",
+    "drake_cc_binary",
+    "drake_cc_googletest",
+    "drake_cc_library",
+    "drake_cc_package_library",
+)
+
+drake_cc_library(
+    name = "tmpVegaTetMesher",
+    srcs = [],
+    hdrs = [],
+)
+
+drake_cc_library(
+    name = "basicAlgorithms",
+    srcs = ["disjointSet.cpp"],
+    hdrs = [
+        "basicAlgorithms.h",
+        "disjointSet.h",
+        "range.h",
+    ],
+)
+
+drake_cc_library(
+    name = "private",
+    srcs = [],
+    hdrs = [
+        "macros.h",
+        "matrixMultiplyMacros.h",
+    ],
+)
+
+drake_cc_library(
+    name = "include",
+    srcs = [],
+    hdrs = [
+        # TODO(DamrongGuoy): Remove dependency on OpenGL.
+        # It wants gl.h, glu.h, and glut.h.
+        # The dependent files will need to change.
+        # They are boundingBox.cpp, triangle.cpp, and octree.cpp.
+        "openGL-headers.h",
+        "triple.h",
+        "valueIndex.h",
+        "vegalong.h",
+    ],
+)
+
+drake_cc_library(
+    name = "minivector",
+    srcs = [
+        "eig3.cpp",
+        "mat3d.cpp",
+        "vec2d.cpp",
+        "vec3d.cpp",
+        "vec3i.cpp",
+        "vec4i.cpp",
+    ],
+    hdrs = [
+        "eig3.h",
+        "mat3d.h",
+        "minivector.h",
+        "vec2d.h",
+        "vec3d.h",
+        "vec3i.h",
+        "vec4d.h",
+        "vec4i.h",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+)
+
+drake_cc_library(
+    name = "mesh",
+    srcs = [
+        "boundingBox.cpp",
+        "geometryQuery.cpp",
+        "predicates.cpp",
+        "simpleSphere.cpp",
+        "tetKey.cpp",
+        "triangle.cpp",
+        "tribox3.cpp",
+        "triKey.cpp",
+        "verticesInfo.cpp",
+    ],
+    hdrs = [
+        "boundingBox.h",
+        "edgeKey.h",
+        "geometryQuery.h",
+        "initPredicates.h",
+        "predicates.h",
+        "simpleSphere.h",
+        "tetKey.h",
+        "triangle.h",
+        "tribox3.h",
+        "triKey.h",
+        # triangle.cpp include triangle-closestPoint.cpp directly.
+        # There is no triangle-closestPoint.h.
+        "triangle-closestPoint.cpp",
+        "verticesInfo.h",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+    deps = [
+        ":basicAlgorithms",
+        ":include",
+        ":minivector",
+        ":private",
+    ],
+)
+
+drake_cc_library(
+    name = "objMesh",
+    srcs = [
+        "objMesh.cpp",
+        "objMeshOctree.cpp",
+        "objMeshOrientable.cpp",
+        "octree.cpp",
+    ],
+    hdrs = [
+        "objMesh.h",
+        "objMeshOctree.h",
+        "objMeshOrientable.h",
+        "octree.h",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+    deps = [
+        ":basicAlgorithms",
+        ":include",
+        ":mesh",
+        ":minivector",
+        ":private",
+    ],
+)
+
+drake_cc_library(
+    name = "performanceCounter",
+    srcs = [
+    ],
+    hdrs = [
+        "performanceCounter.h",
+    ],
+)
+
+drake_cc_library(
+    name = "volumetricMesh",
+    srcs = [
+        "tetMesh.cpp",
+        "volumetricMesh.cpp",
+        "volumetricMeshENuMaterial.cpp",
+        "volumetricMeshMooneyRivlinMaterial.cpp",
+        "volumetricMeshOrthotropicMaterial.cpp",
+        "volumetricMeshParser.cpp",
+    ],
+    hdrs = [
+        "tetMesh.h",
+        "volumetricMesh.h",
+        "volumetricMeshENuMaterial.h",
+        "volumetricMeshMooneyRivlinMaterial.h",
+        "volumetricMeshOrthotropicMaterial.h",
+        "volumetricMeshParser.h",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+    deps = [
+        ":basicAlgorithms",
+        ":mesh",
+        ":minivector",
+    ],
+)
+
+drake_cc_library(
+    name = "windingNumber",
+    srcs = [
+        "windingNumber.cpp",
+    ],
+    hdrs = [
+        "windingNumber.h",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+    deps = [
+      ":minivector",
+      ":objMesh",
+      ":private",
+    ],
+)
+
+drake_cc_library(
+    name = "mesher",
+    srcs = [
+        "delaunayMesher.cpp",
+        "triangleTetIntersection.cpp",
+        "tetMesher.cpp",
+    ],
+    hdrs = [
+        "delaunayMesher.h",
+        "triangleTetIntersection.h",
+        "tetMesher.h",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+    deps = [
+      ":include",
+      ":mesh",
+      ":minivector",
+      ":objMesh",
+      ":performanceCounter",
+      ":volumetricMesh",
+      ":windingNumber",
+    ],
+)
+
+
