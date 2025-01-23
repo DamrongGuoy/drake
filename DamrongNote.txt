@@ -1,0 +1,6 @@
+Hack to unofficially build VegaFEM/tetMesher under Drake.
+reference: https://github.com/DamrongGuoy/VegaFEM/tree/tetMesher_dependency
+
+cp ~/GitHub/DamrongGuoy/VegaFEM/tetMesher_dependency.txt tmp
+
+Damrong
