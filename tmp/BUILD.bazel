@@ -15,7 +15,10 @@ drake_cc_library(
     # -w  Inhibit all warning messages. They become errors.
     copts = ["-w"],
     deps = [
+        ":mesher",
+        ":objMesh",
         ":volumetricMesh",
+        "//geometry/proximity:triangle_surface_mesh",
         "//geometry/proximity:volume_mesh",
     ],
 )
@@ -227,6 +230,7 @@ drake_cc_googletest(
         "//geometry:test_obj_files",
     ],
     deps = [
+        ":DrakeVega",
         ":mesher",
         "//common",
     ],
@@ -236,12 +240,8 @@ drake_cc_googletest(
 
 drake_cc_googletest(
     name = "vega_mesh_to_drake_mesh_test",
-    data = [
-        "//geometry:test_obj_files",
-    ],
     deps = [
         ":DrakeVega",
-        ":mesher",
         "//common",
     ],
     # -w  Inhibit all warning messages. They become errors.
