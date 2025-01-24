@@ -1,35 +1,16 @@
 #include "../vega_mesh_to_drake_mesh.h"
-#include "../tetMesher.h"
-#include "../objMesh.h"
 
 #include <filesystem>
 
 #include <gtest/gtest.h>
 
-#include "drake/common/find_resource.h"
 #include "drake/geometry/proximity/volume_mesh.h"
 
 namespace drake {
 namespace geometry {
 namespace {
 
-namespace fs = std::filesystem;
 using Eigen::Vector3d;
-
-vegafem::TetMesh MakeVegaFemTetMesh() {
-  const fs::path obj_file =
-      FindResourceOrThrow("drake/geometry/test/non_convex_mesh.obj");
-
-  vegafem::ObjMesh obj_mesh(obj_file.native());
-  vegafem::TetMesher mesher;
-  // TetMesh * compute(
-  //     ObjMesh * surfaceMesh, double refinementQuality = 1.1,
-  //     double alpha = 2.0, double minDihedralAngle = 0.0,
-  //     int maxSteinerVertices = -1, double maxTimeSeconds = -1.0);
-
-  vegafem::TetMesh result(*mesher.compute(&obj_mesh));
-  return result;
-}
 
 GTEST_TEST(VegaFemTetMeshToDrakeVolumeMeshTest, Simple) {
   // A mesh of two tetrahedra with five vertices.
@@ -61,6 +42,38 @@ GTEST_TEST(VegaFemTetMeshToDrakeVolumeMeshTest, Simple) {
     EXPECT_EQ(drake_element.vertex(2), vega_mesh.getVertexIndices(element)[2]);
     EXPECT_EQ(drake_element.vertex(3), vega_mesh.getVertexIndices(element)[3]);
   }
+}
+
+GTEST_TEST(DrakeTriangleSurfaceMeshToVegaObjMeshTest, Tetrahedron) {
+  // A four-triangle mesh of a standard tetrahedron.
+  const TriangleSurfaceMesh<double> drake_surface_mesh{
+      {// The triangle windings give outward normals.
+       SurfaceTriangle{0, 2, 1}, SurfaceTriangle{0, 1, 3},
+       SurfaceTriangle{0, 3, 2}, SurfaceTriangle{1, 2, 3}},
+      {Vector3d::Zero(), Vector3d::UnitX(), Vector3d::UnitY(),
+       Vector3d::UnitZ()}};
+
+  vegafem::ObjMesh obj_mesh =
+      DrakeTriangleSurfaceMeshToVegaObjMesh(drake_surface_mesh);
+
+  EXPECT_EQ(obj_mesh.getNumVertices(), 4);
+  EXPECT_EQ(obj_mesh.getNumFaces(), 4);
+}
+
+GTEST_TEST(VegaCdtTest, Tetrahedron) {
+  // A four-triangle mesh of a standard tetrahedron.
+  const TriangleSurfaceMesh<double> drake_surface_mesh{
+      {// The triangle windings give outward normals.
+       SurfaceTriangle{0, 2, 1}, SurfaceTriangle{0, 1, 3},
+       SurfaceTriangle{0, 3, 2}, SurfaceTriangle{1, 2, 3}},
+      {Vector3d::Zero(), Vector3d::UnitX(), Vector3d::UnitY(),
+       Vector3d::UnitZ()}};
+
+  VolumeMesh<double> drake_tetrahedral_mesh = VegaCdt(drake_surface_mesh);
+
+  // Expect a one-tetrahedron mesh with four vertices.
+  EXPECT_EQ(drake_tetrahedral_mesh.num_vertices(), 4);
+  EXPECT_EQ(drake_tetrahedral_mesh.num_elements(), 1);
 }
 
 }  // namespace
