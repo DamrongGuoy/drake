@@ -149,22 +149,6 @@ void DoScalarIndependentDefinitions(py::module m) {
   using namespace drake::geometry;
   constexpr auto& doc = pydrake_doc.drake.geometry;
 
-  // MakeTriangleFromPolygonMesh
-  {
-    constexpr char internal_doc[] = "(internal use only)";
-    m.def("_MakeTriangleFromPolygonMesh",
-        &drake::geometry::internal::MakeTriangleFromPolygonMesh,
-        py::arg("poly_mesh"), internal_doc);
-  }
-
-  // MakeTriangleFromPolygonMeshWithCentroids
-  {
-    constexpr char internal_doc[] = "(internal use only)";
-    m.def("_MakeTriangleFromPolygonMeshWithCentroids",
-          &drake::geometry::internal::MakeTriangleFromPolygonMeshWithCentroids,
-          py::arg("poly_mesh"), internal_doc);
-  }
-
   // SurfacePolygon
   {
     using Class = SurfacePolygon;
@@ -216,6 +200,22 @@ void DoMeshDependentDefinitions(py::module m) {
       py::arg("filename"), py::arg("scale") = 1.0,
       // N.B. We have not bound the optional "on_warning" argument.
       doc.ReadObjToTriangleSurfaceMesh.doc_3args_filename_scale_on_warning);
+
+  // MakeTriangleFromPolygonMesh
+  {
+    constexpr char internal_doc[] = "(internal use only)";
+    m.def("_MakeTriangleFromPolygonMesh",
+          &drake::geometry::internal::MakeTriangleFromPolygonMesh,
+          py::arg("poly_mesh"), internal_doc);
+  }
+
+  // MakeTriangleFromPolygonMeshWithCentroids
+  {
+    constexpr char internal_doc[] = "(internal use only)";
+    m.def("_MakeTriangleFromPolygonMeshWithCentroids",
+          &drake::geometry::internal::MakeTriangleFromPolygonMeshWithCentroids,
+          py::arg("poly_mesh"), internal_doc);
+  }
 }
 
 }  // namespace
