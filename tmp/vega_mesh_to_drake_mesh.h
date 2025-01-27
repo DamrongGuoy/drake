@@ -15,7 +15,5 @@ VolumeMesh<double> VegaFemTetMeshToDrakeVolumeMesh(
 vegafem::ObjMesh DrakeTriangleSurfaceMeshToVegaObjMesh(
     const TriangleSurfaceMesh<double>& drake_mesh);
 
-VolumeMesh<double> VegaCdt(const TriangleSurfaceMesh<double>& surface_mesh);
-
 }  // namespace geometry
 }  // namespace drake

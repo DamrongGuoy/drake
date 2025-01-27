@@ -8,6 +8,27 @@ load(
     "drake_cc_package_library",
 )
 
+package(default_visibility = ["//visibility:public"])
+
+drake_cc_package_library(
+    name = "tmp",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":vega_cdt",
+    ]
+)
+
+drake_cc_library(
+    name = "vega_cdt",
+    srcs = ["vega_cdt.cc"],
+    hdrs = ["vega_cdt.h"],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+    deps = [
+        ":DrakeVega",
+    ],
+)
+
 drake_cc_library(
     name = "DrakeVega",
     srcs = ["vega_mesh_to_drake_mesh.cc"],
@@ -242,6 +263,16 @@ drake_cc_googletest(
     name = "vega_mesh_to_drake_mesh_test",
     deps = [
         ":DrakeVega",
+        "//common",
+    ],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+)
+
+drake_cc_googletest(
+    name = "vega_cdt_test",
+    deps = [
+        ":vega_cdt",
         "//common",
     ],
     # -w  Inhibit all warning messages. They become errors.
