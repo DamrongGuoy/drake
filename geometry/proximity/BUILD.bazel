@@ -927,7 +927,7 @@ drake_cc_library(
     hdrs = ["surface_to_volume_mesh.h"],
     # -w  Inhibit all warning messages. They become errors.
     copts = ["-w"],
-    deps = [
+    implementation_deps = [
         "//tmp:vega_cdt",
     ],
 )
