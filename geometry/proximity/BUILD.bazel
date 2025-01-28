@@ -59,6 +59,7 @@ drake_cc_package_library(
         ":polygon_to_triangle_mesh",
         ":posed_half_space",
         ":sorted_triplet",
+        ":surface_to_volume_mesh",
         ":tessellation_strategy",
         ":triangle_surface_mesh",
         ":volume_mesh",
@@ -917,6 +918,17 @@ drake_cc_library(
     deps = [
         "//common:essential",
         "//common:is_less_than_comparable",
+    ],
+)
+
+drake_cc_library(
+    name = "surface_to_volume_mesh",
+    srcs = ["surface_to_volume_mesh.cc"],
+    hdrs = ["surface_to_volume_mesh.h"],
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
+    deps = [
+        "//tmp:vega_cdt",
     ],
 )
 
