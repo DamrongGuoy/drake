@@ -340,7 +340,7 @@ void TetMesh::computeBarycentricWeights(int el, const Vec3d & pos, double * weig
 
 double TetMesh::getTetDeterminant(const Vec3d & a, const Vec3d & b, const Vec3d & c, const Vec3d & d)
 {
-  return getTetDeterminant(a, b, c, d);
+  return dot(d - a, cross(b - a, c - a));
 }
 
 void TetMesh::interpolateGradient(int element, const double * U, int numFields, Vec3d pos, double * grad) const
