@@ -35,6 +35,7 @@
 #include <functional>
 #include <cstring>
 #include <algorithm>
+#include <stdexcept>
 
 namespace vegafem
 {
@@ -64,14 +65,23 @@ bool same_sign(double a, double b)
 }
 
 int simplex_intersection2d(int k, const double* x0, const double* x1, const double* x2, const double* x3,
-    double* alpha0, double* alpha1, double* alpha2, double* alpha3);
+    double* alpha0, double* alpha1, double* alpha2, double* alpha3) {
+  throw std::runtime_error(
+      "vegafem::simplex_intersection2d: D. Guoy's fault injection");
+}
 
 int simplex_intersection3d(int k, const double* x0, const double* x1, const double* x2, const double* x3, const double* x4, double* alpha0,
-    double* alpha1, double* alpha2, double* alpha3, double* alpha4);
+    double* alpha1, double* alpha2, double* alpha3, double* alpha4) {
+  throw std::runtime_error(
+      "vegafem::simplex_intersection3d(11params): D. Guoy's fault injection");
+}
 
 // degenerate test in 3d - assumes four points lie on the same plane
 int simplex_intersection3d(int k, const double* x0, const double* x1, const double* x2, const double* x3,
-    double* alpha0, double* alpha1, double* alpha2, double* alpha3);
+    double* alpha0, double* alpha1, double* alpha2, double* alpha3)  {
+  throw std::runtime_error(
+      "vegafem::simplex_intersection3d(9params): D. Guoy's fault injection");
+}
 
 // -------------------------------------------------------------
 
