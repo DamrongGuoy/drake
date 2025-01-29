@@ -927,6 +927,10 @@ drake_cc_library(
     hdrs = ["surface_to_volume_mesh.h"],
     # -w  Inhibit all warning messages. They become errors.
     copts = ["-w"],
+    deps = [
+        ":triangle_surface_mesh",
+        ":volume_mesh",
+    ],
     implementation_deps = [
         "//tmp:vega_cdt",
     ],
@@ -1727,6 +1731,13 @@ drake_cc_googletest(
     name = "sorted_triplet_test",
     deps = [
         ":sorted_triplet",
+    ],
+)
+
+drake_cc_googletest(
+    name = "surface_to_volume_mesh_test",
+    deps = [
+        ":surface_to_volume_mesh",
     ],
 )
 
