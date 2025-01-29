@@ -163,11 +163,11 @@ void TriangleBasic::render() const
    Vec3d b = vertex[1];
    Vec3d c = vertex[2];
 
-   glBegin(GL_TRIANGLES);
-     glVertex3f(a[0],a[1],a[2]);
-     glVertex3f(b[0],b[1],b[2]);
-     glVertex3f(c[0],c[1],c[2]);
-   glEnd();
+   // glBegin(GL_TRIANGLES);
+   //   glVertex3f(a[0],a[1],a[2]);
+   //   glVertex3f(b[0],b[1],b[2]);
+   //   glVertex3f(c[0],c[1],c[2]);
+   // glEnd();
 }
 
 void TriangleBasic::renderEdges() const
@@ -176,14 +176,14 @@ void TriangleBasic::renderEdges() const
    Vec3d b = vertex[1];
    Vec3d c = vertex[2];
 
-   glBegin(GL_LINES);
-     glVertex3f(a[0],a[1],a[2]);
-     glVertex3f(b[0],b[1],b[2]);
-     glVertex3f(b[0],b[1],b[2]);
-     glVertex3f(c[0],c[1],c[2]);
-     glVertex3f(c[0],c[1],c[2]);
-     glVertex3f(a[0],a[1],a[2]);
-   glEnd();
+   // glBegin(GL_LINES);
+   //   glVertex3f(a[0],a[1],a[2]);
+   //   glVertex3f(b[0],b[1],b[2]);
+   //   glVertex3f(b[0],b[1],b[2]);
+   //   glVertex3f(c[0],c[1],c[2]);
+   //   glVertex3f(c[0],c[1],c[2]);
+   //   glVertex3f(a[0],a[1],a[2]);
+   // glEnd();
 }
 
 template<class TriangleClass>
