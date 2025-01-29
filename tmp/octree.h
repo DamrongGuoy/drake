@@ -354,12 +354,12 @@ void Octree<TriangleClass>::renderHelper(int level, int boxIndex)
     {
         if (renderCounter == boxIndex)
         {
-            glColor3f(0, 1, 0);
+            // glColor3f(0, 1, 0);
             boundingBox.render();
-            glColor3f(1, 0, 0);
+            // glColor3f(1, 0, 0);
             for (j = 0; j < triangles.size(); j++)
                 triangles[j].render();
-            glColor3f(0, 0, 0);
+            // glColor3f(0, 0, 0);
             for (j = 0; j < triangles.size(); j++)
                 triangles[j].renderEdges();
             if (printRenderInfo == 1)

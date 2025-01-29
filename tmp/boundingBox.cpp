@@ -187,37 +187,37 @@ void BoundingBox::render() const
   Vec3d p6(bmax_[0],bmax_[1],bmax_[2]);
   Vec3d p7(bmin_[0],bmax_[1],bmax_[2]);
 
-  #define VTX(i) (i)[0],(i)[1],(i)[2]
-  glBegin(GL_LINES);
-    glVertex3f(VTX(p0));
-    glVertex3f(VTX(p1));
-    glVertex3f(VTX(p1));
-    glVertex3f(VTX(p2));
-    glVertex3f(VTX(p2));
-    glVertex3f(VTX(p3));
-    glVertex3f(VTX(p3));
-    glVertex3f(VTX(p0));
-
-    glVertex3f(VTX(p0));
-    glVertex3f(VTX(p4));
-    glVertex3f(VTX(p1));
-    glVertex3f(VTX(p5));
-    glVertex3f(VTX(p2));
-    glVertex3f(VTX(p6));
-    glVertex3f(VTX(p3));
-    glVertex3f(VTX(p7));
-
-    glVertex3f(VTX(p4));
-    glVertex3f(VTX(p5));
-    glVertex3f(VTX(p5));
-    glVertex3f(VTX(p6));
-    glVertex3f(VTX(p6));
-    glVertex3f(VTX(p7));
-    glVertex3f(VTX(p7));
-    glVertex3f(VTX(p4));
-  glEnd();
-
-  #undef VTX
+  // #define VTX(i) (i)[0],(i)[1],(i)[2]
+  // glBegin(GL_LINES);
+  //   glVertex3f(VTX(p0));
+  //   glVertex3f(VTX(p1));
+  //   glVertex3f(VTX(p1));
+  //   glVertex3f(VTX(p2));
+  //   glVertex3f(VTX(p2));
+  //   glVertex3f(VTX(p3));
+  //   glVertex3f(VTX(p3));
+  //   glVertex3f(VTX(p0));
+//
+  //   glVertex3f(VTX(p0));
+  //   glVertex3f(VTX(p4));
+  //   glVertex3f(VTX(p1));
+  //   glVertex3f(VTX(p5));
+  //   glVertex3f(VTX(p2));
+  //   glVertex3f(VTX(p6));
+  //   glVertex3f(VTX(p3));
+  //   glVertex3f(VTX(p7));
+//
+  //   glVertex3f(VTX(p4));
+  //   glVertex3f(VTX(p5));
+  //   glVertex3f(VTX(p5));
+  //   glVertex3f(VTX(p6));
+  //   glVertex3f(VTX(p6));
+  //   glVertex3f(VTX(p7));
+  //   glVertex3f(VTX(p7));
+  //   glVertex3f(VTX(p4));
+  // glEnd();
+//
+  // #undef VTX
 }
 
 // should this be turned into a self-modifying function?
