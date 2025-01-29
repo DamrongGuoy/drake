@@ -1032,6 +1032,18 @@ drake_cc_library(
 )
 
 drake_cc_binary(
+    name = "mtetm",
+    srcs = ["mtetm.cc"],
+    deps = [
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        ":surface_to_volume_mesh",
+        "//common:add_text_logging_gflags",
+        "@gflags",
+    ],
+)
+
+drake_cc_binary(
     name = "refine_mesh",
     srcs = ["refine_mesh.cc"],
     deps = [
@@ -1805,6 +1817,17 @@ drake_py_unittest(
     data = [
         ":refine_mesh",
         "//geometry:test_vtk_files",
+    ],
+    deps = [
+        "@rules_python//python/runfiles",
+    ],
+)
+
+drake_py_unittest(
+    name = "mtetm_test",
+    data = [
+        ":mtetm",
+        "//geometry:test_obj_files",
     ],
     deps = [
         "@rules_python//python/runfiles",
