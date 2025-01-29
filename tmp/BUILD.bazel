@@ -15,7 +15,7 @@ drake_cc_package_library(
     visibility = ["//visibility:public"],
     deps = [
         ":vega_cdt",
-    ]
+    ],
 )
 
 drake_cc_library(
@@ -111,9 +111,9 @@ drake_cc_library(
         "predicates_Shewchuk.c",
         "simpleSphere.cpp",
         "tetKey.cpp",
+        "triKey.cpp",
         "triangle.cpp",
         "tribox3.cpp",
-        "triKey.cpp",
         "verticesInfo.cpp",
     ],
     hdrs = [
@@ -214,9 +214,9 @@ drake_cc_library(
     # -w  Inhibit all warning messages. They become errors.
     copts = ["-w"],
     deps = [
-      ":minivector",
-      ":objMesh",
-      ":private",
+        ":minivector",
+        ":objMesh",
+        ":private",
     ],
 )
 
@@ -224,29 +224,31 @@ drake_cc_library(
     name = "mesher",
     srcs = [
         "delaunayMesher.cpp",
-        "triangleTetIntersection.cpp",
         "tetMesher.cpp",
+        "triangleTetIntersection.cpp",
     ],
     hdrs = [
         "delaunayMesher.h",
-        "triangleTetIntersection.h",
         "tetMesher.h",
+        "triangleTetIntersection.h",
     ],
     # -w  Inhibit all warning messages. They become errors.
     copts = ["-w"],
     deps = [
-      ":include",
-      ":mesh",
-      ":minivector",
-      ":objMesh",
-      ":performanceCounter",
-      ":volumetricMesh",
-      ":windingNumber",
+        ":include",
+        ":mesh",
+        ":minivector",
+        ":objMesh",
+        ":performanceCounter",
+        ":volumetricMesh",
+        ":windingNumber",
     ],
 )
 
 drake_cc_googletest(
     name = "tetMesher_test",
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
     data = [
         "//geometry:test_obj_files",
     ],
@@ -255,26 +257,24 @@ drake_cc_googletest(
         ":mesher",
         "//common",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
 )
 
 drake_cc_googletest(
     name = "vega_mesh_to_drake_mesh_test",
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
     deps = [
         ":DrakeVega",
         "//common",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
 )
 
 drake_cc_googletest(
     name = "vega_cdt_test",
+    # -w  Inhibit all warning messages. They become errors.
+    copts = ["-w"],
     deps = [
         ":vega_cdt",
         "//common",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
 )
