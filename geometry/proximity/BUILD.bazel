@@ -1748,8 +1748,14 @@ drake_cc_googletest(
 
 drake_cc_googletest(
     name = "surface_to_volume_mesh_test",
+    data = [
+        "//geometry:test_obj_files",
+    ],
     deps = [
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
         ":surface_to_volume_mesh",
+        "//common",
     ],
 )
 

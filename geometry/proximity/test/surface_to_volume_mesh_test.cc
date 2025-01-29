@@ -1,14 +1,23 @@
 #include "drake/geometry/proximity/surface_to_volume_mesh.h"
 
+#include <filesystem>
+
 #include <gtest/gtest.h>
+
+#include "drake/common/find_resource.h"
+#include "drake/common/text_logging.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
+#include "drake/geometry/proximity/obj_to_surface_mesh.h"
 
 namespace drake {
 namespace geometry {
 namespace {
 
+namespace fs = std::filesystem;
+
 using Eigen::Vector3d;
 
-GTEST_TEST(ConvertSurfaceToVolumeMeshTest, Tetrahedron) {
+GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OneTetrahedron) {
   // A four-triangle mesh of a standard tetrahedron.
   const TriangleSurfaceMesh<double> drake_surface_mesh{
       {// The triangle windings give outward normals.
@@ -24,6 +33,118 @@ GTEST_TEST(ConvertSurfaceToVolumeMeshTest, Tetrahedron) {
   EXPECT_EQ(volume_mesh.num_vertices(), 4);
   EXPECT_EQ(volume_mesh.num_elements(), 1);
 }
+
+GTEST_TEST(bad_geometry_volume_zero, OK) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/bad_geometry_volume_zero.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+  ASSERT_EQ(surface.num_vertices(), 6);
+  ASSERT_EQ(surface.num_triangles(), 8);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 7);
+  EXPECT_EQ(volume.tetrahedra().size(), 8);
+}
+
+GTEST_TEST(convex, OK) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/convex.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+  ASSERT_EQ(surface.num_vertices(), 20);
+  ASSERT_EQ(surface.num_triangles(), 36);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 20);
+  EXPECT_EQ(volume.tetrahedra().size(), 38);
+}
+
+// GTEST_TEST(cube_corners, SilentFail) {
+//   const fs::path filename =
+//       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
+//   const TriangleSurfaceMesh<double> surface =
+//       ReadObjToTriangleSurfaceMesh(filename);
+//   EXPECT_EQ(surface.num_vertices(), 48);
+//   EXPECT_EQ(surface.num_triangles(), 64);
+//
+//   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+//
+//   EXPECT_EQ(volume.vertices().size(), 0);
+//   EXPECT_EQ(volume.tetrahedra().size(), 0);
+// }
+
+// GTEST_TEST(cube_with_hole, TimeOut) {
+//   const fs::path filename =
+//       FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
+//   const TriangleSurfaceMesh<double> surface =
+//       ReadObjToTriangleSurfaceMesh(filename);
+//   ASSERT_EQ(surface.num_vertices(), 16);
+//   ASSERT_EQ(surface.num_triangles(), 32);
+//
+//   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+//
+//   EXPECT_EQ(volume.vertices().size(), 0);
+//   EXPECT_EQ(volume.tetrahedra().size(), 0);
+// }
+
+GTEST_TEST(non_convex_mesh, Ok) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/non_convex_mesh.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+  ASSERT_EQ(surface.num_vertices(), 5);
+  ASSERT_EQ(surface.num_triangles(), 6);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 5);
+  EXPECT_EQ(volume.tetrahedra().size(), 3);
+}
+
+GTEST_TEST(octahedron, Ok) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/octahedron.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+  ASSERT_EQ(surface.num_vertices(), 6);
+  ASSERT_EQ(surface.num_triangles(), 8);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 6);
+  EXPECT_EQ(volume.tetrahedra().size(), 4);
+}
+
+GTEST_TEST(quad_cube, Ok) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/quad_cube.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+  ASSERT_EQ(surface.num_vertices(), 8);
+  ASSERT_EQ(surface.num_triangles(), 12);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 9);
+  EXPECT_EQ(volume.tetrahedra().size(), 11);
+}
+
+// GTEST_TEST(two_cube_objects, TimeOut) {
+//   const fs::path filename =
+//       FindResourceOrThrow("drake/geometry/test/two_cube_objects.obj");
+//   const TriangleSurfaceMesh<double> surface =
+//       ReadObjToTriangleSurfaceMesh(filename);
+//   EXPECT_EQ(surface.num_vertices(), 16);
+//   EXPECT_EQ(surface.num_triangles(), 24);
+//
+//   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+//
+//   EXPECT_EQ(volume.vertices().size(), 9);
+//   EXPECT_EQ(volume.tetrahedra().size(), 11);
+// }
 
 }  // namespace
 }  // namespace geometry
