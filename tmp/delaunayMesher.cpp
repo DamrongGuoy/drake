@@ -41,6 +41,7 @@
 #include <cassert>
 #include <cmath>
 #include <functional>
+#include <stdexcept>
 
 namespace vegafem
 {
@@ -1337,6 +1338,10 @@ int DelaunayMesher::getOneBallBySegment(const int start, const int end)
     return -6;
 
   DelaunayBall *  & ball = vertex2ball[start];
+  if (ball == nullptr) {
+    throw std::runtime_error(
+        "DelaunayMesher::getOneBallBySegment::nullptr ball");
+  }
   if (ball->isInfinite())
   {
     ball = ball->nbr[0];
