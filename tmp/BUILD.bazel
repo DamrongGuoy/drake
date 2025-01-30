@@ -98,8 +98,6 @@ drake_cc_library(
         "vec4d.h",
         "vec4i.h",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
 )
 
 drake_cc_library(
