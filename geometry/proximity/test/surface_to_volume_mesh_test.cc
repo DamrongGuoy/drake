@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "drake/common/find_resource.h"
+#include "drake/common/find_runfiles.h"
 #include "drake/common/test_utilities/expect_throws_message.h"
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
@@ -136,6 +137,64 @@ GTEST_TEST(quad_cube, Ok) {
 //       ReadObjToTriangleSurfaceMesh(filename);
 //   EXPECT_EQ(surface.num_vertices(), 16);
 //   EXPECT_EQ(surface.num_triangles(), 24);
+//
+//   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+// }
+
+// GTEST_TEST(evo_bowl_col, Crash) {
+//   const RlocationOrError rlocation =
+//       FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
+//   ASSERT_EQ(rlocation.error, "");
+//
+//   const TriangleSurfaceMesh<double> surface =
+//       ReadObjToTriangleSurfaceMesh(rlocation.abspath);
+//   EXPECT_EQ(surface.num_vertices(), 3957);
+//   EXPECT_EQ(surface.num_triangles(), 7910);
+//
+//   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+// }
+
+GTEST_TEST(plate_8in_col, Ok) {
+  const RlocationOrError rlocation =
+      FindRunfile("drake_models/dishes/assets/plate_8in_col.obj");
+  ASSERT_EQ(rlocation.error, "");
+
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(rlocation.abspath);
+  EXPECT_EQ(surface.num_vertices(), 450);
+  EXPECT_EQ(surface.num_triangles(), 896);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 450);
+  EXPECT_EQ(volume.tetrahedra().size(), 1263);
+}
+
+GTEST_TEST(sugar_box, Ok) {
+  const RlocationOrError rlocation =
+      FindRunfile("drake_models/ycb/meshes/004_sugar_box_textured.obj");
+  ASSERT_EQ(rlocation.error, "");
+
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(rlocation.abspath);
+  ASSERT_EQ(surface.num_vertices(), 8194);
+  ASSERT_EQ(surface.num_triangles(), 16384);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 8194);
+  EXPECT_EQ(volume.tetrahedra().size(), 27189);
+}
+
+// GTEST_TEST(mustard_bottle, Crash) {
+//   const RlocationOrError rlocation =
+//       FindRunfile("drake_models/ycb/meshes/006_mustard_bottle_textured.obj");
+//   ASSERT_EQ(rlocation.error, "");
+//
+//   const TriangleSurfaceMesh<double> surface =
+//       ReadObjToTriangleSurfaceMesh(rlocation.abspath);
+//   EXPECT_EQ(surface.num_vertices(), 8194);
+//   EXPECT_EQ(surface.num_triangles(), 16384);
 //
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
 // }
