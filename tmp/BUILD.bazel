@@ -130,8 +130,6 @@ drake_cc_library(
         "triangle-closestPoint.cpp",
         "verticesInfo.h",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":basicAlgorithms",
         ":include",
