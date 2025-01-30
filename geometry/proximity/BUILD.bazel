@@ -1750,6 +1750,8 @@ drake_cc_googletest(
     name = "surface_to_volume_mesh_test",
     data = [
         "//geometry:test_obj_files",
+        "@drake_models//:dishes",
+        "@drake_models//:ycb",
     ],
     deps = [
         ":mesh_to_vtk",
