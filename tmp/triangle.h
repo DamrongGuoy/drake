@@ -64,7 +64,7 @@ public:
   inline void setIndex(int index_) { this->index_ = index_; }
 
   // squared 3d distance to a point
-  double distanceToPoint2(const Vec3d & point) const { std::cout << "Unimplemented..." << std::endl; return 1;} // unimplemented (it is implemented in class "TriangleWithCollisionInfo" below)
+  double distanceToPoint2(const Vec3d &) const { std::cout << "Unimplemented..." << std::endl; return 1;} // unimplemented (it is implemented in class "TriangleWithCollisionInfo" below)
   double distanceToPoint(const Vec3d & point) const { return sqrt(distanceToPoint2(point));}
 
   // return the triangle normal
