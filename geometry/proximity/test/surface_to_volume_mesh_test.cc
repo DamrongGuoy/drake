@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "drake/common/find_resource.h"
+#include "drake/common/test_utilities/expect_throws_message.h"
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
@@ -62,21 +63,20 @@ GTEST_TEST(convex, OK) {
   EXPECT_EQ(volume.tetrahedra().size(), 38);
 }
 
-// GTEST_TEST(cube_corners, SilentFail) {
-//   const fs::path filename =
-//       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
-//   const TriangleSurfaceMesh<double> surface =
-//       ReadObjToTriangleSurfaceMesh(filename);
-//   EXPECT_EQ(surface.num_vertices(), 48);
-//   EXPECT_EQ(surface.num_triangles(), 64);
-//
-//   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
-//
-//   EXPECT_EQ(volume.vertices().size(), 0);
-//   EXPECT_EQ(volume.tetrahedra().size(), 0);
-// }
+GTEST_TEST(cube_corners, NullPtr) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+  EXPECT_EQ(surface.num_vertices(), 48);
+  EXPECT_EQ(surface.num_triangles(), 64);
 
-// GTEST_TEST(cube_with_hole, TimeOut) {
+  DRAKE_EXPECT_THROWS_MESSAGE(
+      ConvertSurfaceToVolumeMesh(surface),
+      "DelaunayMesher::getOneBallBySegment::nullptr ball");
+}
+
+// GTEST_TEST(cube_with_hole, InfiniteLoop) {
 //   const fs::path filename =
 //       FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
 //   const TriangleSurfaceMesh<double> surface =
@@ -85,9 +85,6 @@ GTEST_TEST(convex, OK) {
 //   ASSERT_EQ(surface.num_triangles(), 32);
 //
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
-//
-//   EXPECT_EQ(volume.vertices().size(), 0);
-//   EXPECT_EQ(volume.tetrahedra().size(), 0);
 // }
 
 GTEST_TEST(non_convex_mesh, Ok) {
@@ -132,7 +129,7 @@ GTEST_TEST(quad_cube, Ok) {
   EXPECT_EQ(volume.tetrahedra().size(), 11);
 }
 
-// GTEST_TEST(two_cube_objects, TimeOut) {
+// GTEST_TEST(two_cube_objects, InfiniteLoop) {
 //   const fs::path filename =
 //       FindResourceOrThrow("drake/geometry/test/two_cube_objects.obj");
 //   const TriangleSurfaceMesh<double> surface =
@@ -141,9 +138,6 @@ GTEST_TEST(quad_cube, Ok) {
 //   EXPECT_EQ(surface.num_triangles(), 24);
 //
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
-//
-//   EXPECT_EQ(volume.vertices().size(), 9);
-//   EXPECT_EQ(volume.tetrahedra().size(), 11);
 // }
 
 }  // namespace
