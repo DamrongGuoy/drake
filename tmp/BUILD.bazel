@@ -152,8 +152,6 @@ drake_cc_library(
         "objMeshOrientable.h",
         "octree.h",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":basicAlgorithms",
         ":include",

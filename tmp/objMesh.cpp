@@ -52,6 +52,7 @@
 #include <cassert>
 #include <cassert>
 #include <limits>
+#include <stdexcept>
 #include "macros.h"
 #include "disjointSet.h"
 #include "objMesh.h"
@@ -565,7 +566,7 @@ int ObjMesh::loadFromAscii(const string & filename, int verbose)
           goto materialSearch;
         }
 
-        char msg[4096];
+        char msg[4200];
         sprintf(msg, "Obj mesh material %s does not exist.\n", materialName);
         throw ObjMeshException(msg);
       }
@@ -892,7 +893,7 @@ int ObjMesh::saveToBinary(const std::string & filename_, int outputMaterials, in
 // return:
 // 0 = succeeded
 // 1 = failed
-int ObjMesh::saveToBinary(FILE * binaryOutputStream, int outputMaterials, unsigned int * bytesWritten, bool countBytesOnly, int verbose) const
+int ObjMesh::saveToBinary(FILE * binaryOutputStream, int outputMaterials, unsigned int * bytesWritten, bool countBytesOnly, int /*verbose*/) const
 {
   // first pass: count the total number of bytes to be written to the file
   // second pass: do the actual writing
@@ -4355,7 +4356,10 @@ void ObjMesh::moveFacesToGroup(const std::vector<std::pair<int,int>> & groupFace
     removeByIndices(faces, fIDs[gID]);
   }
 
-  assert(numFaces == getNumFaces());
+  if (numFaces != getNumFaces()) {
+    throw std::runtime_error(
+        "vegafem::ObjMesh::moveFacesToGroup: numFaces != getNumFaces()");
+  }
 }
 
 void ObjMesh::removeGroups(const std::vector<int> & groupIDs)
