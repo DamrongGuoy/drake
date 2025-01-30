@@ -49,6 +49,8 @@ public:
   inline Vec2d(const double v[2]) { elt[0]=v[0]; elt[1]=v[1]; }
   inline explicit Vec2d(double entry); // // create a vector with all entries "entry" (can create zero vector for entry=0.0)
 
+  inline Vec2d(const Vec2d&) = default;
+
   inline Vec2d & operator=(const Vec2d & source);
   inline bool operator==(const Vec2d & vec2) const;
   inline bool operator!=(const Vec2d & vec2) const;
