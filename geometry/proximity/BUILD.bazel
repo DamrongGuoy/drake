@@ -1756,6 +1756,7 @@ drake_cc_googletest(
         ":obj_to_surface_mesh",
         ":surface_to_volume_mesh",
         "//common",
+        "//common/test_utilities",
     ],
 )
 
