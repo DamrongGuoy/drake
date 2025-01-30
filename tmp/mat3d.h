@@ -46,6 +46,7 @@ class Mat3d {
 public:
   
   inline Mat3d() {}
+  inline Mat3d(const Mat3d&) = default;
 
   /*
           [ x0  x1  x2 ]
