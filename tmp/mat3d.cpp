@@ -273,7 +273,7 @@ int SVD(Mat3d & F, Mat3d & U, Vec3d & Sigma, Mat3d & V, double singularValue_eps
   // NOTE: This particular routine is not publicly released, as its implementation
   // was taken from Numerical Recipes, which is not free software.
   // (you can use the eigen_sym routine above which is public domain)
-bool eigen_sym_NR(Mat3d & M, Vec3d & eig_val, Vec3d eig_vec[3], int maxIterations, double epsilon)
+bool eigen_sym_NR(Mat3d &, Vec3d &, Vec3d[3], int, double)
 {
   return false;
 }
