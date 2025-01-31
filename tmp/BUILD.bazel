@@ -226,8 +226,6 @@ drake_cc_library(
         "tetMesher.h",
         "triangleTetIntersection.h",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":include",
         ":mesh",
