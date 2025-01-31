@@ -63,42 +63,52 @@ void initPredicates()
 
 double orient2d(const double pa[2], const double pb[2], const double pc[2])
 {
-  return orient2d((double*)pa, (double*)pb, (double*)pc);
+  return orient2d(const_cast<double*>(pa), const_cast<double*>(pb),
+                  const_cast<double*>(pc));
 }
 
 double orient3d(const double pa[3], const double pb[3], const double pc[3], const double pd[3])
 {
-  return orient3d((double*)pa, (double*)pb, (double*)pc, (double*)pd);
+  return orient3d(const_cast<double*>(pa), const_cast<double*>(pb),
+                  const_cast<double*>(pc), const_cast<double*>(pd));
 }
 
 double incircle(const double pa[2], const double pb[2], const double pc[2], const double pd[2])
 {
-  return incircle((double*)pa, (double*)pb, (double*)pc, (double*)pd);
+  return incircle(const_cast<double*>(pa), const_cast<double*>(pb),
+                  const_cast<double*>(pc), const_cast<double*>(pd));
 }
 
 double insphere(const double pa[3], const double pb[3], const double pc[3], const double pd[3], const double pe[3])
 {
-  return insphere((double*)pa, (double*)pb, (double*)pc, (double*)pd, (double*)pe);
+  return insphere(const_cast<double*>(pa), const_cast<double*>(pb),
+                  const_cast<double*>(pc), const_cast<double*>(pd),
+                  const_cast<double*>(pe));
 }
 
 double orient2dfast(const double pa[2], const double pb[2], const double pc[2])
 {
-  return orient2dfast((double*)pa, (double*)pb, (double*)pc);
+  return orient2dfast(const_cast<double*>(pa), const_cast<double*>(pb),
+                      const_cast<double*>(pc));
 }
 
 double orient3dfast(const double pa[3], const double pb[3], const double pc[3], const double pd[3])
 {
-  return orient3dfast((double*)pa, (double*)pb, (double*)pc, (double*)pd);
+  return orient3dfast(const_cast<double*>(pa), const_cast<double*>(pb),
+                      const_cast<double*>(pc), const_cast<double*>(pd));
 }
 
 double incirclefast(const double pa[2], const double pb[2], const double pc[2], const double pd[2])
 {
-  return incirclefast((double*)pa, (double*)pb, (double*)pc, (double*)pd);
+  return incirclefast(const_cast<double*>(pa), const_cast<double*>(pb),
+                      const_cast<double*>(pc), const_cast<double*>(pd));
 }
 
 double inspherefast(const double pa[3], const double pb[3], const double pc[3], const double pd[3], const double pe[3])
 {
-  return inspherefast((double*)pa, (double*)pb, (double*)pc, (double*)pd, (double*)pe);
+  return inspherefast(const_cast<double*>(pa), const_cast<double*>(pb),
+                      const_cast<double*>(pc), const_cast<double*>(pd),
+                      const_cast<double*>(pe));
 }
 
 bool intersectTriTet(const double tria[3], const double trib[3], const double tric[3],
