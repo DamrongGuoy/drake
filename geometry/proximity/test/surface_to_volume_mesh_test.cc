@@ -145,13 +145,13 @@ GTEST_TEST(quad_cube, Ok) {
 //   const RlocationOrError rlocation =
 //       FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
 //   ASSERT_EQ(rlocation.error, "");
-//
 //   const TriangleSurfaceMesh<double> surface =
 //       ReadObjToTriangleSurfaceMesh(rlocation.abspath);
 //   EXPECT_EQ(surface.num_vertices(), 3957);
 //   EXPECT_EQ(surface.num_triangles(), 7910);
 //
-//   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+//   DRAKE_EXPECT_THROWS_MESSAGE(ConvertSurfaceToVolumeMesh(surface),
+//     "vegagem::DelaunayMesher::DelaunayBall::contains(int newVtx): !oriB");
 // }
 
 GTEST_TEST(plate_8in_col, Ok) {
