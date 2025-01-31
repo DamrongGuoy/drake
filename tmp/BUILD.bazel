@@ -188,8 +188,6 @@ drake_cc_library(
         "volumetricMeshOrthotropicMaterial.h",
         "volumetricMeshParser.h",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":basicAlgorithms",
         ":mesh",
