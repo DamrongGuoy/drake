@@ -44,7 +44,7 @@
 namespace vegafem
 {
 template<class Container>
-int sizei(const Container & c) { return (int)c.size(); }
+int sizei(const Container & c) { return c.size(); }
 
 // return true if all elements in [first, last] == value
 template<class InputIt, class T>

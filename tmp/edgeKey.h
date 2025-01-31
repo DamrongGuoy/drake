@@ -85,7 +85,8 @@ namespace std
     size_t operator()(const vegafem::UEdgeKey & k) const
     {
       static_assert(sizeof(int) * 2 == sizeof(uint64_t), "uint64_t is not twice the same size as int");
-      uint64_t v = (((uint64_t)k[0]) + ((uint64_t)(k[1]) << (sizeof(int)*8)));
+      uint64_t v = static_cast<uint64_t>(k[0]) +
+                   (static_cast<uint64_t>(k[1]) << (sizeof(int) * 8));
       return std::hash<uint64_t>()(v);
     }
   };
@@ -96,7 +97,8 @@ namespace std
     size_t operator()(const vegafem::OEdgeKey & k) const
     {
       static_assert(sizeof(int) * 2 == sizeof(uint64_t), "uint64_t is not twice the same size as int");
-      uint64_t v = (((uint64_t)k[0]) + ((uint64_t)(k[1]) << (sizeof(int)*8)));
+      uint64_t v = static_cast<uint64_t>(k[0]) +
+                   (static_cast<uint64_t>(k[1]) << (sizeof(int) * 8));
       return std::hash<uint64_t>()(v);
     }
   };
