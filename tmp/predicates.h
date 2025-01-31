@@ -87,12 +87,6 @@ double inspherefast(const double pa[3], const double pb[3], const double pc[3], 
 // return 0 if they are cocircular
 int inCircumsphereOnPlane(const double pa[3], const double pb[3], const double pc[3], const double pd[3]);
 
-bool pointInTet(const double point[3], const double teta[3], const double tetb[3], const double tetc[3], const double tetd[3]);
-
-bool intersectSegTri(const double sega[3], const double segb[3], const double tria[3], const double trib[3], const double tric[3]);
-bool intersectSegTri(const double sega[3], const double segb[3], const double tria[3], const double trib[3], const double tric[3],
-    double segWeight[2], double triangleWeight[3]);
-
 bool intersectTriTri(const double pa[3], const double pb[3], const double pc[3], const double qa[3], const double qb[3], const double qc[3]);
 
 bool intersectTriTet(const double tria[3], const double trib[3], const double tric[3],

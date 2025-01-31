@@ -111,26 +111,6 @@ double inspherefast(const double pa[3], const double pb[3], const double pc[3], 
                       const_cast<double*>(pe));
 }
 
-bool intersectTriTet(const double tria[3], const double trib[3], const double tric[3],
-    const double teta[3], const double tetb[3], const double tetc[3], const double tetd[3])
-{
-  return pointInTet(tria, teta, tetb, tetc, tetd) ||
-         // triangle edges against tet faces
-         intersectSegTri(tria, trib, teta, tetb, tetc) || intersectSegTri(tria, trib, teta, tetb, tetd) ||
-         intersectSegTri(tria, trib, teta, tetc, tetd) || intersectSegTri(tria, trib, tetb, tetc, tetd) ||
-         intersectSegTri(tria, tric, teta, tetb, tetc) || intersectSegTri(tria, tric, teta, tetb, tetd) ||
-         intersectSegTri(tria, tric, teta, tetc, tetd) || intersectSegTri(tria, tric, tetb, tetc, tetd) ||
-         intersectSegTri(trib, tric, teta, tetb, tetc) || intersectSegTri(trib, tric, teta, tetb, tetd) ||
-         intersectSegTri(trib, tric, teta, tetc, tetd) || intersectSegTri(trib, tric, tetb, tetc, tetd) ||
-         // tet edges against triangle
-         intersectSegTri(teta, tetb, tria, trib, tric) || intersectSegTri(teta, tetc, tria, trib, tric) ||
-         intersectSegTri(teta, tetd, tria, trib, tric) || intersectSegTri(tetb, tetc, tria, trib, tric) ||
-         intersectSegTri(tetb, tetd, tria, trib, tric) || intersectSegTri(tetc, tetd, tria, trib, tric);
-}
-
-
-
-
 namespace
 {
 

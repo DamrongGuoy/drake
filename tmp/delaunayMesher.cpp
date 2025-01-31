@@ -676,10 +676,13 @@ int DelaunayMesher::DelaunayBall::contains(int newVtx) const
     // Flip the sign if there are odd number of swaps.
     if (!oriB)
     {
+      cout << "vegagem::DelaunayMesher::DelaunayBall::contains(int newVtx):\n";
       cout << *this << newVtx << endl;
       cout << parent.inputVertices[v[0]] << parent.inputVertices[v[1]] << parent.inputVertices[v[2]] << parent.inputVertices[v[3]] << parent.inputVertices[newVtx] << endl;
       cout << query << " " << oriA << " " << oriB << endl;
-      exit(-9);
+      throw std::runtime_error(
+          "vegagem::DelaunayMesher::DelaunayBall::contains(int newVtx): "
+          "!oriB");
     }
     return (numSwaps & 1? oriB: -oriB);
   }
