@@ -3,6 +3,8 @@
 
 #include <cmath>
 
+#include "eig3.h"
+
 namespace vegafem
 {
 

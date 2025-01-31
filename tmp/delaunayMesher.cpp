@@ -387,9 +387,12 @@ int DelaunayMesher::toPlane(int i, int a, int b, int c) const
   return toPlane(inputVertices[i], a, b, c);
 }
 
-Vec2d getXY(const Vec3d & v) { return Vec2d(v[0], v[1]); }
-Vec2d getYZ(const Vec3d & v) { return Vec2d(v[1], v[2]); }
-Vec2d getZX(const Vec3d & v) { return Vec2d(v[2], v[0]); }
+namespace {
+Vec2d getXY(const Vec3d& v) { return Vec2d(v[0], v[1]); }
+Vec2d getYZ(const Vec3d& v) { return Vec2d(v[1], v[2]); }
+Vec2d getZX(const Vec3d& v) { return Vec2d(v[2], v[0]); }
+}  // namespace
+
 int DelaunayMesher::toCircumsphere(int i, int a, int b, int c) const
 {
   return toCircumsphere(inputVertices[i], a, b, c);
