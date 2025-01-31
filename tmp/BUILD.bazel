@@ -22,8 +22,6 @@ drake_cc_library(
     name = "vega_cdt",
     srcs = ["vega_cdt.cc"],
     hdrs = ["vega_cdt.h"],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":DrakeVega",
     ],
@@ -33,8 +31,6 @@ drake_cc_library(
     name = "DrakeVega",
     srcs = ["vega_mesh_to_drake_mesh.cc"],
     hdrs = ["vega_mesh_to_drake_mesh.h"],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":mesher",
         ":objMesh",
@@ -235,8 +231,6 @@ drake_cc_library(
 
 drake_cc_googletest(
     name = "tetMesher_test",
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     data = [
         "//geometry:test_obj_files",
     ],
@@ -249,8 +243,6 @@ drake_cc_googletest(
 
 drake_cc_googletest(
     name = "vega_mesh_to_drake_mesh_test",
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":DrakeVega",
         "//common",
@@ -259,8 +251,6 @@ drake_cc_googletest(
 
 drake_cc_googletest(
     name = "vega_cdt_test",
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":vega_cdt",
         "//common",
