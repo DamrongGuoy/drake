@@ -57,7 +57,8 @@ TetMesh::TetMesh(void * binaryStream, int memoryLoad) : VolumetricMesh(binaryStr
   }
 }
 
-TetMesh::TetMesh(const char * filename, int specialFileType, int verbose): VolumetricMesh(4)
+TetMesh::TetMesh(const char * filename, int specialFileType,
+                 int /*verbose*/): VolumetricMesh(4)
 {
   double E = 1E8;
   double nu = 0.45;
@@ -343,8 +344,8 @@ double TetMesh::getTetDeterminant(const Vec3d & a, const Vec3d & b, const Vec3d 
   return dot(d - a, cross(b - a, c - a));
 }
 
-void TetMesh::interpolateGradient(int element, const double * U, int numFields, Vec3d pos, double * grad) const
-{
+void TetMesh::interpolateGradient(int element, const double* U, int numFields,
+                                  Vec3d /*pos*/, double* grad) const {
   computeGradient(element, U, numFields, grad);
 }
 

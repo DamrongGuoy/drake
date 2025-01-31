@@ -2193,7 +2193,7 @@ int VolumetricMesh::generateInterpolationWeights(int numTargetLocations,
   return 0;
 }
 
-int VolumetricMesh::generateContainingElements(int numTargetLocations, const double * targetLocations, int ** elements, int useClosestElementIfOutside, int verbose) const
+int VolumetricMesh::generateContainingElements(int numTargetLocations, const double * targetLocations, int ** elements, int useClosestElementIfOutside, int /*verbose*/) const
 {
   int numExternalVertices = 0;
 
@@ -2506,10 +2506,13 @@ void VolumetricMesh::exportMeshGeometry(int * numVertices_, double ** vertices_,
   }
 }
 
-void VolumetricMesh::exportMeshGeometry(std::vector<Vec3d> & vertexBuffer) const
-{
-  vertexBuffer.resize(numVertices);
-  memcpy(vertexBuffer.data(), vertices, sizeof(double) * 3 * numVertices);
+void VolumetricMesh::exportMeshGeometry(
+    std::vector<Vec3d>& vertexBuffer) const {
+  vertexBuffer.clear();
+  vertexBuffer.reserve(numVertices);
+  for (int v = 0; v < numVertices; ++v) {
+    vertexBuffer.push_back(vertices[v]);
+  }
 }
 
 void VolumetricMesh::computeGravity(double * gravityForce, double g, bool addForce) const

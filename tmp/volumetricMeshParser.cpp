@@ -31,6 +31,7 @@
  *************************************************************************/
 
 #include <cstring>
+#include <string>
 #include "volumetricMeshParser.h"
 
 namespace vegafem
@@ -40,7 +41,6 @@ VolumetricMeshParser::VolumetricMeshParser(const char * includeToken_)
 {
   fin = NULL;
   //fileStackDepth = -1;
-  fileStack.empty();
   if (includeToken_ == NULL)
   {
     includeTokenLength = 9;
@@ -177,14 +177,15 @@ char * VolumetricMeshParser::getNextLine(char * s, int numRetainedSpaces, int re
   {
     // open up the new file
     char * newFile = &(s[includeTokenLength]);
-    char newFileCompleteName[4096];
-    sprintf(newFileCompleteName,"%s/%s",directoryName,newFile);
+    std::string newFileCompleteName =
+        std::string(directoryName) + "/" + std::string(newFile);
 
-    FILE * finNew = fopen(newFileCompleteName, "r");
+    FILE * finNew = fopen(newFileCompleteName.c_str(), "r");
 
     if (!finNew)
     {
-      printf("Error: couldn't open include file %s.\n", newFileCompleteName);
+      printf("Error: couldn't open include file %s.\n",
+             newFileCompleteName.c_str());
       //exit(1);
       close();
       throw -1;
