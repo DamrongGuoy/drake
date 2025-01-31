@@ -34,6 +34,8 @@
 #include <cmath>
 #include <iostream>
 #include <algorithm>
+
+#include "tribox3.h"
 #include "matrixMultiplyMacros.h"
 
 namespace vegafem
