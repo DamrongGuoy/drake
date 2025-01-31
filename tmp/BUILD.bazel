@@ -97,12 +97,19 @@ drake_cc_library(
 )
 
 drake_cc_library(
+    name = "predicates_Shewchuk",
+    srcs = [
+        "predicates_Shewchuk.c",
+    ],
+    copts = ["-w",],
+)
+
+drake_cc_library(
     name = "mesh",
     srcs = [
         "boundingBox.cpp",
         "geometryQuery.cpp",
         "predicates.cpp",
-        "predicates_Shewchuk.c",
         "simpleSphere.cpp",
         "tetKey.cpp",
         "triKey.cpp",
@@ -130,6 +137,7 @@ drake_cc_library(
         ":basicAlgorithms",
         ":include",
         ":minivector",
+        ":predicates_Shewchuk",
         ":private",
     ],
 )
