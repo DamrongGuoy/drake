@@ -70,7 +70,7 @@ VolumetricMesh::OrthotropicMaterial * downcastOrthotropicMaterial(VolumetricMesh
   if (material->getType() != VolumetricMesh::Material::ORTHOTROPIC)
     return NULL;
 
-  return (VolumetricMesh::OrthotropicMaterial*) material;
+  return dynamic_cast<VolumetricMesh::OrthotropicMaterial*>(material);
 }
 
 void VolumetricMesh::OrthotropicMaterial::setR(double * R) 

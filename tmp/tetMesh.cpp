@@ -112,8 +112,8 @@ TetMesh::TetMesh(const char * filename, int specialFileType,
     throw 5;
   }
 
-  elements = (int**) malloc (sizeof(int*) * numElements);
-  elementMaterial = (int*) malloc (sizeof(int) * numElements);
+  elements = static_cast<int**>(malloc(sizeof(int*) * numElements));
+  elementMaterial = static_cast<int*>(malloc(sizeof(int) * numElements));
 
   for(int i=0; i<numElements; i++)
   {
@@ -123,7 +123,7 @@ TetMesh::TetMesh(const char * filename, int specialFileType,
     sscanf(lineBuffer, "%d %d %d %d %d", &index, &v[0], &v[1], &v[2], &v[3]);
     if (index != (i+1))
       throw 6;
-    elements[i] = (int*) malloc (sizeof(int) * 4);
+    elements[i] = static_cast<int*>(malloc(sizeof(int) * 4));
     for(int j=0; j<4; j++) // vertices are 1-indexed in .ele files
     {
       v[j]--;
@@ -149,7 +149,7 @@ TetMesh::TetMesh(const Vec3d & p0, const Vec3d & p1, const Vec3d & p2, const Vec
   double density = 1000;
   
   numVertices = 4;
-  vertices = (Vec3d*) malloc (sizeof(Vec3d) * numVertices);
+  vertices = static_cast<Vec3d*>(malloc(sizeof(Vec3d) * numVertices));
 
   vertices[0] = p0;
   vertices[1] = p1;
@@ -157,10 +157,10 @@ TetMesh::TetMesh(const Vec3d & p0, const Vec3d & p1, const Vec3d & p2, const Vec
   vertices[3] = p3;
 
   numElements = 1;
-  elements = (int**) malloc (sizeof(int*) * numElements);
-  elementMaterial = (int*) malloc (sizeof(int) * numElements);
+  elements = static_cast<int**>(malloc(sizeof(int*) * numElements));
+  elementMaterial = static_cast<int*>(malloc(sizeof(int) * numElements));
 
-  elements[0] = (int*) malloc (sizeof(int) * 4);
+  elements[0] = static_cast<int*>(malloc(sizeof(int) * 4));
   for(int i = 0; i < 4; i++)
     elements[0][i] = i;
   
@@ -183,8 +183,41 @@ TetMesh::TetMesh(int numVertices_, double * vertices_, int numElements_, int * e
   VolumetricMesh(numVertices_, vertices_, numElements_, 4, elements_,
                  numMaterials_, materials_, numSets_, sets_, numRegions_, regions_) {}
 
-TetMesh::TetMesh(const std::vector<Vec3d> & vertices, const std::vector<Vec4i> & elements, double E, double nu, double density)
-    : TetMesh(vertices.size(), (double*)vertices.data(), elements.size(), (int*)elements.data(), E, nu, density) {}
+namespace {
+
+std::vector<double> ConvertToVectorDouble(const std::vector<Vec3d>& vertices) {
+  std::vector<double> result;
+  result.reserve(vertices.size());
+  for (const Vec3d& v : vertices) {
+    result.push_back(v[0]);
+    result.push_back(v[1]);
+    result.push_back(v[2]);
+  }
+  return result;
+}
+
+std::vector<int> ConvertToVectorInt(const std::vector<Vec4i>& elements) {
+  std::vector<int> result;
+  result.reserve(elements.size());
+  for (const Vec4i& e : elements) {
+    result.push_back(e[0]);
+    result.push_back(e[1]);
+    result.push_back(e[2]);
+    result.push_back(e[3]);
+  }
+  return result;
+}
+
+}  // namespace
+
+TetMesh::TetMesh(const std::vector<Vec3d>& vertices,
+                 const std::vector<Vec4i>& elements, double E, double nu,
+                 double density)
+    : TetMesh(vertices.size(),
+              static_cast<double*>(ConvertToVectorDouble(vertices).data()),
+              elements.size(),
+              static_cast<int*>(ConvertToVectorInt(elements).data()), E, nu,
+              density) {}
 
 TetMesh::TetMesh(const TetMesh & source): VolumetricMesh(source) {}
 

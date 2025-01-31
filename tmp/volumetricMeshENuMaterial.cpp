@@ -51,7 +51,7 @@ VolumetricMesh::ENuMaterial * downcastENuMaterial(VolumetricMesh::Material * mat
   if (material->getType() != VolumetricMesh::Material::ENU)
     return NULL;
 
-  return (VolumetricMesh::ENuMaterial*) material;
+  return dynamic_cast<VolumetricMesh::ENuMaterial*>(material);
 }
 
 

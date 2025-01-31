@@ -403,7 +403,9 @@ inline VolumetricMesh::Set::Set(const std::string & name_) { name = name_; }
 inline VolumetricMesh::Set::Set(const Set & set) { elements = set.elements; name = set.getName(); }
 inline VolumetricMesh::Set::Set(const std::string & name_, const std::set<int> & elements_) : name(name_), elements(elements_) {}
 inline std::string VolumetricMesh::Set::getName() const { return name; }
-inline int VolumetricMesh::Set::getNumElements() const { return (int)(this->elements.size()); }
+inline int VolumetricMesh::Set::getNumElements() const {
+  return this->elements.size();
+}
 inline void VolumetricMesh::Set::getElements(std::set<int> & elements) const { elements = this->elements; }
 inline const std::set<int> & VolumetricMesh::Set::getElements() const { return elements; }
 inline std::set<int> & VolumetricMesh::Set::getElements() { return elements; }

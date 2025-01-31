@@ -51,7 +51,7 @@ VolumetricMesh::MooneyRivlinMaterial * downcastMooneyRivlinMaterial(VolumetricMe
   if (material->getType() != VolumetricMesh::Material::MOONEYRIVLIN)
     return NULL;
 
-  return (VolumetricMesh::MooneyRivlinMaterial*) material;
+  return dynamic_cast<VolumetricMesh::MooneyRivlinMaterial*>(material);
 }
 
 
