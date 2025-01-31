@@ -203,8 +203,6 @@ drake_cc_library(
     hdrs = [
         "windingNumber.h",
     ],
-    # -w  Inhibit all warning messages. They become errors.
-    copts = ["-w"],
     deps = [
         ":minivector",
         ":objMesh",
