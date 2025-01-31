@@ -153,7 +153,7 @@ bool Octree<TriangleClass>::build(std::vector<TriangleClass>& triangleList, Boun
     boundingBox = parentCube;
 
     // total number of triangles
-    int numTriangles = (int)triangleList.size();
+    int numTriangles = std::ssize(triangleList);
 
     // if there are fewer triangles than the threshold value, or if max depth has been reached, this node becomes a leaf which stores the triangles
     // max depth checking is necessary, since otherwise vertices with high valence will always be contained in some box, and that box will be split forever
@@ -258,7 +258,7 @@ void Octree<TriangleClass>::buildCollisionList(std::vector<TriangleClass*>& tria
     // if this node is a leaf, add its triangles to the potential collision list, otherwise recurse
     if (triangles.size() > 0)
     {
-        int tsize = (int)triangles.size();
+        int tsize = std::ssize(triangles);
         for (int i = 0; i < tsize; i++)
             triangleList.push_back(&(triangles[i]));
     }
@@ -283,7 +283,7 @@ void Octree<TriangleClass>::buildCollisionList(std::vector<TriangleClass*>& tria
     // if this node is a leaf, add its triangles to the potential collision list, otherwise recurse
     if (triangles.size() > 0)
     {
-        int tsize = (int)triangles.size();
+        int tsize = std::ssize(triangles);
         for (int i = 0; i < tsize; i++)
         {
             Vec3d intersectionPoint;
@@ -365,7 +365,8 @@ void Octree<TriangleClass>::renderHelper(int level, int boxIndex)
             if (printRenderInfo == 1)
             {
                 boundingBox.print();
-                printf("Num triangles: %d.\n", (int)triangles.size());
+                int num_triangles = triangles.size();
+                printf("Num triangles: %d.\n", num_triangles);
                 printRenderInfo = 0;
             }
         }
