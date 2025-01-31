@@ -820,7 +820,11 @@ DelaunayMesher::VoronoiEdge DelaunayMesher::DelaunayBall::getVoronoiEdge(int fac
 {
   VoronoiEdge vedge;
   UTriKey uface = uFaceKey(faceIndex);
-  assert(isFaceRegular(uface));
+  if (!isFaceRegular(uface)) {
+    throw std::runtime_error(
+        "vegafem::DelaunayMesher::DelaunayBall::getVoronoiEdge: "
+        "isFaceRegular(uface) is false");
+  }
   const DelaunayBall * nbrBall = nbr[faceIndex];
   assert(nbrBall);
   if (isRegular() && nbrBall->isRegular())
@@ -1728,7 +1732,11 @@ int DelaunayMesher::segmentRecoveryUsingSteinerPoint(const OEdgeKey& edge)
   for (map<OTriKey, DelaunayBall *>::iterator itr = cavityNeighbors.begin(); itr != cavityNeighbors.end(); itr++)
   {
     OTriKey face = itr->first;
-    assert (toPlane(center, face[0], face[1], face[2]) == -1);
+    if (toPlane(center, face[0], face[1], face[2]) != -1) {
+      throw std::runtime_error(
+          "vegafem::DelaunayMesher::segmentRecoveryUsingSteinerPoint: "
+          "toPlane(center, face[0], face[1], face[2]) != -1");
+    }
   }
 
   // Add the Steiner point
