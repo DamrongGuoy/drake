@@ -548,27 +548,25 @@ void TetMesher::removeEdge(int e1, int e2)
     itr->second--;
 }
 
-UEdgeKey find_intersect(UTriKey t1, UTriKey t2)
-{
+namespace {
+UEdgeKey find_intersect(UTriKey t1, UTriKey t2) {
   bool found = false;
   pair<int, int> ret;
   for (int i = 0; i < 3; i++)
     for (int j = 0; j < 3; j++)
-      if (t1[i] == t2[j])
-      {
-        if (!found)
-        {
+      if (t1[i] == t2[j]) {
+        if (!found) {
           found = true;
           ret.first = t1[i];
-        }
-        else
-        {
+        } else {
           ret.second = t1[i];
           break;
         }
       }
   return UEdgeKey(ret.first, ret.second);
 }
+}  // namespace
+
 void TetMesher::formRegion(int face, set<int> &region)
 {
   if (region.find(face) != region.end())      // The triangle is already in the region
