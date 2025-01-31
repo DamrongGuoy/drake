@@ -59,7 +59,8 @@ void DisjointSet::extendSizeTo(int num)
 
 int DisjointSet::findSet(int x) const
 {
-  if (x < 0 || x >= (int)(parent.size()))
+  int num_parents = parent.size();
+  if (x < 0 || x >= num_parents)
   {
     cout << "Error in DisjointSet::findSet(int x): the x value is illegal." << endl;
     exit(0);

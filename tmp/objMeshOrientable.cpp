@@ -411,7 +411,7 @@ int ObjMeshOrientable::GenerateHalfEdgeDataStructure(int verbose)
           int groupID = halfEdges_[loop].groupID();
           int faceID = halfEdges_[loop].face();
 
-          ObjMesh::Group * currentGroup = (ObjMesh::Group*) objMesh->getGroupHandle(groupID);
+          ObjMesh::Group * currentGroup = objMesh->getGroupHandle(groupID);
 
           if (verbose)
             currentGroup->getFace(faceID).printVertices();
@@ -671,7 +671,7 @@ ObjMesh * ObjMeshOrientable::GenerateOrientedMesh() const
 
   for(unsigned int i=0; i < outputObjMesh->getNumGroups(); i++) // over all groups
   {
-    ObjMesh::Group * groupHandle = (ObjMesh::Group*) outputObjMesh->getGroupHandle(i);
+    ObjMesh::Group * groupHandle = outputObjMesh->getGroupHandle(i);
     for (unsigned int j=0; j < groupHandle->getNumFaces(); j++) // over all faces
     {
       const ObjMesh::Face * face = groupHandle->getFaceHandle(j);
