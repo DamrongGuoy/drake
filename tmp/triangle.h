@@ -87,8 +87,8 @@ public:
     //             2 = are in the same plane
 
 
-  void render() const;
-  void renderEdges() const;
+  void render() const {}
+  void renderEdges() const {}
 
   Vec3d getBarycentricLocation(double alpha, double beta, double gamma) const { return alpha * vertex[0] + beta * vertex[1] + gamma * vertex[2]; }
 
