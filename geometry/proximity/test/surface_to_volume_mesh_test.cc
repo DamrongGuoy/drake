@@ -19,6 +19,8 @@ namespace fs = std::filesystem;
 
 using Eigen::Vector3d;
 
+// February 4, 2025: 7 Ok, 1 ThrowNullptr, 2 InfiniteLoop, 2 CoreDumped.
+
 GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OneTetrahedron) {
   // A four-triangle mesh of a standard tetrahedron.
   const TriangleSurfaceMesh<double> drake_surface_mesh{
@@ -64,7 +66,7 @@ GTEST_TEST(convex, OK) {
   EXPECT_EQ(volume.tetrahedra().size(), 38);
 }
 
-GTEST_TEST(cube_corners, NullPtr) {
+GTEST_TEST(cube_corners, ThrowNullptr) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
   const TriangleSurfaceMesh<double> surface =
@@ -84,7 +86,6 @@ GTEST_TEST(cube_corners, NullPtr) {
 //       ReadObjToTriangleSurfaceMesh(filename);
 //   ASSERT_EQ(surface.num_vertices(), 16);
 //   ASSERT_EQ(surface.num_triangles(), 32);
-//
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
 // }
 
@@ -141,7 +142,7 @@ GTEST_TEST(quad_cube, Ok) {
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
 // }
 
-// GTEST_TEST(evo_bowl_col, Crash) {
+// GTEST_TEST(evo_bowl_col, CoreDumped) {
 //   const RlocationOrError rlocation =
 //       FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
 //   ASSERT_EQ(rlocation.error, "");
@@ -186,7 +187,7 @@ GTEST_TEST(sugar_box, Ok) {
   EXPECT_EQ(volume.tetrahedra().size(), 27189);
 }
 
-// GTEST_TEST(mustard_bottle, Crash) {
+// GTEST_TEST(mustard_bottle, CoreDumped) {
 //   const RlocationOrError rlocation =
 //       FindRunfile("drake_models/ycb/meshes/006_mustard_bottle_textured.obj");
 //   ASSERT_EQ(rlocation.error, "");
