@@ -1,0 +1,38 @@
+<sdf xmlns:drake="drake.mit.edu" version="1.7">
+  <model name="shark_toy">
+    <link name="shark_toy">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>1.0</mass>
+        <pose>0.01036 -0.00863 0.02302 0 0 0</pose>
+        <inertia>
+          <ixx>1.46293e-03</ixx>
+          <ixy>2.40246e-04</ixy>
+          <ixz>-1.02672e-05</ixz>
+          <iyy>3.85598e-04</iyy>
+          <iyz>9.69305e-07</iyz>
+          <izz>1.65216e-03</izz>
+        </inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>package://drake/tutorials/shark_toy.obj</uri>
+            <scale>1.0 1.0 1.0</scale>
+          </mesh>
+        </geometry>
+      </visual>
+      <collision name="collision_000">
+        <geometry>
+          <mesh>
+            <uri>package://drake/tutorials/SharkToyRefine.vtk</uri>
+          </mesh>
+        </geometry>
+        <drake:proximity_properties>
+          <drake:compliant_hydroelastic/>
+          <drake:hydroelastic_modulus>1.000e+08</drake:hydroelastic_modulus>
+        </drake:proximity_properties>
+      </collision>
+    </link>
+  </model>
+</sdf>

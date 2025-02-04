@@ -1028,6 +1028,20 @@ drake_cc_binary(
 )
 
 drake_cc_binary(
+    name = "refine_mesh_and_make_pressure_field",
+    srcs = ["refine_mesh_and_make_pressure_field.cc"],
+    deps = [
+        ":make_mesh_field",
+        ":mesh_to_vtk",
+        ":volume_mesh_refiner",
+        ":vtk_to_volume_mesh",
+        "//common:add_text_logging_gflags",
+        "@gflags",
+    ],
+)
+
+
+drake_cc_binary(
     name = "zero_simplex_manual_test",
     testonly = 1,
     srcs = ["test/zero_simplex_manual_test.cc"],

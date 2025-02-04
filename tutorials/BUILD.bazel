@@ -60,6 +60,19 @@ drake_jupyter_py_binary(
 )
 
 drake_jupyter_py_binary(
+    name = "hydroelastic_contact_shark_toy",
+    add_test_rule = 1,
+    data = [
+        "@drake_models//:dishes",
+        ":models",
+    ],
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+
+drake_jupyter_py_binary(
     name = "index",
     add_test_rule = 1,
     deps = [
@@ -192,6 +205,18 @@ drake_py_test(
     deps = [
         "@rules_python//python/runfiles",
     ],
+)
+
+filegroup(
+    name = "models",
+    srcs = [
+        "shark_toy.obj",
+        "shark_toy.mtl",
+        "SharkToyOneMesh.sdf",
+        "SharkToyRefine.vtk",
+        "shark_toy_texture.png",
+    ],
+    visibility = ["//:__pkg__"],
 )
 
 install_files(

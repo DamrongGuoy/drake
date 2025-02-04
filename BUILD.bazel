@@ -64,6 +64,7 @@ filegroup(
         "//examples/scene_graph:models",
         "//examples/simple_gripper:models",
         "//multibody/benchmarks/acrobot:models",
+        "//tutorials:models",
         "@drake_models",
     ],
     visibility = ["//:__subpackages__"],
