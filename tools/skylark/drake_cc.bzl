@@ -17,9 +17,9 @@ CXX_FLAGS = [
     "-Werror=deprecated-declarations",
     "-Werror=ignored-qualifiers",
     "-Werror=missing-declarations",
-    # "-Werror=old-style-cast",
+    "-Werror=old-style-cast",
     "-Werror=overloaded-virtual",
-    # "-Werror=shadow",
+    "-Werror=shadow",
     "-Werror=unused-result",
     # We eschew Eigen::IO in lieu of drake::fmt_eigen.
     # See drake/common/fmt_eigen.h for details.
