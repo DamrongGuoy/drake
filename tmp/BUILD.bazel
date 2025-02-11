@@ -25,6 +25,10 @@ drake_cc_library(
     deps = [
         ":DrakeVega",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_library(
@@ -38,6 +42,10 @@ drake_cc_library(
         "//geometry/proximity:triangle_surface_mesh",
         "//geometry/proximity:volume_mesh",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_library(
@@ -48,6 +56,10 @@ drake_cc_library(
         "disjointSet.h",
         "range.h",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_library(
@@ -56,6 +68,10 @@ drake_cc_library(
     hdrs = [
         "macros.h",
         "matrixMultiplyMacros.h",
+    ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
     ],
 )
 
@@ -71,6 +87,10 @@ drake_cc_library(
         "triple.h",
         "valueIndex.h",
         "vegalong.h",
+    ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
     ],
 )
 
@@ -93,6 +113,10 @@ drake_cc_library(
         "vec3i.h",
         "vec4d.h",
         "vec4i.h",
+    ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
     ],
 )
 
@@ -140,6 +164,10 @@ drake_cc_library(
         ":predicates_Shewchuk",
         ":private",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_library(
@@ -163,6 +191,10 @@ drake_cc_library(
         ":minivector",
         ":private",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_library(
@@ -171,6 +203,10 @@ drake_cc_library(
     ],
     hdrs = [
         "performanceCounter.h",
+    ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
     ],
 )
 
@@ -197,6 +233,10 @@ drake_cc_library(
         ":mesh",
         ":minivector",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_library(
@@ -211,6 +251,10 @@ drake_cc_library(
         ":minivector",
         ":objMesh",
         ":private",
+    ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
     ],
 )
 
@@ -235,6 +279,10 @@ drake_cc_library(
         ":volumetricMesh",
         ":windingNumber",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_googletest(
@@ -247,6 +295,10 @@ drake_cc_googletest(
         ":mesher",
         "//common",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_googletest(
@@ -255,6 +307,10 @@ drake_cc_googletest(
         ":DrakeVega",
         "//common",
     ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
+    ],
 )
 
 drake_cc_googletest(
@@ -262,5 +318,9 @@ drake_cc_googletest(
     deps = [
         ":vega_cdt",
         "//common",
+    ],
+    copts = [
+      "-Wno-error=old-style-cast",
+      "-Wno-error=shadow",
     ],
 )
