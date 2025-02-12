@@ -78,7 +78,19 @@ VolumeMesh<double> ReadVtkToVolumeMesh(const MeshSource& mesh_source,
     // clang-format on
   }
 
-  return {std::move(elements), std::move(vertices)};
+  const VolumeMesh<double> first_mesh(std::vector<VolumeElement>{elements},
+                                      std::vector<Vector3<double>>{vertices});
+  // Filter out practically zero-volume tetrahedra.  This has a side-effect
+  // that the extracted boundary surface will have internal boundary. It will
+  // interfere with ComputeSignedDistanceToPoint() and other routines that
+  // assume clean meshes.  This is a hack to keep hydroelastics going.
+  std::vector<VolumeElement> filtered_tetrahedra;
+  for (int i = 0; i < first_mesh.num_elements(); ++i) {
+    if (first_mesh.CalcTetrahedronVolume(i) > 1e-14) {
+      filtered_tetrahedra.push_back(first_mesh.element(i));
+    }
+  }
+  return {std::move(filtered_tetrahedra), std::move(vertices)};
 }
 
 std::vector<double> ReadVtkToPressureValues(const MeshSource& mesh_source) {

@@ -6,7 +6,13 @@ package(default_visibility = ["//visibility:private"])
 filegroup(
     name = "models",
     srcs = [
+        "grids.sdf",
+        "shark.obj",
+        "shark.mtl",
+        "shark.sdf",
+        "shark_texture.png",
         "table.sdf",
+        "sergey_combined.vtk",
     ],
     visibility = ["//:__pkg__"],
 )
