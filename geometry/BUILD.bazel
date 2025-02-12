@@ -849,6 +849,7 @@ filegroup(
         "test/one_negative_tetrahedron.vtk",
         "test/one_tetrahedron.vtk",
         "test/some_volume.vtk",
+        "test/sergey_combined.vtk",
         "test/two_tetrahedra_with_field_variable.vtk",
         "test/unstructured.vtk",
     ],

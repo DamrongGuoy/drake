@@ -1771,6 +1771,7 @@ drake_cc_googletest(
         "//geometry:test_vtk_files",
     ],
     deps = [
+        ":mesh_field",
         ":vtk_to_volume_mesh",
         "//common:find_resource",
         "//common/test_utilities",

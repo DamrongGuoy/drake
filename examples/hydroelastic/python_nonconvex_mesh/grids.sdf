@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="grids">
+    <link name="grids">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>5.0e3</mass>
+        <inertia>
+          <!-- The code will likely fix it to World frame, so the calculation
+             here is just for completeness. Solid cuboid of width w, height h,
+             depth d, and mass m has:
+               Inertia tensor = (m/12)Diag(h^2+d^2, w^2+d^2, w^2+h^2)
+                              = Diag(16.8333, 16.8333, 33.3333) -->
+          <ixx>16.8333</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>16.8333</iyy>
+          <iyz>0</iyz>
+          <izz>33.3333</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision_z_n0.08"><pose>0 0 -0.08 0 0 0</pose>
+        <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_z_p0.12"><pose>0 0 0.12 0 0 0</pose>
+        <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_y_p0.09"><pose>0 0.09 0 0 0 0</pose>
+        <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_y_n0.11"><pose>0 -0.11 0 0 0 0</pose>
+        <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+    </link>
+  </model>
+</sdf>

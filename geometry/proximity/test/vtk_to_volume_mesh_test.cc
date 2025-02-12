@@ -1,11 +1,13 @@
 #include "drake/geometry/proximity/vtk_to_volume_mesh.h"
 
 #include <filesystem>
+#include <numeric>
 
 #include <gtest/gtest.h>
 
 #include "drake/common/find_resource.h"
 #include "drake/common/test_utilities/expect_throws_message.h"
+#include "drake/geometry/proximity/volume_mesh_field.h"
 
 namespace drake {
 namespace geometry {
@@ -38,6 +40,25 @@ GTEST_TEST(VtkToVolumeMeshTest, KeepMeshIgnoreFieldVariables) {
       {Vector3d::Zero(), Vector3d::UnitX(), Vector3d::UnitY(),
        Vector3d::UnitZ(), -Vector3d::UnitZ()}};
   EXPECT_TRUE(volume_mesh.Equal(expected_mesh));
+}
+
+// We can read a combined tetrahedral mesh with a scalar field; although the
+// field is ignored for now.
+GTEST_TEST(VtkToVolumeMeshTest, SergeySharkKeepMeshIgnoreFieldVariables) {
+  const fs::path test_file = FindResourceOrThrow(
+      "drake/geometry/test/sergey_combined.vtk");
+  VolumeMesh<double> volume_mesh = internal::ReadVtkToVolumeMesh(test_file);
+
+  // Before filtering out zero-volume tetrahedra, there are 59,933 tetrahedra.
+  // EXPECT_EQ(volume_mesh.num_elements(), 59933);
+  EXPECT_EQ(volume_mesh.num_elements(), 55522);
+  EXPECT_EQ(volume_mesh.num_vertices(), 21669);
+
+  std::vector<double> field_values(volume_mesh.num_vertices());
+  std::iota(field_values.begin(), field_values.end(), 10.0);
+  VolumeMeshFieldLinear<double, double> mesh_field(std::move(field_values),
+                                                   &volume_mesh);
+  EXPECT_EQ(mesh_field.is_gradient_field_degenerate(), false);
 }
 
 GTEST_TEST(VtkToVolumeMeshTest, Scale) {
