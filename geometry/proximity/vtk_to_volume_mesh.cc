@@ -9,9 +9,9 @@
 #include <vtkCellIterator.h>            // vtkCommonDataModel
 #include <vtkCharArray.h>               // vtkCommonCore
 #include <vtkNew.h>                     // vtkCommonCore
+#include <vtkPointData.h>               // vtkPointData, vtkDataArray
 #include <vtkUnstructuredGrid.h>        // vtkCommonDataModel
 #include <vtkUnstructuredGridReader.h>  // vtkIOLegacy
-#include <vtkPointData.h>
 
 #include "drake/common/eigen_types.h"
 
@@ -82,7 +82,6 @@ VolumeMesh<double> ReadVtkToVolumeMesh(const MeshSource& mesh_source,
 }
 
 std::vector<double> ReadVtkToPressureValues(const MeshSource& mesh_source) {
-
   vtkNew<vtkUnstructuredGridReader> reader;
   if (mesh_source.is_path()) {
     reader->SetFileName(mesh_source.path().c_str());
