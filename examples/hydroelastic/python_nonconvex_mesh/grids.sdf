@@ -20,20 +20,99 @@
           <izz>33.3333</izz>
         </inertia>
       </inertial>
-      <collision name="collision_z_n0.08"><pose>0 0 -0.08 0 0 0</pose>
-        <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+      <!-- 2cm-thick 30cm-by-30cm XZ slabs, translated along +Y axis -->
+      <!-- Translate first slab for half thickness, so a face is on XZ plane -->
+      <collision name="collision_y_p0.01"><pose>0 0.01 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
         <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
       </collision>
-      <collision name="collision_z_p0.12"><pose>0 0 0.12 0 0 0</pose>
-        <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+      <!-- Translate the remaining slabs more by full thickness each -->
+      <collision name="collision_y_p0.03"><pose>0 0.03 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_y_p0.05"><pose>0 0.05 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_y_p0.07"><pose>0 0.07 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
         <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
       </collision>
       <collision name="collision_y_p0.09"><pose>0 0.09 0 0 0 0</pose>
-        <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
         <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
       </collision>
-      <collision name="collision_y_n0.11"><pose>0 -0.11 0 0 0 0</pose>
-        <geometry><box><size>0.2 0.2 0.2</size></box></geometry>
+
+      <!-- 2cm-thick 30cm-by-30cm XZ slabs, translated along -Y axis -->
+      <!-- Translate first slab for half thickness, so a face is on XZ plane -->
+      <collision name="collision_y_n0.01"><pose>0 -0.01 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <!-- Translate the remaining slabs more by full thickness each -->
+      <collision name="collision_y_n0.03"><pose>0 -0.03 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_y_n0.05"><pose>0 -0.05 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_y_n0.07"><pose>0 -0.07 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_y_n0.09"><pose>0 -0.09 0 0 0 0</pose>
+        <geometry><box><size>0.3 0.02 0.3</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+
+      <!-- 2cm-thick 30cm-by-30cm XY slabs, translated along +Z axis -->
+      <!-- Translate first slab for half thickness, so a face is on XY plane -->
+      <collision name="collision_z_p0.01"><pose>0 0 0.01 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <!-- Translate the remaining slabs more by full thickness each -->
+      <collision name="collision_z_p0.03"><pose>0 0 0.03 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_z_p0.05"><pose>0 0 0.05 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_z_p0.07"><pose>0 0 0.07 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_z_p0.09"><pose>0 0 0.09 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+
+      <!-- 2cm-thick 30cm-by-30cm XZ slabs, translated along -Z axis -->
+      <!-- Translate first slab for half thickness, so a face is on XZ plane -->
+      <collision name="collision_z_n0.01"><pose>0 0 -0.01 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <!-- Translate the remaining slabs more by full thickness each -->
+      <collision name="collision_z_n0.03"><pose>0 0 -0.03 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_z_n0.05"><pose>0 0 -0.05 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_z_n0.07"><pose>0 0 -0.07 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
+        <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
+      </collision>
+      <collision name="collision_z_n0.09"><pose>0 0 -0.09 0 0 0</pose>
+        <geometry><box><size>0.3 0.3 0.02</size></box></geometry>
         <drake:proximity_properties><drake:compliant_hydroelastic/><drake:hydroelastic_modulus>1e5</drake:hydroelastic_modulus></drake:proximity_properties>
       </collision>
     </link>
