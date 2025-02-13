@@ -10,6 +10,8 @@ filegroup(
         "shark.obj",
         "shark.mtl",
         "shark.sdf",
+	"shark_combined_refined_sdf.vtk",
+	"shark_combined_refined_sdf.sdf",
         "shark_texture.png",
         "table.sdf",
         "sergey_combined.vtk",
