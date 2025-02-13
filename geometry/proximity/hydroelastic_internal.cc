@@ -603,28 +603,31 @@ std::optional<SoftGeometry> MakeSoftRepresentation(
     // from file.
     std::vector<double> field_values =
         MakePressureFromVtk<double>(mesh_spec);
-    // Hack to scale the normalized field_values by hydroelastic modulus.
-    //     pressure = hydroelastic_modulus * field_value / max_field_value
-    // N.B.  Assume more positive field value in the deeper region. For
-    // example, we can use the negative of signed distance.
-    DRAKE_THROW_UNLESS(ssize(field_values) > 0);
-    const double max_field_value = *std::max_element(field_values.begin(),
-                                                     field_values.end());
-    const double min_field_value = *std::min_element(field_values.begin(),
-                                                     field_values.end());
-    // Sanity check that the sign convention make sense, i.e., the max also has
-    // the largest magnitude not just because of its sign.  For example, this
-    // is a failed example: min = -10, max = +0.001, and this is a success
-    // example: min = -0.001, max = +10.
-    DRAKE_THROW_UNLESS(std::abs(min_field_value) <= std::abs(max_field_value));
-    // Hack to scale the field in VTK file by hydroelastic modulus.
-    for (double& field_value : field_values) {
-      field_value *= (hydroelastic_modulus / max_field_value);
-    }
-    if (ssize(field_values) == mesh->num_vertices()) {
-      auto mesh_field = std::make_unique<VolumeMeshFieldLinear<double, double>>(
-          std::move(field_values), mesh.get());
-      return SoftGeometry(SoftMesh(std::move(mesh), std::move(mesh_field)));
+    if (!field_values.empty()) {
+      // Hack to scale the normalized field_values by hydroelastic modulus.
+      //     pressure = hydroelastic_modulus * field_value / max_field_value
+      // N.B.  Assume more positive field value in the deeper region. For
+      // example, we can use the negative of signed distance.
+      const double max_field_value = *std::max_element(field_values.begin(),
+                                                       field_values.end());
+      const double min_field_value = *std::min_element(field_values.begin(),
+                                                       field_values.end());
+      // Sanity check that the sign convention make sense, i.e., the max also has
+      // the largest magnitude not just because of its sign.  For example, this
+      // is a failed example: min = -10, max = +0.001, and this is a success
+      // example: min = -0.001, max = +10.
+      DRAKE_THROW_UNLESS(
+          std::abs(min_field_value) <= std::abs(max_field_value));
+      // Hack to scale the field in VTK file by hydroelastic modulus.
+      for (double& field_value: field_values) {
+        field_value *= (hydroelastic_modulus / max_field_value);
+      }
+      if (ssize(field_values) == mesh->num_vertices()) {
+        auto mesh_field =
+            std::make_unique<VolumeMeshFieldLinear<double, double>>(
+                std::move(field_values), mesh.get());
+        return SoftGeometry(SoftMesh(std::move(mesh), std::move(mesh_field)));
+      }
     }
   } else {
     // Otherwise, we'll create a compliant representation of its convex hull.
