@@ -20,7 +20,10 @@ filegroup(
         "shark_combined_refined_sdf.vtk",
         "shark_texture.png",
         "table.sdf",
-    ],
+    ] + glob([
+              "shark_toy_64pieces/*",
+              "shark_toy_64pieces/model_parts/*",
+          ]),
     visibility = ["//:__pkg__"],
 )
 
