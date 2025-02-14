@@ -13,13 +13,16 @@
 
 namespace drake {
 namespace geometry {
+namespace internal {
 namespace {
 
 namespace fs = std::filesystem;
 
 using Eigen::Vector3d;
 
-// February 4, 2025: 7 Ok, 1 ThrowNullptr, 2 InfiniteLoop, 2 CoreDumped.
+// 2025-02-13: 7 Ok, 1 ThrowNullptr, 1 InfiniteLoop, 1 DegenratePointOnBall.
+// 1 Excluded due to self-intersection (mustard_bottle).
+// 1 Excluded due to multi-object .obj file (two_cube_objects).
 
 GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OneTetrahedron) {
   // A four-triangle mesh of a standard tetrahedron.
@@ -66,19 +69,32 @@ GTEST_TEST(convex, OK) {
   EXPECT_EQ(volume.tetrahedra().size(), 38);
 }
 
+// Did it get into troubles because the input has 8 components instead of one
+// connected piece? Each component is just a symmetric version of a
+// triangular prism. Removing all but one prism ran successfully.
 GTEST_TEST(cube_corners, ThrowNullptr) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
   const TriangleSurfaceMesh<double> surface =
       ReadObjToTriangleSurfaceMesh(filename);
+
   EXPECT_EQ(surface.num_vertices(), 48);
   EXPECT_EQ(surface.num_triangles(), 64);
 
   DRAKE_EXPECT_THROWS_MESSAGE(
       ConvertSurfaceToVolumeMesh(surface),
       "DelaunayMesher::getOneBallBySegment::nullptr ball");
+
+  // This is for one triangular prism.
+  // EXPECT_EQ(surface.num_vertices(), 48);
+  // EXPECT_EQ(surface.num_triangles(), 8);
+  // VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+  // EXPECT_EQ(volume.vertices().size(), 6);
+  // EXPECT_EQ(volume.tetrahedra().size(), 3);
 }
 
+// Did it get into infinite loop because it's not a topological ball? It's a
+// topological torus (donut).
 // GTEST_TEST(cube_with_hole, InfiniteLoop) {
 //   const fs::path filename =
 //       FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
@@ -131,29 +147,42 @@ GTEST_TEST(quad_cube, Ok) {
   EXPECT_EQ(volume.tetrahedra().size(), 11);
 }
 
+// Exclude from the benchmark. The file contains two objects.
+// Removing one object manually ran successfully.
 // GTEST_TEST(two_cube_objects, InfiniteLoop) {
 //   const fs::path filename =
 //       FindResourceOrThrow("drake/geometry/test/two_cube_objects.obj");
 //   const TriangleSurfaceMesh<double> surface =
 //       ReadObjToTriangleSurfaceMesh(filename);
-//   EXPECT_EQ(surface.num_vertices(), 16);
-//   EXPECT_EQ(surface.num_triangles(), 24);
+//
+//   // If we keep only one of the two cubes at a time, it passes.
+//   EXPECT_EQ(surface.num_vertices(), 8);
+//   EXPECT_EQ(surface.num_triangles(), 12);
 //
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+//
+//   EXPECT_EQ(volume.vertices().size(), 12);
+//   EXPECT_EQ(volume.tetrahedra().size(), 25);
+//
+//   WriteVolumeMeshToVtk("unit_test.vtk", volume,
+//                        "test");
 // }
 
-// GTEST_TEST(evo_bowl_col, CoreDumped) {
-//   const RlocationOrError rlocation =
-//       FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
-//   ASSERT_EQ(rlocation.error, "");
-//   const TriangleSurfaceMesh<double> surface =
-//       ReadObjToTriangleSurfaceMesh(rlocation.abspath);
-//   EXPECT_EQ(surface.num_vertices(), 3957);
-//   EXPECT_EQ(surface.num_triangles(), 7910);
-//
-//   DRAKE_EXPECT_THROWS_MESSAGE(ConvertSurfaceToVolumeMesh(surface),
-//     "vegagem::DelaunayMesher::DelaunayBall::contains(int newVtx): !oriB");
-// }
+// Degenerated in-sphere test: DelaunayBall::contains() reached an ambiguity
+// case.  It may need coin flips to decide.
+GTEST_TEST(evo_bowl_col, DegenratePointOnBall) {
+  const RlocationOrError rlocation =
+      FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
+  ASSERT_EQ(rlocation.error, "");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(rlocation.abspath);
+  EXPECT_EQ(surface.num_vertices(), 3957);
+  EXPECT_EQ(surface.num_triangles(), 7910);
+
+  DRAKE_EXPECT_THROWS_MESSAGE(
+      ConvertSurfaceToVolumeMesh(surface),
+      "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
+}
 
 GTEST_TEST(plate_8in_col, Ok) {
   const RlocationOrError rlocation =
@@ -187,6 +216,10 @@ GTEST_TEST(sugar_box, Ok) {
   EXPECT_EQ(volume.tetrahedra().size(), 27189);
 }
 
+// Exclude from the benchmark.
+//
+// Meshlab identified 3 self-intersecting faces out of 16,384 triangles in
+// the mustard_bottle.
 // GTEST_TEST(mustard_bottle, CoreDumped) {
 //   const RlocationOrError rlocation =
 //       FindRunfile("drake_models/ycb/meshes/006_mustard_bottle_textured.obj");
@@ -201,5 +234,6 @@ GTEST_TEST(sugar_box, Ok) {
 // }
 
 }  // namespace
+}  // namespace internal
 }  // namespace geometry
 }  // namespace drake
