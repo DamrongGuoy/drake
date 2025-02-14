@@ -63,13 +63,26 @@ DelaunayMesher::~DelaunayMesher()
 
 void DelaunayMesher::clear()
 {
-  for (BallIter itr = ballsToDelete.begin(); itr != ballsToDelete.end(); itr++)
-    delete *itr;
+  std::set<DelaunayBall*> already_deleted;
+  for (BallIter itr = ballsToDelete.begin(); itr != ballsToDelete.end();
+       itr++) {
+    if (!already_deleted.contains(*itr)) {
+      already_deleted.insert(*itr);
+      delete *itr;
+    }
+  }
   ballsToDelete.clear();
-  for (BallIter itr = balls.begin(); itr != balls.end(); itr++)
-    delete *itr;
+
+  for (BallIter itr = balls.begin(); itr != balls.end(); itr++) {
+    if (!already_deleted.contains(*itr)) {
+      already_deleted.insert(*itr);
+      delete *itr;
+    }
+  }
   balls.clear();
+
   ballsAdded.clear(); // this is a subset of "balls", so no need to do a separate clearing for loop for it
+
   epsilon = 0.0;
   inputVertices.clear();
   vEdgeDeleted.clear();
@@ -119,7 +132,7 @@ bool DelaunayMesher::computeDelaunayTetrahedralization(const std::vector<Vec3d> 
   epsilon = ep;
 
   inputVertices.resize(uniqueVertices.size());
-  vertex2ball.resize(uniqueVertices.size());
+  vertex2ball.resize(uniqueVertices.size(), nullptr);
   for (int i = 0; i < numVertices; i++)
     inputVertices[i] = uniqueVertices[i];
 
@@ -676,13 +689,12 @@ int DelaunayMesher::DelaunayBall::contains(int newVtx) const
     // Flip the sign if there are odd number of swaps.
     if (!oriB)
     {
-      cout << "vegagem::DelaunayMesher::DelaunayBall::contains(int newVtx):\n";
+      cout << "vegafem::DelaunayMesher::DelaunayBall::contains(int newVtx):\n";
       cout << *this << newVtx << endl;
       cout << parent.inputVertices[v[0]] << parent.inputVertices[v[1]] << parent.inputVertices[v[2]] << parent.inputVertices[v[3]] << parent.inputVertices[newVtx] << endl;
       cout << query << " " << oriA << " " << oriB << endl;
       throw std::runtime_error(
-          "vegagem::DelaunayMesher::DelaunayBall::contains(int newVtx): "
-          "!oriB");
+          "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
     }
     return (numSwaps & 1? oriB: -oriB);
   }
