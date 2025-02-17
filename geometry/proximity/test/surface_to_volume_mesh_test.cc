@@ -184,7 +184,7 @@ GTEST_TEST(evo_bowl_col, DegenratePointOnBall) {
       "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
 }
 
-GTEST_TEST(plate_8in_col, Ok) {
+GTEST_TEST(plate_8in_col, Ok1Second) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/dishes/assets/plate_8in_col.obj");
   ASSERT_EQ(rlocation.error, "");
@@ -200,7 +200,7 @@ GTEST_TEST(plate_8in_col, Ok) {
   EXPECT_EQ(volume.tetrahedra().size(), 1263);
 }
 
-GTEST_TEST(sugar_box, Ok) {
+GTEST_TEST(sugar_box, Ok18Seconds) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/ycb/meshes/004_sugar_box_textured.obj");
   ASSERT_EQ(rlocation.error, "");
@@ -232,6 +232,22 @@ GTEST_TEST(sugar_box, Ok) {
 //
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
 // }
+
+GTEST_TEST(Android_Lego, Ok16Seconds) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/Android_Lego.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+
+  EXPECT_EQ(surface.num_vertices(), 7109);
+  EXPECT_EQ(surface.num_triangles(), 14214);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 7109);
+  EXPECT_EQ(volume.tetrahedra().size(), 24381);
+}
+
 
 }  // namespace
 }  // namespace internal
