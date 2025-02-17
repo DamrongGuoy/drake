@@ -825,6 +825,7 @@ filegroup(
     name = "test_obj_files",
     testonly = 1,
     srcs = [
+        "test/Android_Lego.obj",
         "test/bad_geometry_volume_zero.obj",
         "test/convex.obj",
         "test/cube_corners.obj",
