@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="Halfspaces">
+    <link name="Halfspaces">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>5.0e3</mass>
+        <inertia>
+          <!-- We will fix it to World frame, so we use arbitrary numbers-->
+          <ixx>1</ixx><ixy>0</ixy><ixz>0</ixz>
+          <iyy>1</iyy><iyz>0</iyz>
+          <izz>1</izz>
+        </inertia>
+      </inertial>
+      <!-- Mimic halfspace by a 10-meter big box -->
+      <!-- Pose the box with its top face at Z = +0.20 (20cm) -->
+      <collision name="HalfSpace_Zp1"><pose> 0 0 -4.80 0 0 0</pose>
+        <geometry><box><size>10 10 10</size></box></geometry>
+        <drake:proximity_properties>
+          <drake:compliant_hydroelastic/>
+          <drake:hydroelastic_modulus> 1e3 </drake:hydroelastic_modulus>
+        </drake:proximity_properties>
+      </collision>
+      <!-- Pose the box with its bottom face at Z = -0.01 (1cm) -->
+      <collision name="HalfSpace_Zn1"><pose> 0 0 4.99 0 0 0</pose>
+        <geometry><box><size>10 10 10</size></box></geometry>
+        <drake:proximity_properties>
+          <drake:compliant_hydroelastic/>
+          <drake:hydroelastic_modulus> 1e3 </drake:hydroelastic_modulus>
+        </drake:proximity_properties>
+      </collision>
+      <!-- We don't have slab_thickness in SDFormat yet. As a result, we cannot
+        create a compliant-hydroelastic halfspace in SDFormat file. This
+        specification is deactivated (comment out) for now.
+          <collision name="HalfSpace"><pose> 0 0 0.20 0 0 0</pose>
+            <geometry><plane><normal>0 0 1</normal></plane></geometry>
+            <drake:proximity_properties>
+              <drake:compliant_hydroelastic/>
+              <drake:hydroelastic_modulus> 1e3 </drake:hydroelastic_modulus>
+              <drake:slab_thickness> 1 </drake:slab_thickness>
+            </drake:proximity_properties>
+          </collision>
+      -->
+    </link>
+  </model>
+</sdf>

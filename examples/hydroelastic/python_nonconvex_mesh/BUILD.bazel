@@ -11,6 +11,7 @@ filegroup(
         "3D_Dollhouse_Happy_Brother.obj",
         "3D_Dollhouse_Happy_Brother_tetwild_tetgen.vtk",
         "3D_Dollhouse_Happy_Brother_texture.png",
+        "double_halfspaces.sdf",
         "grids.sdf",
         "sergey_combined.vtk",
         "shark.mtl",
