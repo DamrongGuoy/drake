@@ -826,6 +826,8 @@ filegroup(
     testonly = 1,
     srcs = [
         "test/Android_Lego.obj",
+        "test/Android_Lego.mtl",
+        "test/Android_Lego_texture.png",
         "test/bad_geometry_volume_zero.obj",
         "test/convex.obj",
         "test/cube_corners.obj",
