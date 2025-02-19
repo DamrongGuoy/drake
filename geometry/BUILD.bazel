@@ -842,6 +842,7 @@ filegroup(
     name = "test_vtk_files",
     testonly = 1,
     srcs = [
+	    "test/3D_Dollhouse_Happy_Brother_CDT.vtk",
         "test/cube_as_6_squares.vtk",
         "test/cube_as_volume.vtk",
         "test/inflation_infeasible_vertex.vtk",

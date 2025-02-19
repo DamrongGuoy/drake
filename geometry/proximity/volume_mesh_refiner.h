@@ -106,6 +106,17 @@ class VolumeMeshRefiner {
   // vertices into these variables.
   std::vector<VolumeElement> tetrahedra_{};
   std::vector<Vector3<double>> vertices_{};
+  // Experimental idea to accelerate GetTetrahedraOnEdge() and
+  // GetTetrahedraOnTriangle() so we avoid global search.
+  // Make sure to update this table synchronously with tetrahedra_.
+  //     tetrahedra_: a tetrahedron -> 4 vertices
+  //     vertex2tetrahedra_: a vertex -> a number of tetrahedra
+  // reverse map of tetrahedra_.
+  // Invariant: vertex2tetrahedra_.size() == vertices_.size().
+  std::vector<std::vector<int>> vertex2tetrahedra_{};
+  // Initialize vertex2tetrahedra_ from tetrahedra_;
+  void ResetVertex2tetrahedra(void);
+
   // Reference to the input mesh must be valid during the lifetime of this
   // object.
   const VolumeMesh<double>& input_mesh_;
