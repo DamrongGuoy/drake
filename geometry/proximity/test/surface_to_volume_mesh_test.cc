@@ -41,6 +41,25 @@ GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OneTetrahedron) {
   EXPECT_EQ(volume_mesh.num_elements(), 1);
 }
 
+// Compare VegaFEM-v4.0.5/tetMesher and our successful customized code.
+//     $ tetMesher bad_geometry_volume_zero.obj bad_geometry_volume_zero.veg
+//     Refinement quality is: 1.1
+//     Alpha is: 1
+//     Minimal dihedral is: 0
+//     Running the tet mesher...
+//     ^C
+//     $ bazel-bin/geometry/proximity/mtetm bad_geometry_volume_zero.obj
+//                                          bad_geometry_volume_zero.vtk
+//     Starting tet mesh refinement.
+//     Checking if mesh is triangular... yes
+//     Total number of triangles is: 8
+//     Building the octree data structure...
+//     All tets are good quality after refining.
+//
+//
+//     0 steiner points inserted.
+//     [2025-02-18 19:10:01.969] [console] [info] wrote tetrahedral mesh to
+//     file 'bad_geometry_volume_zero.vtk' with 8 tets and 7 vertices.
 GTEST_TEST(bad_geometry_volume_zero, OK) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/bad_geometry_volume_zero.obj");
@@ -55,6 +74,7 @@ GTEST_TEST(bad_geometry_volume_zero, OK) {
   EXPECT_EQ(volume.tetrahedra().size(), 8);
 }
 
+// Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(convex, OK) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/convex.obj");
@@ -72,6 +92,14 @@ GTEST_TEST(convex, OK) {
 // Did it get into troubles because the input has 8 components instead of one
 // connected piece? Each component is just a symmetric version of a
 // triangular prism. Removing all but one prism ran successfully.
+//
+// VegaFEM-v4.0.5/tetMesher said it's not 2-manifold.
+//     $ tetMesher geometry/test/cube_corners.obj cube_corners.veg
+//     Refinement quality is: 1.1
+//     Alpha is: 1
+//     Minimal dihedral is: 0
+//     Running the tet mesher...
+//     The input mesh must be a 2-manifold mesh
 GTEST_TEST(cube_corners, ThrowNullptr) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
@@ -95,6 +123,15 @@ GTEST_TEST(cube_corners, ThrowNullptr) {
 
 // Did it get into infinite loop because it's not a topological ball? It's a
 // topological torus (donut).
+//
+// VegaFEM-v4.0.5/tetMesher said it's not 2-manifold.
+//     $ tetMesher geometry/test/cube_with_hole.obj cube_with_hole.veg
+//     Refinement quality is: 1.1
+//     Alpha is: 1
+//     Minimal dihedral is: 0
+//     Running the tet mesher...
+//     The input mesh must be a 2-manifold mesh
+//
 // GTEST_TEST(cube_with_hole, InfiniteLoop) {
 //   const fs::path filename =
 //       FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
@@ -105,6 +142,7 @@ GTEST_TEST(cube_corners, ThrowNullptr) {
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
 // }
 
+// Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(non_convex_mesh, Ok) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/non_convex_mesh.obj");
@@ -119,6 +157,7 @@ GTEST_TEST(non_convex_mesh, Ok) {
   EXPECT_EQ(volume.tetrahedra().size(), 3);
 }
 
+// Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(octahedron, Ok) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/octahedron.obj");
@@ -133,6 +172,14 @@ GTEST_TEST(octahedron, Ok) {
   EXPECT_EQ(volume.tetrahedra().size(), 4);
 }
 
+// Our customized code is ok, but VegaFEM-v4.0.5/tetMesher said it's not
+// 2-manifold.
+//     $ tetMesher geometry/test/quad_cube.obj quad_cube.veg
+//     Refinement quality is: 1.1
+//     Alpha is: 1
+//     Minimal dihedral is: 0
+//     Running the tet mesher...
+//     The input mesh must be a 2-manifold mesh
 GTEST_TEST(quad_cube, Ok) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/quad_cube.obj");
@@ -170,6 +217,14 @@ GTEST_TEST(quad_cube, Ok) {
 
 // Degenerated in-sphere test: DelaunayBall::contains() reached an ambiguity
 // case.  It may need coin flips to decide.
+//
+// VegaFEM-v4.0.5/tetMesher said it's not 2-manifold.
+//     $ tetMesher ~/GitHub/DamrongGuoy/RobotLocomotion_models/dishes/assets/evo_bowl_col.obj evo_bowl_col.veg
+//     Refinement quality is: 1.1
+//     Alpha is: 1
+//     Minimal dihedral is: 0
+//     Running the tet mesher...
+//     The input mesh must be a 2-manifold mesh
 GTEST_TEST(evo_bowl_col, DegenratePointOnBall) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
@@ -184,6 +239,7 @@ GTEST_TEST(evo_bowl_col, DegenratePointOnBall) {
       "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
 }
 
+// Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(plate_8in_col, Ok1Second) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/dishes/assets/plate_8in_col.obj");
@@ -200,6 +256,7 @@ GTEST_TEST(plate_8in_col, Ok1Second) {
   EXPECT_EQ(volume.tetrahedra().size(), 1263);
 }
 
+// Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(sugar_box, Ok18Seconds) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/ycb/meshes/004_sugar_box_textured.obj");
@@ -233,6 +290,7 @@ GTEST_TEST(sugar_box, Ok18Seconds) {
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
 // }
 
+// Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(Android_Lego, Ok16Seconds) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/Android_Lego.obj");
