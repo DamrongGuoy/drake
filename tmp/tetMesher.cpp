@@ -288,8 +288,9 @@ int TetMesher::initializeCDT(bool recovery)
 
       if (itr->second.size() != 2)
       {
-        printf("The input mesh must be a 2-manifold mesh\n");
-        exit(3);
+        throw std::runtime_error(
+            "vegafem::TetMesher::initializeCDT: "
+            "The input mesh must be a 2-manifold mesh");
       }
 
       for (size_t i = 0; i < itr->second.size(); i++)
@@ -305,8 +306,9 @@ int TetMesher::initializeCDT(bool recovery)
     for (size_t i = 0; i < neighborSurface.size(); i++)
       if (neighborSurface[i].size() != 3)
       {
-        printf("The input mesh must be a triagular mesh\n");
-        exit(4);
+        throw std::runtime_error(
+            "vegafem::TetMesher::initializeCDT: "
+            "The input mesh must be a triangular mesh");
       }
   }
   objMesh->exportGeometry((int *) &nv, &v);
