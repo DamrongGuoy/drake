@@ -10,6 +10,8 @@
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
+#include "drake/geometry/proximity/volume_to_surface_mesh.h"
+#include "drake/geometry/proximity/vtk_to_volume_mesh.h"
 
 namespace drake {
 namespace geometry {
@@ -20,7 +22,10 @@ namespace fs = std::filesystem;
 
 using Eigen::Vector3d;
 
-// 2025-02-13: 7 Ok, 1 ThrowNullptr, 1 InfiniteLoop, 1 DegenratePointOnBall.
+// 2025-02-19: 7 Ok, 3 fails, 40 seconds total for 14 tests.
+//     1 ThrowNullptr (cube_corners),
+//     1 InfiniteLoop (cube_with_hole),
+//     1 UndecidableCase (evo_bowl_col).
 // 1 Excluded due to self-intersection (mustard_bottle).
 // 1 Excluded due to multi-object .obj file (two_cube_objects).
 
@@ -100,6 +105,9 @@ GTEST_TEST(convex, OK) {
 //     Minimal dihedral is: 0
 //     Running the tet mesher...
 //     The input mesh must be a 2-manifold mesh
+//
+// TetGen is ok (after we triangulate the quadrilateral faces).
+//
 GTEST_TEST(cube_corners, ThrowNullptr) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
@@ -120,6 +128,20 @@ GTEST_TEST(cube_corners, ThrowNullptr) {
   // EXPECT_EQ(volume.vertices().size(), 6);
   // EXPECT_EQ(volume.tetrahedra().size(), 3);
 }
+GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/cube_corners_tet.vtk");
+  const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
+  const TriangleSurfaceMesh<double> surface =
+      ConvertVolumeToSurfaceMesh(in_volume);
+
+  EXPECT_EQ(surface.num_vertices(), 48);
+  EXPECT_EQ(surface.num_triangles(), 64);
+
+  DRAKE_EXPECT_THROWS_MESSAGE(
+      ConvertSurfaceToVolumeMesh(surface),
+      "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
+}
 
 // Did it get into infinite loop because it's not a topological ball? It's a
 // topological torus (donut).
@@ -132,6 +154,8 @@ GTEST_TEST(cube_corners, ThrowNullptr) {
 //     Running the tet mesher...
 //     The input mesh must be a 2-manifold mesh
 //
+// Tetgen is ok (after we split all input faces into triangles).
+//
 // GTEST_TEST(cube_with_hole, InfiniteLoop) {
 //   const fs::path filename =
 //       FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
@@ -140,6 +164,19 @@ GTEST_TEST(cube_corners, ThrowNullptr) {
 //   ASSERT_EQ(surface.num_vertices(), 16);
 //   ASSERT_EQ(surface.num_triangles(), 32);
 //   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+// }
+// GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
+//   const fs::path filename =
+//       FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
+//   const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
+//   const TriangleSurfaceMesh<double> surface =
+//       ConvertVolumeToSurfaceMesh(in_volume);
+//
+//   EXPECT_EQ(surface.num_vertices(), 16);
+//   EXPECT_EQ(surface.num_triangles(), 32);
+//
+//   VolumeMesh<double> volume =
+//       ConvertSurfaceToVolumeMesh(surface);
 // }
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
@@ -215,17 +252,20 @@ GTEST_TEST(quad_cube, Ok) {
 //                        "test");
 // }
 
-// Degenerated in-sphere test: DelaunayBall::contains() reached an ambiguity
-// case.  It may need coin flips to decide.
+// The input is non-manifold. Our code got into degenerated in-sphere test:
+// abiguous DelaunayBall::contains().
 //
 // VegaFEM-v4.0.5/tetMesher said it's not 2-manifold.
-//     $ tetMesher ~/GitHub/DamrongGuoy/RobotLocomotion_models/dishes/assets/evo_bowl_col.obj evo_bowl_col.veg
-//     Refinement quality is: 1.1
-//     Alpha is: 1
-//     Minimal dihedral is: 0
-//     Running the tet mesher...
-//     The input mesh must be a 2-manifold mesh
-GTEST_TEST(evo_bowl_col, DegenratePointOnBall) {
+//     $ tetMesher
+//     ~/GitHub/DamrongGuoy/RobotLocomotion_models/dishes/assets/evo_bowl_col.obj
+//     evo_bowl_col.veg Refinement quality is: 1.1 Alpha is: 1 Minimal dihedral
+//     is: 0 Running the tet mesher... The input mesh must be a 2-manifold mesh
+//
+// TetGen is ok (after we fixed manifold-ness).
+//
+// Success with the Tet-to-Tri-to-Tet of the coarser mesh.
+//
+GTEST_TEST(evo_bowl_col, UndecidableCase) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
   ASSERT_EQ(rlocation.error, "");
@@ -237,6 +277,39 @@ GTEST_TEST(evo_bowl_col, DegenratePointOnBall) {
   DRAKE_EXPECT_THROWS_MESSAGE(
       ConvertSurfaceToVolumeMesh(surface),
       "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
+}
+GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase) {
+  const RlocationOrError rlocation =
+      FindRunfile("drake_models/dishes/assets/evo_bowl_fine44k.vtk");
+  ASSERT_EQ(rlocation.error, "");
+  const VolumeMesh<double> in_volume =
+      ReadVtkToVolumeMesh(std::filesystem::path(rlocation.abspath));
+  const TriangleSurfaceMesh<double> surface =
+      ConvertVolumeToSurfaceMesh(in_volume);
+
+  EXPECT_EQ(surface.num_vertices(), 3957);
+  EXPECT_EQ(surface.num_triangles(), 7910);
+
+  DRAKE_EXPECT_THROWS_MESSAGE(
+      ConvertSurfaceToVolumeMesh(surface),
+      "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
+}
+GTEST_TEST(evo_bowl_coarse3k_Tet2Tri2Tet, Ok1Second) {
+  const RlocationOrError rlocation =
+      FindRunfile("drake_models/dishes/assets/evo_bowl_coarse3k.vtk");
+  ASSERT_EQ(rlocation.error, "");
+  const VolumeMesh<double> in_volume =
+      ReadVtkToVolumeMesh(std::filesystem::path(rlocation.abspath));
+  const TriangleSurfaceMesh<double> surface =
+      ConvertVolumeToSurfaceMesh(in_volume);
+
+  EXPECT_EQ(surface.num_vertices(), 249);
+  EXPECT_EQ(surface.num_triangles(), 494);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 249);
+  EXPECT_EQ(volume.tetrahedra().size(), 749);
 }
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
@@ -305,7 +378,6 @@ GTEST_TEST(Android_Lego, Ok16Seconds) {
   EXPECT_EQ(volume.vertices().size(), 7109);
   EXPECT_EQ(volume.tetrahedra().size(), 24381);
 }
-
 
 }  // namespace
 }  // namespace internal
