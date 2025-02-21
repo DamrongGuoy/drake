@@ -60,6 +60,11 @@ TetMesher::TetMesher() : resultTetMesh(delaunay)
 TetMesh * TetMesher::compute(ObjMesh * inputMesh, double refinementQuality, double alpha, double minDihedral, int maxSteinerVertices, double maxTimeSeconds)
 {
   // clean previous data
+  // (DamrongGuoy) From https://en.cppreference.com/w/cpp/language/delete, if
+  // the pointer is a null pointer value, no destructors are called, and the
+  // deallocation function may or may not be called (it's unspecified),
+  // but the default deallocation functions are guaranteed to do nothing
+  // when passed a null pointer.
   delete objMesh;
   objMesh = NULL;
   faceRecoveryDepth = 0;
@@ -86,6 +91,16 @@ TetMesh * TetMesher::compute(ObjMesh * inputMesh, double refinementQuality, doub
 
   PerformanceCounter counter;
   counter.StartCounter();
+  // (DamrongGuoy)
+  // GTEST_TEST(cube_corners, ThrowNullptr)
+  // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase)
+  // GTEST_TEST(cube_with_hole, InfiniteLoop)
+  // GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop)
+  // GTEST_TEST(evo_bowl_col, UndecidableCase)
+  // GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase)
+  // int TetMesher::initializeCDT(bool recovery)
+  // Here we should have checked the return value from initializeCDT().
+  // It's the size of the member `std::vector<UTriKey> lost`.
   initializeCDT();
   counter.StopCounter();
   double cdtTime = counter.GetElapsedTime();
@@ -267,6 +282,11 @@ int TetMesher::initializeCDT(bool recovery)
   unsigned nv;
   double *v = NULL;
   const ObjMesh::Group *group = objMesh->getGroupHandle(0);
+  // (DamrongGuoy) Check that the input surface mesh is a 2-manifold mesh
+  // (each edge is shared by two faces), construct the member `neighborSurface`
+  // that describes face-to-face connectivity among input faces, and check that
+  // the input is a triangle mesh (each face has exactly three neighboring
+  // faces).
   if (recovery)
   {
     //get all faces and build neighbors in the triangular mesh
@@ -293,6 +313,10 @@ int TetMesher::initializeCDT(bool recovery)
             "The input mesh must be a 2-manifold mesh");
       }
 
+      // (DamrongGuoy) The above check "if (itr->second.size() != 2)" implies
+      // here the itr->second.size() is 2. Therefore, the following seemingly
+      // "double for-loops" is actually one iteration with (i=0, j=1).
+      // It records the two triangles of the edge to be a neighbor of the other.
       for (size_t i = 0; i < itr->second.size(); i++)
         for (size_t j = i + 1; j < itr->second.size(); j++)
         {
@@ -321,6 +345,15 @@ int TetMesher::initializeCDT(bool recovery)
   free(v);
   trianglesInTet.clear();
 
+  // (DamrongGuoy) The word "DelaunayBall" refers to both a tetrahedron and its
+  // empty sphere.
+  //
+  // Delaunay, Boris (1934). "Sur la sphère vide. A la mémoire de Georges
+  // Voronoï" [On the empty sphere. In memory of Georges Voronoı]. Bulletin
+  // de l'Académie des Sciences de l'URSS, Classe des Sciences Mathématiques
+  // et Naturelles. 6: 793–800.
+  // https://www.mathnet.ru/php/archive.phtml?wshow=paper&jrnid=im&paperid=4937&option_lang=eng
+  //
   for (DelaunayMesher::BallCIter itr = delaunay.getBallSetBegin(); itr != delaunay.getBallSetEnd(); itr++)
   {
     const DelaunayMesher::DelaunayBall *ball = *itr;
@@ -333,6 +366,8 @@ int TetMesher::initializeCDT(bool recovery)
   //printf("After segmentRecovery:\n"); fflush(NULL);
   flipSurface();
 
+  // (DamrongGuoy) Set up the member `lost` from all input triangles that the
+  // tetrahedral mesh doesn't respect.
   lost.clear();
   for (unsigned i = 0; i < group->getNumFaces(); i++)
   {
