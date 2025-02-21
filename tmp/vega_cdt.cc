@@ -17,6 +17,10 @@ VolumeMesh<double> VegaCdt(const TriangleSurfaceMesh<double>& surface_mesh) {
   vegafem::TetMesh* tet_mesh =
       mesher.compute(&obj_mesh, /*refinementQuality*/ kUseThisForCoarsestMesh);
 
+  if (tet_mesh == nullptr) {
+    throw std::runtime_error(
+        "drake::geometry::VegaCdt: vegafem::TetMesher can't make a mesh");
+  }
   return VegaFemTetMeshToDrakeVolumeMesh(*tet_mesh);
 }
 

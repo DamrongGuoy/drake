@@ -23,11 +23,18 @@ namespace fs = std::filesystem;
 using Eigen::Vector3d;
 
 // 2025-02-19: 7 Ok, 3 fails, 40 seconds total for 14 tests.
-//     1 ThrowNullptr (cube_corners),
-//     1 InfiniteLoop (cube_with_hole),
-//     1 UndecidableCase (evo_bowl_col).
+// All failures happened when vegafem::TetMesher::compute() calls
+// TetMesher::initializeCDT(bool recovery = true).
+//     1 ThrowNullptr (cube_corners: 48 vert, 64 tri),
+//     1 InfiniteLoop (cube_with_hole: 16 vert, 32 tri),
+//     1 UndecidableCase (evo_bowl_col: 3957 vert, 7910 tri).
+//
 // 1 Excluded due to self-intersection (mustard_bottle).
 // 1 Excluded due to multi-object .obj file (two_cube_objects).
+//
+// Note: There are two initializeCDT():
+// - TetMesher::initializeCDT(bool recovery), and
+// - DelaunayMesher::initializeCDT(TetMesh * inputMesh, double ep).
 
 GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OneTetrahedron) {
   // A four-triangle mesh of a standard tetrahedron.
@@ -44,6 +51,38 @@ GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OneTetrahedron) {
   // Expect a one-tetrahedron mesh with four vertices.
   EXPECT_EQ(volume_mesh.num_vertices(), 4);
   EXPECT_EQ(volume_mesh.num_elements(), 1);
+}
+
+// I had a hypothesis that VegaFEM/tetMesher had troubles with
+// non-topological-ball cases; however, I used this trivial
+// non-topological-ball case, and it passed.  It's simply a set of two
+// disjoint tetrahedra.
+GTEST_TEST(NonTopologicalBall, Ok) {
+  // Start with a volume mesh of two disconnected tetrahedra.
+  const VolumeMesh<double> two_tetrahedra{
+      {// This is a standard tetrahedron at the origin.
+       VolumeElement{0, 1, 2, 3},
+       // This second tetrahedron is the translation of the first one.
+       // The translation is enough to separate them (see vertex coordinates).
+       VolumeElement{4, 5, 6, 7}},
+      {// Vertex 0-3 belongs to the first tetrahedron.
+       Vector3d::Zero(), Vector3d::UnitX(), Vector3d::UnitY(),
+       Vector3d::UnitZ(),
+       // Vertex 4-7 belongs to the second tetrahedron. They are
+       // adequate translation of the first four vertices, so the second
+       // tetrahedron doesn't overlap the first tetrahedron.
+       Vector3d(0, 0, 1.1), Vector3d(1, 0, 1.1), Vector3d(0, 1, 1.1),
+       Vector3d(0, 0, 2.1)}};
+  const TriangleSurfaceMesh<double> surface =
+      ConvertVolumeToSurfaceMesh(two_tetrahedra);
+
+  EXPECT_EQ(surface.num_vertices(), 8);
+  EXPECT_EQ(surface.num_triangles(), 8);
+
+  const VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 8);
+  EXPECT_EQ(volume.tetrahedra().size(), 2);
 }
 
 // Compare VegaFEM-v4.0.5/tetMesher and our successful customized code.
@@ -157,14 +196,25 @@ GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
 // Tetgen is ok (after we split all input faces into triangles).
 //
 // GTEST_TEST(cube_with_hole, InfiniteLoop) {
-//   const fs::path filename =
-//       FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
-//   const TriangleSurfaceMesh<double> surface =
-//       ReadObjToTriangleSurfaceMesh(filename);
-//   ASSERT_EQ(surface.num_vertices(), 16);
-//   ASSERT_EQ(surface.num_triangles(), 32);
-//   VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
-// }
+//  const fs::path filename =
+//      FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
+//  const TriangleSurfaceMesh<double> surface =
+//      ReadObjToTriangleSurfaceMesh(filename);
+//  ASSERT_EQ(surface.num_vertices(), 16);
+//  ASSERT_EQ(surface.num_triangles(), 32);
+//  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+//}
+//
+// TetMesher::compute()->
+// TetMesher::initializeCDT() ->
+//  TetMesher::segmentRecovery() ->
+//   DelaunayMesher::segmentRecoveryUsingFlip(lineSegment, depth=3) ->
+//    DelaunayMesher::segmentRemovalUsingFlip(edge, depth=3->2) ->
+//     DelaunayMesher::segmentRemovalUsingFlip(edge, depth=2->1) ->
+//      DelaunayMesher::segmentRemovalUsingFlip(edge, depth=1->0) ->
+//       DelaunayMesher::getTetsAroundEdge() ->
+//        DelaunayMesher::getOneBallBySegment(start = 7, end = 0)
+//
 // GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
 //   const fs::path filename =
 //       FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
@@ -253,7 +303,7 @@ GTEST_TEST(quad_cube, Ok) {
 // }
 
 // The input is non-manifold. Our code got into degenerated in-sphere test:
-// abiguous DelaunayBall::contains().
+// ambiguous DelaunayBall::contains().
 //
 // VegaFEM-v4.0.5/tetMesher said it's not 2-manifold.
 //     $ tetMesher

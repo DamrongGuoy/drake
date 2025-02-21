@@ -1384,6 +1384,8 @@ int DelaunayMesher::getOneBallBySegment(const int start, const int end)
 
     //OFaceKey
     int sign[4];
+    // (DamrongGuoy) Why i = 1,2,3 instead of i = 0,1,2,3 ? The sign[0] does
+    // get special treatment around the last code block.
     for (i = 1; i < 4; i++)
     {
       OTriKey face = ball->oFaceKey(permute[originInd][i]);
