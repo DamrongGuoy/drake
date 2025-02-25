@@ -91,14 +91,13 @@ TetMesh * TetMesher::compute(ObjMesh * inputMesh, double refinementQuality, doub
 
   PerformanceCounter counter;
   counter.StartCounter();
-  // (DamrongGuoy)
+  // (DamrongGuoy) These test cases failed here.
   // GTEST_TEST(cube_corners, ThrowNullptr)
   // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase)
   // GTEST_TEST(cube_with_hole, InfiniteLoop)
   // GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop)
   // GTEST_TEST(evo_bowl_col, UndecidableCase)
   // GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase)
-  // int TetMesher::initializeCDT(bool recovery)
   // Here we should have checked the return value from initializeCDT().
   // It's the size of the member `std::vector<UTriKey> lost`.
   initializeCDT();
@@ -340,6 +339,8 @@ int TetMesher::initializeCDT(bool recovery)
   for(size_t i = 0; i < nv; i++) 
     objVertices.push_back(&v[3*i]);
   //printf("Before computeDelaunayTetrahedralization:\n"); fflush(NULL);
+  // (DamrongGuoy) These test cases will throw.
+  // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) objVertices{length=48}
   delaunay.computeDelaunayTetrahedralization(objVertices);
   //printf("After computeDelaunayTetrahedralization:\n"); fflush(NULL);
   free(v);
@@ -362,6 +363,12 @@ int TetMesher::initializeCDT(bool recovery)
   }
 
   //printf("Before segmentRecovery:\n"); fflush(NULL);
+  // (DamrongGuoy) These test cases will throw.
+  // GTEST_TEST(cube_corners, ThrowNullptr)
+  //
+  // (DamrongGuoy) These test cases got infinite loops.
+  // GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop)
+  //
   segmentRecovery();
   //printf("After segmentRecovery:\n"); fflush(NULL);
   flipSurface();
@@ -1238,6 +1245,12 @@ int TetMesher::segmentRecovery()
       int result;
       if (level < 1000)
       {
+        // (DamrongGuoy) These test cases will throw.
+        // GTEST_TEST(cube_corners, ThrowNullptr) edge={35, 8}, level=2
+        //
+        // (DamrongGuoy) These test cases got infinite loops.
+        // GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) edge={8, 13}, level=3
+        //
         result = delaunay.segmentRecoveryUsingFlip(OEdgeKey(edge[0], edge[1]), level);
         if (result != 0)
         {
