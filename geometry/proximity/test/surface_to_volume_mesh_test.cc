@@ -28,6 +28,7 @@ using Eigen::Vector3d;
 //     1 ThrowNullptr (cube_corners: 48 vert, 64 tri),
 //     1 InfiniteLoop (cube_with_hole: 16 vert, 32 tri),
 //     1 UndecidableCase (evo_bowl_col: 3957 vert, 7910 tri).
+// TetGen is ok with all the above cases.
 //
 // 1 Excluded due to self-intersection (mustard_bottle).
 // 1 Excluded due to multi-object .obj file (two_cube_objects).
@@ -147,26 +148,40 @@ GTEST_TEST(convex, OK) {
 //
 // TetGen is ok (after we triangulate the quadrilateral faces).
 //
-// GTEST_TEST(cube_corners, ThrowNullptr) {
-//   const fs::path filename =
-//       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
-//   const TriangleSurfaceMesh<double> surface =
-//       ReadObjToTriangleSurfaceMesh(filename);
-//
-//   EXPECT_EQ(surface.num_vertices(), 48);
-//   EXPECT_EQ(surface.num_triangles(), 64);
-//
-//   DRAKE_EXPECT_THROWS_MESSAGE(
-//       ConvertSurfaceToVolumeMesh(surface),
-//       "DelaunayMesher::getOneBallBySegment::nullptr ball");
-//
-//   // This is for one triangular prism.
-//   // EXPECT_EQ(surface.num_vertices(), 48);
-//   // EXPECT_EQ(surface.num_triangles(), 8);
-//   // VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
-//   // EXPECT_EQ(volume.vertices().size(), 6);
-//   // EXPECT_EQ(volume.tetrahedra().size(), 3);
-// }
+// Stack trace to the throw:
+// DelaunayMesher::getOneBallBySegment
+// DelaunayMesher::segmentRecoveryUsingFlip
+// TetMesher::segmentRecovery
+// TetMesher::initializeCDT
+// TetMesher::compute
+GTEST_TEST(cube_corners, ThrowNullptr) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+
+  EXPECT_EQ(surface.num_vertices(), 48);
+  EXPECT_EQ(surface.num_triangles(), 64);
+
+  DRAKE_EXPECT_THROWS_MESSAGE(
+      ConvertSurfaceToVolumeMesh(surface),
+      "DelaunayMesher::getOneBallBySegment::nullptr ball");
+
+  // This is for one triangular prism.
+  // EXPECT_EQ(surface.num_vertices(), 48);
+  // EXPECT_EQ(surface.num_triangles(), 8);
+  // VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+  // EXPECT_EQ(volume.vertices().size(), 6);
+  // EXPECT_EQ(volume.tetrahedra().size(), 3);
+}
+
+// Stack trace to the throw:
+// DelaunayMesher::DelaunayBall::contains
+// DelaunayMesher::getBallsContainingPoint
+// DelaunayMesher::update
+// DelaunayMesher::computeDelaunayTetrahedralization
+// TetMesher::initializeCDT
+// TetMesher::compute
 GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/cube_corners_tet.vtk");
@@ -215,19 +230,30 @@ GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
 //       DelaunayMesher::getTetsAroundEdge() ->
 //        DelaunayMesher::getOneBallBySegment(start = 7, end = 0)
 //
-// GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
-//   const fs::path filename =
-//       FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
-//   const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
-//   const TriangleSurfaceMesh<double> surface =
-//       ConvertVolumeToSurfaceMesh(in_volume);
+// Typical stack trace in the infinite loop:
+// DelaunayMesher::getOneBallBySegment
+// DelaunayMesher::getTetsAroundEdge
+// DelaunayMesher::segmentRemovalUsingFlip
+// DelaunayMesher::segmentRemovalUsingFlip
+// DelaunayMesher::segmentRemovalUsingFlip
+// DelaunayMesher::segmentRecoveryUsingFlip
+// TetMesher::segmentRecovery
+// TetMesher::initializeCDT
+// TetMesher::compute
 //
-//   EXPECT_EQ(surface.num_vertices(), 16);
-//   EXPECT_EQ(surface.num_triangles(), 32);
-//
-//   VolumeMesh<double> volume =
-//       ConvertSurfaceToVolumeMesh(surface);
-// }
+GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
+  const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
+  const TriangleSurfaceMesh<double> surface =
+      ConvertVolumeToSurfaceMesh(in_volume);
+
+  EXPECT_EQ(surface.num_vertices(), 16);
+  EXPECT_EQ(surface.num_triangles(), 32);
+
+  VolumeMesh<double> volume =
+      ConvertSurfaceToVolumeMesh(surface);
+}
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(non_convex_mesh, OK) {

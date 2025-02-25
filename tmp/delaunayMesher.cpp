@@ -170,6 +170,8 @@ bool DelaunayMesher::computeDelaunayTetrahedralization(const std::vector<Vec3d> 
       for (BallIter itr = getBallToDeleteSetBegin(); itr != getBallToDeletelSetEnd(); itr++)
         delete *itr;
       ballsToDelete.clear();
+      // (DamrongGuoy) These test cases will throw from here.
+      // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) i = 33
       update(i);
       processed[i] = true;
     }
@@ -238,6 +240,8 @@ bool DelaunayMesher::update(int newVtxInd)
   if (ballsToDelete.empty())
   {
     if (boundaryOctree == NULL)
+      // (DamrongGuoy) These test cases will throw from here.
+      // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) newVtxInd = 33
       getBallsContainingPoint(newVtxInd, ballsToDelete);
     else
     {
@@ -372,6 +376,8 @@ void DelaunayMesher::getBallsContainingPoint(int vtx, BallSet & containingBalls)
         DelaunayBall * adj = ball->nbr[j];
         if (adj && candidates.find(adj) == candidates.end() && containingBalls.find(adj) == containingBalls.end())
         {
+          // (DamrongGuoy) These test cases will throw from here.
+          // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) vtx = 33
           int loc = adj->contains(vtx);
           if (loc < 0) // adj contains vtx
             candidates.insert(adj);
@@ -693,6 +699,13 @@ int DelaunayMesher::DelaunayBall::contains(int newVtx) const
       cout << *this << newVtx << endl;
       cout << parent.inputVertices[v[0]] << parent.inputVertices[v[1]] << parent.inputVertices[v[2]] << parent.inputVertices[v[3]] << parent.inputVertices[newVtx] << endl;
       cout << query << " " << oriA << " " << oriB << endl;
+      // (DamrongGuoy) These test cases throw here.
+      //
+      // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) newVtx=33, oriA=0, oriB=0
+      // (4,18,20,32)33
+      // [1 -1 -1][-0.333333 -1 -1][0.333333 -1 1][0.333333 -1 0.333333][0.333333 -1 -0.333333]
+      // 0 0 0
+      //
       throw std::runtime_error(
           "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
     }
@@ -1361,6 +1374,8 @@ int DelaunayMesher::getOneBallBySegment(const int start, const int end)
 
   DelaunayBall *  & ball = vertex2ball[start];
   if (ball == nullptr) {
+    // (DamrongGuoy) These test cases will throw.
+    // GTEST_TEST(cube_corners, ThrowNullptr)  ball=NULL, start=35, end=8
     throw std::runtime_error(
         "DelaunayMesher::getOneBallBySegment::nullptr ball");
   }
@@ -1462,7 +1477,15 @@ int DelaunayMesher::segmentRecoveryUsingFlip(const OEdgeKey & lineSegment, int d
     //    ON_VERTEX: the line segment goes down a tet edge and ends at another tet vertex
     //    SECT_EDGE: the line segment goes down an interior of a tet face, and exits through an edge
     //    SECT_FACE: the line segment goes through the interior of the tet, and exits through the opposite tet interior face
-    int result = getOneBallBySegment(lineSegment[0], lineSegment[1]); 
+    //
+    // (DamrongGuoy) These test cases will throw.
+    //
+    // GTEST_TEST(cube_corners, ThrowNullptr)
+    // depth=2, lineSegment={35, 8};
+    // vertex2ball[i] is NULL for i=25 and 27 <= i < 48. 22 NULL entries out of 48 entries.
+    // vertex2ball[35] == NULL is the cause of the `throw` in getOneBallBySegment().
+    //
+    int result = getOneBallBySegment(lineSegment[0], lineSegment[1]);
     int locationType = result & 255;
     if (locationType == ON_VERTEX)
     {
