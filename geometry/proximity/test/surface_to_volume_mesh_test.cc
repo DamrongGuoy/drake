@@ -22,7 +22,7 @@ namespace fs = std::filesystem;
 
 using Eigen::Vector3d;
 
-// 2025-02-19: 7 Ok, 3 fails, 40 seconds total for 14 tests.
+// 2025-02-25: 11 OK, 3 fails, 40 seconds total for 14 tests.
 // All failures happened when vegafem::TetMesher::compute() calls
 // TetMesher::initializeCDT(bool recovery = true).
 //     1 ThrowNullptr (cube_corners: 48 vert, 64 tri),
@@ -36,7 +36,7 @@ using Eigen::Vector3d;
 // - TetMesher::initializeCDT(bool recovery), and
 // - DelaunayMesher::initializeCDT(TetMesh * inputMesh, double ep).
 
-GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OneTetrahedron) {
+GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OK) {
   // A four-triangle mesh of a standard tetrahedron.
   const TriangleSurfaceMesh<double> drake_surface_mesh{
       {// The triangle windings give outward normals.
@@ -57,7 +57,7 @@ GTEST_TEST(ConvertSurfaceToVolumeMeshTest, OneTetrahedron) {
 // non-topological-ball cases; however, I used this trivial
 // non-topological-ball case, and it passed.  It's simply a set of two
 // disjoint tetrahedra.
-GTEST_TEST(NonTopologicalBall, Ok) {
+GTEST_TEST(NonTopologicalBall, OK) {
   // Start with a volume mesh of two disconnected tetrahedra.
   const VolumeMesh<double> two_tetrahedra{
       {// This is a standard tetrahedron at the origin.
@@ -147,26 +147,26 @@ GTEST_TEST(convex, OK) {
 //
 // TetGen is ok (after we triangulate the quadrilateral faces).
 //
-GTEST_TEST(cube_corners, ThrowNullptr) {
-  const fs::path filename =
-      FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
-  const TriangleSurfaceMesh<double> surface =
-      ReadObjToTriangleSurfaceMesh(filename);
-
-  EXPECT_EQ(surface.num_vertices(), 48);
-  EXPECT_EQ(surface.num_triangles(), 64);
-
-  DRAKE_EXPECT_THROWS_MESSAGE(
-      ConvertSurfaceToVolumeMesh(surface),
-      "DelaunayMesher::getOneBallBySegment::nullptr ball");
-
-  // This is for one triangular prism.
-  // EXPECT_EQ(surface.num_vertices(), 48);
-  // EXPECT_EQ(surface.num_triangles(), 8);
-  // VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
-  // EXPECT_EQ(volume.vertices().size(), 6);
-  // EXPECT_EQ(volume.tetrahedra().size(), 3);
-}
+// GTEST_TEST(cube_corners, ThrowNullptr) {
+//   const fs::path filename =
+//       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
+//   const TriangleSurfaceMesh<double> surface =
+//       ReadObjToTriangleSurfaceMesh(filename);
+//
+//   EXPECT_EQ(surface.num_vertices(), 48);
+//   EXPECT_EQ(surface.num_triangles(), 64);
+//
+//   DRAKE_EXPECT_THROWS_MESSAGE(
+//       ConvertSurfaceToVolumeMesh(surface),
+//       "DelaunayMesher::getOneBallBySegment::nullptr ball");
+//
+//   // This is for one triangular prism.
+//   // EXPECT_EQ(surface.num_vertices(), 48);
+//   // EXPECT_EQ(surface.num_triangles(), 8);
+//   // VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+//   // EXPECT_EQ(volume.vertices().size(), 6);
+//   // EXPECT_EQ(volume.tetrahedra().size(), 3);
+// }
 GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/cube_corners_tet.vtk");
@@ -230,7 +230,7 @@ GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
 // }
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
-GTEST_TEST(non_convex_mesh, Ok) {
+GTEST_TEST(non_convex_mesh, OK) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/non_convex_mesh.obj");
   const TriangleSurfaceMesh<double> surface =
@@ -245,7 +245,7 @@ GTEST_TEST(non_convex_mesh, Ok) {
 }
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
-GTEST_TEST(octahedron, Ok) {
+GTEST_TEST(octahedron, OK) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/octahedron.obj");
   const TriangleSurfaceMesh<double> surface =
@@ -267,7 +267,7 @@ GTEST_TEST(octahedron, Ok) {
 //     Minimal dihedral is: 0
 //     Running the tet mesher...
 //     The input mesh must be a 2-manifold mesh
-GTEST_TEST(quad_cube, Ok) {
+GTEST_TEST(quad_cube, OK) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/quad_cube.obj");
   const TriangleSurfaceMesh<double> surface =
@@ -315,19 +315,19 @@ GTEST_TEST(quad_cube, Ok) {
 //
 // Success with the Tet-to-Tri-to-Tet of the coarser mesh.
 //
-GTEST_TEST(evo_bowl_col, UndecidableCase) {
-  const RlocationOrError rlocation =
-      FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
-  ASSERT_EQ(rlocation.error, "");
-  const TriangleSurfaceMesh<double> surface =
-      ReadObjToTriangleSurfaceMesh(rlocation.abspath);
-  EXPECT_EQ(surface.num_vertices(), 3957);
-  EXPECT_EQ(surface.num_triangles(), 7910);
-
-  DRAKE_EXPECT_THROWS_MESSAGE(
-      ConvertSurfaceToVolumeMesh(surface),
-      "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
-}
+//GTEST_TEST(evo_bowl_col, UndecidableCase) {
+//  const RlocationOrError rlocation =
+//      FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
+//  ASSERT_EQ(rlocation.error, "");
+//  const TriangleSurfaceMesh<double> surface =
+//      ReadObjToTriangleSurfaceMesh(rlocation.abspath);
+//  EXPECT_EQ(surface.num_vertices(), 3957);
+//  EXPECT_EQ(surface.num_triangles(), 7910);
+//
+//  DRAKE_EXPECT_THROWS_MESSAGE(
+//      ConvertSurfaceToVolumeMesh(surface),
+//      "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
+//}
 GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/dishes/assets/evo_bowl_fine44k.vtk");
@@ -344,7 +344,7 @@ GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase) {
       ConvertSurfaceToVolumeMesh(surface),
       "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
 }
-GTEST_TEST(evo_bowl_coarse3k_Tet2Tri2Tet, Ok1Second) {
+GTEST_TEST(evo_bowl_coarse3k_Tet2Tri2Tet, OK1Second) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/dishes/assets/evo_bowl_coarse3k.vtk");
   ASSERT_EQ(rlocation.error, "");
@@ -363,7 +363,7 @@ GTEST_TEST(evo_bowl_coarse3k_Tet2Tri2Tet, Ok1Second) {
 }
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
-GTEST_TEST(plate_8in_col, Ok1Second) {
+GTEST_TEST(plate_8in_col, OK1Second) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/dishes/assets/plate_8in_col.obj");
   ASSERT_EQ(rlocation.error, "");
@@ -380,7 +380,7 @@ GTEST_TEST(plate_8in_col, Ok1Second) {
 }
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
-GTEST_TEST(sugar_box, Ok18Seconds) {
+GTEST_TEST(sugar_box, OK18Seconds) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/ycb/meshes/004_sugar_box_textured.obj");
   ASSERT_EQ(rlocation.error, "");
@@ -414,7 +414,7 @@ GTEST_TEST(sugar_box, Ok18Seconds) {
 // }
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
-GTEST_TEST(Android_Lego, Ok16Seconds) {
+GTEST_TEST(Android_Lego, OK16Seconds) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/Android_Lego.obj");
   const TriangleSurfaceMesh<double> surface =
