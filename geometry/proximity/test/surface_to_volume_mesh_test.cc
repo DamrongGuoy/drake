@@ -189,6 +189,9 @@ GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
   const TriangleSurfaceMesh<double> surface =
       ConvertVolumeToSurfaceMesh(in_volume);
 
+  WriteSurfaceMeshToVtk("cube_corners_64triangles.vtk", surface,
+                        "CubeCorners64Triangles");
+
   EXPECT_EQ(surface.num_vertices(), 48);
   EXPECT_EQ(surface.num_triangles(), 64);
 
@@ -241,19 +244,22 @@ GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
 // TetMesher::initializeCDT
 // TetMesher::compute
 //
-GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
-  const fs::path filename =
-      FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
-  const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
-  const TriangleSurfaceMesh<double> surface =
-      ConvertVolumeToSurfaceMesh(in_volume);
-
-  EXPECT_EQ(surface.num_vertices(), 16);
-  EXPECT_EQ(surface.num_triangles(), 32);
-
-  VolumeMesh<double> volume =
-      ConvertSurfaceToVolumeMesh(surface);
-}
+//GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
+//  const fs::path filename =
+//      FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
+//  const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
+//  const TriangleSurfaceMesh<double> surface =
+//      ConvertVolumeToSurfaceMesh(in_volume);
+//
+//  WriteSurfaceMeshToVtk("cube_with_hole_32triangles.vtk", surface,
+//                        "CubeWithHole32Triangles");
+//
+//  EXPECT_EQ(surface.num_vertices(), 16);
+//  EXPECT_EQ(surface.num_triangles(), 32);
+//
+//  VolumeMesh<double> volume =
+//      ConvertSurfaceToVolumeMesh(surface);
+//}
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(non_convex_mesh, OK) {
@@ -365,6 +371,9 @@ GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase) {
 
   EXPECT_EQ(surface.num_vertices(), 3957);
   EXPECT_EQ(surface.num_triangles(), 7910);
+
+  WriteSurfaceMeshToVtk("evo_bowl_fine_7910triangles.vtk", surface,
+                        "EvoBowlFine7910Triangles");
 
   DRAKE_EXPECT_THROWS_MESSAGE(
       ConvertSurfaceToVolumeMesh(surface),

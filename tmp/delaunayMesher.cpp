@@ -393,8 +393,10 @@ void DelaunayMesher::getBallsContainingPoint(int vtx, BallSet & containingBalls)
       containingBalls.insert(ball);
     }
   }
-  else
-    cout << "Error: no balls contain the input point: " << vtx << " " << inputVertices[vtx] << endl;
+  else {
+    cout << "DelaunayMesher::getBallsContainingPoint:Error: no balls contain "
+            "the input point: " << vtx << " " << inputVertices[vtx] << endl;
+  }
   for (BallCIter itr = unknown.begin(); itr != unknown.end(); itr++)
     if (containingBalls.find((*itr)->nbr[0]) != containingBalls.end())
       containingBalls.insert(*itr);
@@ -705,7 +707,12 @@ int DelaunayMesher::DelaunayBall::contains(int newVtx) const
       // (4,18,20,32)33
       // [1 -1 -1][-0.333333 -1 -1][0.333333 -1 1][0.333333 -1 0.333333][0.333333 -1 -0.333333]
       // 0 0 0
+      // The five points are co-planar with all Y==-1.  We are dealing with a
+      // flat zero-volume tetrahedron here.
       //
+      // (DamrongGuoy) I also tried a hack to treat 0 as +1 instead of
+      // the throw below by setting oriB = 1. It proceeded to another
+      // crash (ThrowNullptr).
       throw std::runtime_error(
           "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
     }
