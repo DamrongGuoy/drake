@@ -832,6 +832,8 @@ filegroup(
         "test/convex.obj",
         "test/cube_corners.obj",
         "test/cube_with_hole.obj",
+        "test/evo_bowl_fine_7910triangles.mtl",
+        "test/evo_bowl_fine_7910triangles.obj",
         "test/non_convex_mesh.obj",
         "test/octahedron.mtl",
         "test/octahedron.obj",
