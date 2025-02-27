@@ -244,7 +244,7 @@ GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
 // TetMesher::initializeCDT
 // TetMesher::compute
 //
-//GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
+// GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
 //  const fs::path filename =
 //      FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
 //  const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
@@ -345,9 +345,7 @@ GTEST_TEST(quad_cube, OK) {
 //
 // TetGen is ok (after we fixed manifold-ness).
 //
-// Success with the Tet-to-Tri-to-Tet of the coarser mesh.
-//
-//GTEST_TEST(evo_bowl_col, UndecidableCase) {
+// GTEST_TEST(evo_bowl_col, UndecidableCase) {
 //  const RlocationOrError rlocation =
 //      FindRunfile("drake_models/dishes/assets/evo_bowl_col.obj");
 //  ASSERT_EQ(rlocation.error, "");
@@ -360,25 +358,43 @@ GTEST_TEST(quad_cube, OK) {
 //      ConvertSurfaceToVolumeMesh(surface),
 //      "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
 //}
-GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase) {
-  const RlocationOrError rlocation =
-      FindRunfile("drake_models/dishes/assets/evo_bowl_fine44k.vtk");
-  ASSERT_EQ(rlocation.error, "");
-  const VolumeMesh<double> in_volume =
-      ReadVtkToVolumeMesh(std::filesystem::path(rlocation.abspath));
-  const TriangleSurfaceMesh<double> surface =
-      ConvertVolumeToSurfaceMesh(in_volume);
 
+// We got "DelaunayBall::contains: undecidable case".  It's like a coin-flip
+// problem.
+//
+// VegaFEM-v4.0.5/tetMesher is ok with this "cleaned" bowl.
+//     $ tetMesher geometry/test/evo_bowl_fine_7910triangles.obj
+//                 evo_bowl_fine_7910triangles.veg
+//     ...
+//     Running the tet mesher...
+//     Starting tet mesh refinement.
+//     Checking if mesh is triangular... yes
+//     Total number of triangles is: 7910
+//     ...
+//     184 steiner points inserted.
+//     Saving the output mesh to evo_bowl_fine_7910triangles.veg.
+//
+// TetGen is ok.
+//     $ python3 ~/gh.ssv/damrong-guoy/3d_mesh_generator/venv_tetgen.py
+//       --input geometry/test/evo_bowl_fine_7910triangles.obj
+//       --output evo_bowl_fine_7910triangles_tetgen.vtk
+//     Write a temporary file as TetGen input:
+//     evo_bowl_fine_7910triangles_tetgen.ply.
+//     Call TetGen.
+//     Wrote tetrahedral mesh to evo_bowl_fine_7910triangles_tetgen.vtk
+GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase) {
+  const fs::path filename = FindResourceOrThrow(
+      "drake/geometry/test/evo_bowl_fine_7910triangles.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
   EXPECT_EQ(surface.num_vertices(), 3957);
   EXPECT_EQ(surface.num_triangles(), 7910);
-
-  WriteSurfaceMeshToVtk("evo_bowl_fine_7910triangles.vtk", surface,
-                        "EvoBowlFine7910Triangles");
 
   DRAKE_EXPECT_THROWS_MESSAGE(
       ConvertSurfaceToVolumeMesh(surface),
       "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
 }
+
 GTEST_TEST(evo_bowl_coarse3k_Tet2Tri2Tet, OK1Second) {
   const RlocationOrError rlocation =
       FindRunfile("drake_models/dishes/assets/evo_bowl_coarse3k.vtk");
