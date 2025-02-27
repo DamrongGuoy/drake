@@ -1,11 +1,13 @@
 #include "drake/geometry/proximity/surface_to_volume_mesh.h"
 
 #include <filesystem>
+#include <random>           // Get out of degeneracy by random perturbation.
 
 #include <gtest/gtest.h>
 
 #include "drake/common/find_resource.h"
 #include "drake/common/find_runfiles.h"
+#include "drake/common/test_utilities/expect_no_throw.h"
 #include "drake/common/test_utilities/expect_throws_message.h"
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
@@ -22,13 +24,12 @@ namespace fs = std::filesystem;
 
 using Eigen::Vector3d;
 
-// 2025-02-25: 11 OK, 3 fails, 40 seconds total for 14 tests.
-// All failures happened when vegafem::TetMesher::compute() calls
-// TetMesher::initializeCDT(bool recovery = true).
-//     1 ThrowNullptr (cube_corners: 48 vert, 64 tri),
-//     1 InfiniteLoop (cube_with_hole: 16 vert, 32 tri),
-//     1 UndecidableCase (evo_bowl_col: 3957 vert, 7910 tri).
-// TetGen is ok with all the above cases.
+// 2025-02-27: 14 OK, 40 seconds total for 14 tests.
+//
+// The main solution was to apply random perturbation (10-micron).
+//
+// Previously all failures happened when vegafem::TetMesher::compute()
+// calls TetMesher::initializeCDT(bool recovery = true).
 //
 // 1 Excluded due to self-intersection (mustard_bottle).
 // 1 Excluded due to multi-object .obj file (two_cube_objects).
@@ -154,7 +155,7 @@ GTEST_TEST(convex, OK) {
 // TetMesher::segmentRecovery
 // TetMesher::initializeCDT
 // TetMesher::compute
-GTEST_TEST(cube_corners, ThrowNullptr) {
+GTEST_TEST(cube_corners, OK_ThrowNullptr) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/cube_corners.obj");
   const TriangleSurfaceMesh<double> surface =
@@ -173,6 +174,22 @@ GTEST_TEST(cube_corners, ThrowNullptr) {
   // VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
   // EXPECT_EQ(volume.vertices().size(), 6);
   // EXPECT_EQ(volume.tetrahedra().size(), 3);
+
+  const int random_seed = 20250227; // Instead of std::random_device rd;
+  std::mt19937 gen(random_seed); // Use const random_seed instead of rd()
+  // We will use 10 micrometer random perturbation.
+  std::uniform_real_distribution<> dis(-1e-5, 1e-5);
+  std::vector<Vector3d> perturbed_vertices(surface.vertices());
+  for (Vector3d& v : perturbed_vertices) {
+    v = v + Vector3d(dis(gen), dis(gen), dis(gen));
+  }
+  TriangleSurfaceMesh<double> perturbed_surface(
+      std::vector<SurfaceTriangle>(surface.triangles()),
+      std::move(perturbed_vertices));
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(perturbed_surface);
+  EXPECT_EQ(volume.vertices().size(), 48);
+  EXPECT_EQ(volume.tetrahedra().size(), 32);
 }
 
 // Stack trace to the throw:
@@ -182,7 +199,7 @@ GTEST_TEST(cube_corners, ThrowNullptr) {
 // DelaunayMesher::computeDelaunayTetrahedralization
 // TetMesher::initializeCDT
 // TetMesher::compute
-GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
+GTEST_TEST(cube_corners_Tet2Tri2Tet, OK_UndecidableCase) {
   const fs::path filename =
       FindResourceOrThrow("drake/geometry/test/cube_corners_tet.vtk");
   const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
@@ -198,6 +215,79 @@ GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
   DRAKE_EXPECT_THROWS_MESSAGE(
       ConvertSurfaceToVolumeMesh(surface),
       "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
+
+  // Together with the above `throw`, it gave the following diagnostic
+  // output from delauanyMesher.cpp:
+  //
+  // vegafem::DelaunayMesher::DelaunayBall::contains(int newVtx):
+  // (4,18,20,32)33
+  // [1 -1 -1][-0.333333 -1 -1][0.333333 -1 1][0.333333 -1 0.333333][0.333333 -1 -0.333333]
+  // 0 0 0
+  //
+  // The five points are co-planar with all Y==-1.  We are dealing with a
+  // flat zero-volume tetrahedron here.  All coordinates are ±1 or
+  // ±0.333333.  They look like this picture:
+  //
+  //                          ^ Z
+  //                          |
+  //                          +1      V20
+  //                          |      (v[2])
+  //                          |
+  //                          +
+  //                          |
+  //                          |
+  //                          +0.333  V32
+  //                          |      (v[3])
+  //                          |
+  //  +-------+-------+-------+-------+-------+-------+---> X
+  // -1              -0.333   | 0     0.333           1
+  //                          |
+  //                          +-0.333 V33
+  //                          |      (newVtx)
+  //                          |
+  //                          +
+  //                          |
+  //                          |
+  //                  V18     +-1                     V4
+  //                 (v[1])   |                     (v[0])
+  //                          |
+  //
+  //
+  // Since the problem is geometric degeneracy (co-planar, co-spherical points).
+  // We will hack it by randomly perturbing each vertex slightly to get out
+  // of what Boris Delaunay called "special" system, as described in
+  // Proposition 1 of his 1934 paper, translated from French to English:
+  //
+  // Proposition 1: If the system, E is special we can always make such an
+  // infinitely small affine transformation of the space after which the
+  // system E becomes non-special.
+  //
+  // B. Delaunay, Sur la sph`ere vide. A la m´emoire de Georges Vorono¨ı,
+  // Bulletin de l’Acad´emie des Sciences de l’URSS. Classe des sciences
+  // math´ematiques et na, 1934, Issue 6, 793–800.
+  //
+  // B. Delaunay, On the empty sphere. In memory of Georges Voronoı, Bulletin
+  // of the Academy of Sciences of the USSR. Class of mathematical and natural
+  // sciences, 1934, Issue 6, 793–800.
+  //
+  // https://www.mathnet.ru/links/fa0a27b42b442e6005f751a78e65d057/im4937.pdf
+  //
+  const int random_seed = 20250227; // Instead of std::random_device rd;
+  std::mt19937 gen(random_seed); // Use const random_seed instead of rd()
+  // We will use 10 micrometer random perturbation.
+  std::uniform_real_distribution<> dis(-1e-5, 1e-5);
+  std::vector<Vector3d> perturbed_vertices(surface.vertices());
+  for (Vector3d& v : perturbed_vertices) {
+    v = v + Vector3d(dis(gen), dis(gen), dis(gen));
+  }
+  TriangleSurfaceMesh<double> perturbed_surface(
+      std::vector<SurfaceTriangle>(surface.triangles()),
+      std::move(perturbed_vertices));
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(perturbed_surface);
+  EXPECT_EQ(volume.vertices().size(), 48);
+  // Each random seed might give around 29, or 31, or 33 tetrahedra.
+  EXPECT_EQ(volume.tetrahedra().size(), 31);
 }
 
 // Did it get into infinite loop because it's not a topological ball? It's a
@@ -213,53 +303,88 @@ GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) {
 //
 // Tetgen is ok (after we split all input faces into triangles).
 //
-// GTEST_TEST(cube_with_hole, InfiniteLoop) {
-//  const fs::path filename =
-//      FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
-//  const TriangleSurfaceMesh<double> surface =
-//      ReadObjToTriangleSurfaceMesh(filename);
-//  ASSERT_EQ(surface.num_vertices(), 16);
-//  ASSERT_EQ(surface.num_triangles(), 32);
-//  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
-//}
-//
-// TetMesher::compute()->
-// TetMesher::initializeCDT() ->
-//  TetMesher::segmentRecovery() ->
-//   DelaunayMesher::segmentRecoveryUsingFlip(lineSegment, depth=3) ->
-//    DelaunayMesher::segmentRemovalUsingFlip(edge, depth=3->2) ->
-//     DelaunayMesher::segmentRemovalUsingFlip(edge, depth=2->1) ->
-//      DelaunayMesher::segmentRemovalUsingFlip(edge, depth=1->0) ->
-//       DelaunayMesher::getTetsAroundEdge() ->
-//        DelaunayMesher::getOneBallBySegment(start = 7, end = 0)
-//
-// Typical stack trace in the infinite loop:
-// DelaunayMesher::getOneBallBySegment
-// DelaunayMesher::getTetsAroundEdge
-// DelaunayMesher::segmentRemovalUsingFlip
-// DelaunayMesher::segmentRemovalUsingFlip
-// DelaunayMesher::segmentRemovalUsingFlip
-// DelaunayMesher::segmentRecoveryUsingFlip
-// TetMesher::segmentRecovery
-// TetMesher::initializeCDT
-// TetMesher::compute
-//
-// GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop) {
-//  const fs::path filename =
-//      FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
-//  const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
-//  const TriangleSurfaceMesh<double> surface =
-//      ConvertVolumeToSurfaceMesh(in_volume);
-//
-//  WriteSurfaceMeshToVtk("cube_with_hole_32triangles.vtk", surface,
-//                        "CubeWithHole32Triangles");
-//
-//  EXPECT_EQ(surface.num_vertices(), 16);
-//  EXPECT_EQ(surface.num_triangles(), 32);
-//
-//  VolumeMesh<double> volume =
-//      ConvertSurfaceToVolumeMesh(surface);
-//}
+GTEST_TEST(cube_with_hole, OK_InfiniteLoop) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/cube_with_hole.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+  ASSERT_EQ(surface.num_vertices(), 16);
+  ASSERT_EQ(surface.num_triangles(), 32);
+
+  // As of 2025-02-27, this will get into infinite loops. Test timeout.
+  // VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  const int random_seed = 20250227;  // Instead of std::random_device rd;
+  std::mt19937 gen(random_seed);     // Use const random_seed instead of rd()
+  // We will use 10 micrometer random perturbation.
+  std::uniform_real_distribution<> dis(-1e-5, 1e-5);
+  std::vector<Vector3d> perturbed_vertices(surface.vertices());
+  for (Vector3d& v : perturbed_vertices) {
+    v = v + Vector3d(dis(gen), dis(gen), dis(gen));
+  }
+  TriangleSurfaceMesh<double> perturbed_surface(
+      std::vector<SurfaceTriangle>(surface.triangles()),
+      std::move(perturbed_vertices));
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(perturbed_surface);
+  EXPECT_EQ(volume.vertices().size(), 16);
+  EXPECT_EQ(volume.tetrahedra().size(), 32);
+}
+  //
+  // TetMesher::compute()->
+  // TetMesher::initializeCDT() ->
+  //  TetMesher::segmentRecovery() ->
+  //   DelaunayMesher::segmentRecoveryUsingFlip(lineSegment, depth=3) ->
+  //    DelaunayMesher::segmentRemovalUsingFlip(edge, depth=3->2) ->
+  //     DelaunayMesher::segmentRemovalUsingFlip(edge, depth=2->1) ->
+  //      DelaunayMesher::segmentRemovalUsingFlip(edge, depth=1->0) ->
+  //       DelaunayMesher::getTetsAroundEdge() ->
+  //        DelaunayMesher::getOneBallBySegment(start = 7, end = 0)
+  //
+  // Typical stack trace in the infinite loop:
+  // DelaunayMesher::getOneBallBySegment
+  // DelaunayMesher::getTetsAroundEdge
+  // DelaunayMesher::segmentRemovalUsingFlip
+  // DelaunayMesher::segmentRemovalUsingFlip
+  // DelaunayMesher::segmentRemovalUsingFlip
+  // DelaunayMesher::segmentRecoveryUsingFlip
+  // TetMesher::segmentRecovery
+  // TetMesher::initializeCDT
+  // TetMesher::compute
+  //
+  GTEST_TEST(cube_with_hole_Tet2Tri2Tet, OK_InfiniteLoop) {
+    const fs::path filename =
+        FindResourceOrThrow("drake/geometry/test/cube_with_hole_tet.vtk");
+    const VolumeMesh<double> in_volume = ReadVtkToVolumeMesh(filename);
+    const TriangleSurfaceMesh<double> surface =
+        ConvertVolumeToSurfaceMesh(in_volume);
+
+    WriteSurfaceMeshToVtk("cube_with_hole_32triangles.vtk", surface,
+                          "CubeWithHole32Triangles");
+
+    EXPECT_EQ(surface.num_vertices(), 16);
+    EXPECT_EQ(surface.num_triangles(), 32);
+
+    // As of 2025-02-27, this will get into infinite loops. Test timeout.
+    // VolumeMesh<double> volume =
+    //     ConvertSurfaceToVolumeMesh(surface);
+
+    const int random_seed = 20250227;  // Instead of std::random_device rd;
+    std::mt19937 gen(random_seed);     // Use const random_seed instead of rd()
+    // We will use 10 micrometer random perturbation.
+    std::uniform_real_distribution<> dis(-1e-5, 1e-5);
+    std::vector<Vector3d> perturbed_vertices(surface.vertices());
+    for (Vector3d& v : perturbed_vertices) {
+      v = v + Vector3d(dis(gen), dis(gen), dis(gen));
+    }
+    TriangleSurfaceMesh<double> perturbed_surface(
+        std::vector<SurfaceTriangle>(surface.triangles()),
+        std::move(perturbed_vertices));
+
+    VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(perturbed_surface);
+    EXPECT_EQ(volume.vertices().size(), 16);
+    EXPECT_EQ(volume.tetrahedra().size(), 32);
+}
 
 // Both VegaFEM-v4.0.5/tetMesher and our customized code are ok.
 GTEST_TEST(non_convex_mesh, OK) {
@@ -382,7 +507,7 @@ GTEST_TEST(quad_cube, OK) {
 //     evo_bowl_fine_7910triangles_tetgen.ply.
 //     Call TetGen.
 //     Wrote tetrahedral mesh to evo_bowl_fine_7910triangles_tetgen.vtk
-GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase) {
+GTEST_TEST(evo_bowl_fine_7910triangles, OK_UndecidableCase) {
   const fs::path filename = FindResourceOrThrow(
       "drake/geometry/test/evo_bowl_fine_7910triangles.obj");
   const TriangleSurfaceMesh<double> surface =
@@ -393,6 +518,22 @@ GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase) {
   DRAKE_EXPECT_THROWS_MESSAGE(
       ConvertSurfaceToVolumeMesh(surface),
       "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
+
+  const int random_seed = 20250227; // Instead of std::random_device rd;
+  std::mt19937 gen(random_seed); // Use const random_seed instead of rd()
+  // We will use 10 micrometer random perturbation.
+  std::uniform_real_distribution<> dis(-1e-5, 1e-5);
+  std::vector<Vector3d> perturbed_vertices(surface.vertices());
+  for (Vector3d& v : perturbed_vertices) {
+    v = v + Vector3d(dis(gen), dis(gen), dis(gen));
+  }
+  TriangleSurfaceMesh<double> perturbed_surface(
+      std::vector<SurfaceTriangle>(surface.triangles()),
+      std::move(perturbed_vertices));
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(perturbed_surface);
+  EXPECT_EQ(volume.vertices().size(), 3957);
+  EXPECT_EQ(volume.tetrahedra().size(), 13715);
 }
 
 GTEST_TEST(evo_bowl_coarse3k_Tet2Tri2Tet, OK1Second) {
@@ -484,3 +625,4 @@ GTEST_TEST(Android_Lego, OK16Seconds) {
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake
+
