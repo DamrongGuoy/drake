@@ -221,7 +221,7 @@ bool TetMesher::renumberInitialVertices(ObjMesh * surfaceMesh)
   Vec3d p20 = p2 - p0;
   p20.normalize();
   max_dis = 0;
-  for (size_t i = 3; i < surfaceMesh->getNumVertices(); i++)
+  for (size_t i = 1; i < surfaceMesh->getNumVertices(); i++)
   {
     if (fabs(dot(p20, cross(p10, surfaceMesh->getPosition(i) - p0))) > 0)
     {
