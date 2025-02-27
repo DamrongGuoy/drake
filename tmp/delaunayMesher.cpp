@@ -172,6 +172,7 @@ bool DelaunayMesher::computeDelaunayTetrahedralization(const std::vector<Vec3d> 
       ballsToDelete.clear();
       // (DamrongGuoy) These test cases will throw from here.
       // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) i = 33
+      // GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase) i = 2634
       update(i);
       processed[i] = true;
     }
@@ -242,6 +243,7 @@ bool DelaunayMesher::update(int newVtxInd)
     if (boundaryOctree == NULL)
       // (DamrongGuoy) These test cases will throw from here.
       // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) newVtxInd = 33
+      // GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase) newVtxInd = 2634
       getBallsContainingPoint(newVtxInd, ballsToDelete);
     else
     {
@@ -378,6 +380,7 @@ void DelaunayMesher::getBallsContainingPoint(int vtx, BallSet & containingBalls)
         {
           // (DamrongGuoy) These test cases will throw from here.
           // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) vtx = 33
+          // GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase) vtx=2634
           int loc = adj->contains(vtx);
           if (loc < 0) // adj contains vtx
             candidates.insert(adj);
@@ -708,17 +711,85 @@ int DelaunayMesher::DelaunayBall::contains(int newVtx) const
       // [1 -1 -1][-0.333333 -1 -1][0.333333 -1 1][0.333333 -1 0.333333][0.333333 -1 -0.333333]
       // 0 0 0
       // The five points are co-planar with all Y==-1.  We are dealing with a
-      // flat zero-volume tetrahedron here.
+      // flat zero-volume tetrahedron here.  All coordinates are ±1 or
+      // ±0.333333.  They look like this picture:
       //
-      // (DamrongGuoy) I also tried a hack to treat 0 as +1 instead of
+      //                          ^ Z
+      //                          |
+      //                          +1      V20
+      //                          |      (v[2])
+      //                          |
+      //                          +
+      //                          |
+      //                          |
+      //                          +0.333  V32
+      //                          |      (v[3])
+      //                          |
+      //  +-------+-------+-------+-------+-------+-------+---> X
+      // -1              -0.333   | 0     0.333           1
+      //                          |
+      //                          +-0.333 V33
+      //                          |      (newVtx)
+      //                          |
+      //                          +
+      //                          |
+      //                          |
+      //                  V18     +-1                     V4
+      //                 (v[1])   |                     (v[0])
+      //                          |
+      //
+      //
+      // GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase) newVtx=2634, oriA=0, oriB=0
+      // (2597,2609,2628,2618)2634
+      // [0.001331 0.000678 -0.026121][-0.000678 0.001331 -0.026121][-0.001331 -0.000678 -0.026121][0.001331 -0.000678 -0.026121][-0.000678 -0.001331 -0.026121]
+      // 0 0 0
+      // The five points are co-planar with all Z==-0.026121 and lie on a
+      // common circle with center (0, 0, -0.026121) and radius
+      // sqrt(0.001331^2 + 0.000678^2).  Every point has X or Y coordinates
+      // ±0.001331 or ±0.000678.  They look like this picture:
+      //
+      //                                 ^ Y
+      //                                 |
+      //                                 |
+      //                       V2609     + 0.001331
+      //                       (v[1])    |
+      //                                 |
+      //                                 |
+      //                                 + 0.000678          V2597
+      //                                 |                   (v[0])
+      //                                 |
+      //                                 |
+      //             +---------+---------+---------+---------+----------> X
+      //            -0.001331 -0.000678  | 0                 0.001331
+      //                                 |
+      //                                 |
+      //             V2628               + -0.000678         V2618
+      //             (v[2])              |                   (v[3])
+      //                                 |
+      //                                 |
+      //                       V2634     + -0.001331
+      //                      (newVtx)
+      //
+      // (DamrongGuoy) I tried a hack to treat 0 as +1 instead of
       // the throw below by setting oriB = 1. It proceeded to another
-      // crash (ThrowNullptr).
+      // throw: "DelaunayMesher::getOneBallBySegment::nullptr ball".
+      //
+      // (DamrongGuoy) I tried a hack to treat 0 as -1 instead of the throw
+      // below by setting oriB = -1. It proceeded to another throw:
+      // "DelaunayMesher::getOneBallBySegment::nullptr ball".
+      //
+      // (DamrongGuoy) I also tried skipping the `throw` and returning zero as
+      // is. It went back to the caller and failed this assertion:
+      //     assert(adj->isInfinite());
+      // in DelaunayMesher::getBallsContainingPoint().
+      //
       throw std::runtime_error(
-          "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
+        "vegafem::DelaunayMesher::DelaunayBall::contains: undecidable case");
     }
+    // oriB != 0
     return (numSwaps & 1? oriB: -oriB);
   }
-  else
+  else // !isRegular()
   {
     const int * vtx = getInfiniteBallTriangle();
     // ret = +1: point outside infinite ball

@@ -97,6 +97,7 @@ TetMesh * TetMesher::compute(ObjMesh * inputMesh, double refinementQuality, doub
   // GTEST_TEST(cube_with_hole, InfiniteLoop)
   // GTEST_TEST(cube_with_hole_Tet2Tri2Tet, InfiniteLoop)
   // GTEST_TEST(evo_bowl_col, UndecidableCase)
+  // GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase)
   // GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase)
   // Here we should have checked the return value from initializeCDT().
   // It's the size of the member `std::vector<UTriKey> lost`.
@@ -341,6 +342,7 @@ int TetMesher::initializeCDT(bool recovery)
   //printf("Before computeDelaunayTetrahedralization:\n"); fflush(NULL);
   // (DamrongGuoy) These test cases will throw.
   // GTEST_TEST(cube_corners_Tet2Tri2Tet, UndecidableCase) objVertices{length=48}
+  // GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase) objVertices{length=3957}
   delaunay.computeDelaunayTetrahedralization(objVertices);
   //printf("After computeDelaunayTetrahedralization:\n"); fflush(NULL);
   free(v);
