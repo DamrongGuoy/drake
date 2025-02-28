@@ -509,12 +509,12 @@ std::unique_ptr<ContactSurface<T>> ComputeContactSurfaceFromCompliantVolumes(
     HydroelasticVolumeIntersector<TriMeshBuilder<T>>()
         .IntersectCompliantVolumes(id_M, compliant_M, X_WM, id_N, compliant_N,
                                    X_WN, &contact_surface_W,
-                                   false /* use_surfaces */);
+                                   true /* use_surfaces */);
   } else {
     HydroelasticVolumeIntersector<PolyMeshBuilder<T>>()
         .IntersectCompliantVolumes(id_M, compliant_M, X_WM, id_N, compliant_N,
                                    X_WN, &contact_surface_W,
-                                   false /* use_surfaces */);
+                                   true /* use_surfaces */);
   }
   return contact_surface_W;
 }
