@@ -1,0 +1,13 @@
+load("//tools/lint:lint.bzl", "add_lint_tests")
+load("//tools/skylark:drake_py.bzl", "drake_py_binary")
+
+package(default_visibility = ["//visibility:private"])
+
+drake_py_binary(
+    name = "run_demo",
+    srcs = ["run_demo.py"],
+    add_test_rule = 0,
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
