@@ -23,12 +23,16 @@ namespace fs = std::filesystem;
 
 using Eigen::Vector3d;
 
-// 2025-02-27: 14 OK, 40 seconds total for 14 tests.
+// 2025-03-05: all 17 OK, 47 seconds total.
 //
-// The main solution was to apply random perturbation (10-micron).
-//
+// 1. The main solution was to apply random perturbation (10-micron) in
+// ConvertSurfaceToVolumeMesh(const TriangleSurfaceMesh<double>&) near
+// lines 75-85 of surface_to_volume_mesh.cc.
 // Previously all failures happened when vegafem::TetMesher::compute()
 // calls TetMesher::initializeCDT(bool recovery = true).
+//
+// 2. Guard against nullptr in TetMesher::removeOutside() near
+// line 535 of tetMesher.cpp.
 //
 // 1 Excluded due to self-intersection (mustard_bottle).
 // 1 Excluded due to multi-object .obj file (two_cube_objects).
@@ -385,7 +389,7 @@ GTEST_TEST(quad_cube, OK) {
 //     evo_bowl_fine_7910triangles_tetgen.ply.
 //     Call TetGen.
 //     Wrote tetrahedral mesh to evo_bowl_fine_7910triangles_tetgen.vtk
-GTEST_TEST(evo_bowl_fine_7910triangles, OK_UndecidableCase) {
+GTEST_TEST(evo_bowl_fine_7910triangles, OK_UndecidableCase_5Seconds) {
   const fs::path filename = FindResourceOrThrow(
       "drake/geometry/test/evo_bowl_fine_7910triangles.obj");
   const TriangleSurfaceMesh<double> surface =
@@ -486,6 +490,22 @@ GTEST_TEST(Android_Lego, OK16Seconds) {
 
   EXPECT_EQ(volume.vertices().size(), 7109);
   EXPECT_EQ(volume.tetrahedra().size(), 24407);
+}
+
+GTEST_TEST(gso_RoLoPM_adizero_F50_TRX_FG_LEA, OK_PreviousCoreDumped) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/"
+                          "gso_RoLoPM_adizero_F50_TRX_FG_LEA.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+
+  EXPECT_EQ(surface.num_vertices(), 177);
+  EXPECT_EQ(surface.num_triangles(), 350);
+
+  VolumeMesh<double> volume = ConvertSurfaceToVolumeMesh(surface);
+
+  EXPECT_EQ(volume.vertices().size(), 177);
+  EXPECT_EQ(volume.tetrahedra().size(), 524);
 }
 
 }  // namespace

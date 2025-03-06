@@ -149,7 +149,20 @@ public:
   struct DelaunayBall;
   struct DelaunayBallCompare
   {
-    bool operator() (const DelaunayBall * const & p1, const DelaunayBall * const & p2) const { return p1->label < p2->label; }
+    bool operator() (const DelaunayBall * const & p1, const DelaunayBall * const & p2) const {
+      // (DamrongGuoy) Safeguard against nullptr in the arguments. Otherwise,
+      // we got SIGSEGV (core dumped) in:
+      // GTEST_TEST(gso_RoLoPM_adizero_F50_TRX_FG_LEA, CoreDumped).
+      if (p1 == nullptr) {
+        throw std::runtime_error(
+            "vegafem::DelaunayMesher::DelaunayBallCompare: nullptr p1");
+      }
+      if (p2 == nullptr) {
+        throw std::runtime_error(
+            "vegafem::DelaunayMesher::DelaunayBallCompare: nullptr p2");
+      }
+      return p1->label < p2->label;
+    }
   };
 
   typedef std::set<DelaunayBall *, DelaunayBallCompare> BallSet;

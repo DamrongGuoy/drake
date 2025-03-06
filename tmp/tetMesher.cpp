@@ -99,6 +99,11 @@ TetMesh * TetMesher::compute(ObjMesh * inputMesh, double refinementQuality, doub
   // GTEST_TEST(evo_bowl_col, UndecidableCase)
   // GTEST_TEST(evo_bowl_fine_7910triangles, UndecidableCase)
   // GTEST_TEST(evo_bowl_fine44k_Tet2Tri2Tet, UndecidableCase)
+  //
+  // After random perturbation, the above tests are OK.  However, these
+  // additional tests failed here:
+  // GTEST_TEST(gso_RoLoPM_adizero_F50_TRX_FG_LEA, CoreDumped)
+  //
   // Here we should have checked the return value from initializeCDT().
   // It's the size of the member `std::vector<UTriKey> lost`.
   initializeCDT();
@@ -397,6 +402,8 @@ int TetMesher::initializeCDT(bool recovery)
   //printf("\n");
   if (!lost.empty() && recovery)
     faceRecovery();
+  // These test cases failed here:
+  // GTEST_TEST(gso_RoLoPM_adizero_F50_TRX_FG_LEA, CoreDumped)
   removeOutside();
   return lost.size();
 }
@@ -524,6 +531,12 @@ int TetMesher::removeOutside()
     for (int i = 0; i < 4; i++)
     {
       DelaunayMesher::DelaunayBall * neighbor = ball->getNeighbor(i);
+      // (DamrongGuoy) Hack to guard against nullptr.
+      if (neighbor == nullptr) {
+        continue;
+      }
+      // Without the above guard against nullptr, these test cases failed below:
+      // GTEST_TEST(gso_RoLoPM_adizero_F50_TRX_FG_LEA, CoreDumped)
       if (surfaceTri.find(ball->uFaceKey(i)) == surfaceTri.end() && removeSet.find(neighbor) == removeSet.end() && removeSetCandidate.find(neighbor) == removeSetCandidate.end())
       {
         Vec3d center = (neighbor->getPosition(0) + neighbor->getPosition(1) + neighbor->getPosition(2) + neighbor->getPosition(3)) / 4;
