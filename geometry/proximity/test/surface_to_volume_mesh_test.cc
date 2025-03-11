@@ -23,7 +23,7 @@ namespace fs = std::filesystem;
 
 using Eigen::Vector3d;
 
-// 2025-03-05: all 17 OK, 47 seconds total.
+// 2025-03-10: 17 OK, 1 failed, 47 seconds total.
 //
 // 1. The main solution was to apply random perturbation (10-micron) in
 // ConvertSurfaceToVolumeMesh(const TriangleSurfaceMesh<double>&) near
@@ -507,6 +507,32 @@ GTEST_TEST(gso_RoLoPM_adizero_F50_TRX_FG_LEA, OK_PreviousCoreDumped) {
   EXPECT_EQ(volume.vertices().size(), 177);
   EXPECT_EQ(volume.tetrahedra().size(), 524);
 }
+
+GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init) {
+  const fs::path filename =
+      FindResourceOrThrow("drake/geometry/test/"
+                          "hot3d_117658302265452_RoLoPoly.obj");
+  const TriangleSurfaceMesh<double> surface =
+      ReadObjToTriangleSurfaceMesh(filename);
+
+  EXPECT_EQ(surface.num_vertices(), 294);
+  EXPECT_EQ(surface.num_triangles(), 588);
+
+  // Stack trace at the throw.
+  // ObjMeshOrientable::Init()
+  // ObjMeshOrientable::ObjMeshOrientable()
+  // TetMesher::fillHole()
+  // TetMesher::formTwoCavities()
+  // TetMesher::faceRecovery()
+  // TetMesher::initializeCDT()
+  // TetMesher::compute()
+  EXPECT_ANY_THROW(
+      /*VolumeMesh<double> volume = */ ConvertSurfaceToVolumeMesh(surface));
+
+  // EXPECT_EQ(volume.vertices().size(), 0);
+  // EXPECT_EQ(volume.tetrahedra().size(), 0);
+}
+
 
 }  // namespace
 }  // namespace internal

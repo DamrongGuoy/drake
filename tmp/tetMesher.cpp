@@ -104,6 +104,10 @@ TetMesh * TetMesher::compute(ObjMesh * inputMesh, double refinementQuality, doub
   // additional tests failed here:
   // GTEST_TEST(gso_RoLoPM_adizero_F50_TRX_FG_LEA, CoreDumped)
   //
+  // After guarding against nullptr in TetMesher::removeOutside(), the above
+  // test is OK. However, these additional tests failed here:
+  // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
+  //
   // Here we should have checked the return value from initializeCDT().
   // It's the size of the member `std::vector<UTriKey> lost`.
   initializeCDT();
@@ -401,6 +405,8 @@ int TetMesher::initializeCDT(bool recovery)
 
   //printf("\n");
   if (!lost.empty() && recovery)
+    // (DamrongGuoy) These test cases throw here.
+    // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
     faceRecovery();
   // These test cases failed here:
   // GTEST_TEST(gso_RoLoPM_adizero_F50_TRX_FG_LEA, CoreDumped)
@@ -704,6 +710,8 @@ void TetMesher::faceRecovery()
     //bool patched = false;
     if (intersectTet.empty()) // Impossible
       continue;
+    // (DamrongGuoy) These test cases throw here.
+    // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
     formTwoCavities(boundaryFace, missingBoundary, neighbor);
     for (unsigned i = 0; i < intersectTet.size(); i++)
     {
@@ -945,6 +953,8 @@ bool TetMesher::formTwoCavities(std::vector<UTriKey>& faceSet, std::set<std::pai
   {
     holeBoundary.push_back(faceSet[*i]);
   }
+  // (DamrongGuoy) These test cases throw here.
+  // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
   bool ret = fillHole(holeBoundary);
   holeBoundary.clear();
   for (set<int>::iterator i = cavity2.begin(); i != cavity2.end(); i++)
@@ -1018,6 +1028,8 @@ bool TetMesher::fillHole(std::vector<UTriKey>& holeBoundary)
   ObjMeshOrientable * mesh_orient = NULL;
   try 
   {
+    // (DamrongGuoy) These test cases throw here.
+    // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
     mesh_orient = new ObjMeshOrientable(mesh, 1, NULL, 0);
   }
   catch (int) 

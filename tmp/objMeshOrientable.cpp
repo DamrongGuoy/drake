@@ -79,6 +79,8 @@ ObjMeshOrientable::ObjMeshOrientable(ObjMesh * objMesh, int generateHalfEdges, i
 {
   internalAllocation = 0;
   this->objMesh = objMesh;
+  // (DamrongGuoy) These test cases throw here.
+  // GTGTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
   Init(generateHalfEdges, numOrientationFlips_, verbose);
 }
 
@@ -92,6 +94,8 @@ void ObjMeshOrientable::Init(int generateHalfEdges, int * numOrientationFlips_, 
       *numOrientationFlips_ = numOrientationFlips;
 
     if (numOrientationFlips < 0)
+      // (DamrongGuoy) These test cases throw here.
+      // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
       throw 1;
   }
 }
