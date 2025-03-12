@@ -1766,6 +1766,25 @@ drake_cc_googletest(
 )
 
 drake_cc_googletest(
+    name = "surface_to_volume_mesh_debugtest",
+    data = [
+        "//geometry:test_obj_files",
+        "//geometry:test_vtk_files",
+        "@drake_models//:dishes",
+        "@drake_models//:ycb",
+    ],
+    deps = [
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        ":surface_to_volume_mesh",
+        ":volume_to_surface_mesh",
+        ":vtk_to_volume_mesh",
+        "//common",
+        "//common/test_utilities",
+    ],
+)
+
+drake_cc_googletest(
     name = "triangle_surface_mesh_test",
     deps = [
         ":triangle_surface_mesh",

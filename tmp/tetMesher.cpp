@@ -1028,6 +1028,8 @@ bool TetMesher::fillHole(std::vector<UTriKey>& holeBoundary)
   ObjMeshOrientable * mesh_orient = NULL;
   try 
   {
+    // (DamrongGuoy) Debug file
+    // mesh->saveToAscii("TetMesher_fillHole.obj", 0, 1);
     // (DamrongGuoy) These test cases throw here.
     // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
     mesh_orient = new ObjMeshOrientable(mesh, 1, NULL, 0);
