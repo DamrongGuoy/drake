@@ -96,7 +96,9 @@ void ObjMeshOrientable::Init(int generateHalfEdges, int * numOrientationFlips_, 
     if (numOrientationFlips < 0)
       // (DamrongGuoy) These test cases throw here.
       // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
-      throw 1;
+      // throw 1;
+      throw std::runtime_error(
+          "ObjMeshOrientable::Init: numOrientationFlips < 0");
   }
 }
 
@@ -271,6 +273,12 @@ int ObjMeshOrientable::GenerateHalfEdgeDataStructure(int verbose)
       int faceNum = halfEdges_[i].face();
       if (verbose)
       {
+        // (DamrongGuoy) This test case printed the following message.
+        // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
+        //   Group:0
+        //   Face #: 0
+        //   Edge: 1 2
+        //   Vertices: [0.0239329 -0.00931707 0.00430325] [0.028639 -0.0208714 0.0826274]
         std::cout << "  Group:" << halfEdges_[i].groupID() << std::endl << "  Face #: " << faceNum << std::endl;
         std::cout << "  Edge: " << vertex1 << " " << vertex2 << std::endl;
         std::cout << "  Vertices: " << objMesh->getPosition(vertex1) << " " << objMesh->getPosition(vertex2) << std::endl;

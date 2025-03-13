@@ -702,10 +702,13 @@ void TetMesher::faceRecovery()
     //printf("\n");
     vector<UTriKey> boundaryFace;
     boundaryFace.clear();
+    // (DamrongGuoy) neighbor map: edge(vi, vj) -> triangles{tk, tl}
     map<pair<int, int>, pair<int, int> > neighbor;
+    // (DamrongGuoy) set of boundary edges of the missing region
     set<pair<int, int> > missingBoundary;
     calculateTetBoundary(intersectTet, boundaryFace);
     calculateTriangleBoundary(region, missingBoundary);
+    // (DamrongGuoy) Neighboring info for boundary faces of intersecting tetrahedra.
     buildTriangleNeighbor(boundaryFace, neighbor);
     //bool patched = false;
     if (intersectTet.empty()) // Impossible
@@ -1026,20 +1029,21 @@ bool TetMesher::fillHole(std::vector<UTriKey>& holeBoundary)
   mesh->mergeGroups(groupIndices);
 
   ObjMeshOrientable * mesh_orient = NULL;
-  try 
+  // try
   {
     // (DamrongGuoy) Debug file
-    // mesh->saveToAscii("TetMesher_fillHole.obj", 0, 1);
+    mesh->saveToAscii("TetMesher_fillHole.obj", 0, 1);
     // (DamrongGuoy) These test cases throw here.
     // GTEST_TEST(hot3d_117658302265452_RoLoPoly, Throw_ObjMeshOrientable_Init)
-    mesh_orient = new ObjMeshOrientable(mesh, 1, NULL, 0);
+    // Set verbose = 1 for debugging.
+    mesh_orient = new ObjMeshOrientable(mesh, 1, NULL, /* verbose */ 1);
   }
-  catch (int) 
-  {
-    delete mesh;
-    delete mesh_orient;
-    throw 1;
-  }
+  // catch (int)
+  // {
+  //   delete mesh;
+  //   delete mesh_orient;
+  //   throw 1;
+  // }
 
   ObjMesh * meshToDelete = mesh;
   mesh = mesh_orient->GenerateOrientedMesh();
