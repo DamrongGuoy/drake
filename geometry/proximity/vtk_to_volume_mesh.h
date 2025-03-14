@@ -46,7 +46,7 @@ namespace internal {
 VolumeMesh<double> ReadVtkToVolumeMesh(const MeshSource& mesh_source,
                                        double scale = 1.0);
 
-std::vector<double> ReadVtkToPressureValues(const MeshSource& mesh_source);
+std::vector<double> ReadVtkToScalarValues(const MeshSource& mesh_source);
 
 }  // namespace internal
 }  // namespace geometry
