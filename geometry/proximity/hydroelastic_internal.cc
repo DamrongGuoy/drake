@@ -9,6 +9,7 @@
 
 #include <fmt/format.h>
 
+#include "drake/common/ssize.h"
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/inflate_mesh.h"
 #include "drake/geometry/proximity/make_box_field.h"
@@ -588,6 +589,33 @@ std::optional<SoftGeometry> MakeSoftRepresentation(
     // volume mesh. If that's not true, we'll get an error.
     mesh = make_unique<VolumeMesh<double>>(
         MakeVolumeMeshFromVtk<double>(mesh_spec));
+
+    // If the .vtk file already contains signed distance, defer to those
+    // loaded from file.
+    std::vector<double> field_values = MakePressureFromVtk<double>(mesh_spec);
+    if (!field_values.empty()) {
+      // Hack to scale the normalized field_values by hydroelastic modulus.
+      //     pressure = hydroelastic_modulus * field_value /
+      //                min_signed_field_value
+      // N.B.  Assume the signed distance field is negative inside and
+      // positive outside the shape.
+      const double min_field_value =
+          *std::min_element(field_values.begin(), field_values.end());
+
+      // TODO(DamrongGuoy): Sanity check the sign convention. What if the
+      //  field in VTK file is positive inside and negative outside?
+
+      // Scale the field in VTK file by hydroelastic modulus.
+      for (double& field_value : field_values) {
+        field_value *= (hydroelastic_modulus / min_field_value);
+      }
+      if (ssize(field_values) == mesh->num_vertices()) {
+        auto mesh_field =
+            std::make_unique<VolumeMeshFieldLinear<double, double>>(
+                std::move(field_values), mesh.get());
+        return SoftGeometry(SoftMesh(std::move(mesh), std::move(mesh_field)));
+      }
+    }
   } else {
     // Otherwise, we'll create a compliant representation of its convex hull.
     mesh = make_unique<VolumeMesh<double>>(MakeConvexVolumeMesh<double>(
