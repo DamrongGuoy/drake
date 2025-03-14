@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "drake/geometry/proximity/volume_mesh.h"
 #include "drake/geometry/shape_specification.h"
@@ -27,6 +28,9 @@ namespace internal {
  */
 template <typename T>
 VolumeMesh<T> MakeVolumeMeshFromVtk(const Mesh& mesh);
+
+template <typename T>
+std::vector<T> MakePressureFromVtk(const Mesh& mesh);
 
 }  // namespace internal
 }  // namespace geometry
