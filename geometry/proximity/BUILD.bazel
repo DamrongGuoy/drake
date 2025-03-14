@@ -1277,6 +1277,29 @@ drake_cc_googletest(
 )
 
 drake_cc_googletest(
+    name = "embedded_pressure_field_test",
+    data = [
+        "//geometry:test_obj_files",
+        "//geometry:test_vtk_files",
+        "@drake_models//:dishes",
+        "@drake_models//:ycb",
+    ],
+    deps = [
+        ":distance_to_point_callback",
+        ":make_box_mesh",
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        ":volume_mesh",
+        ":volume_to_surface_mesh",
+        ":vtk_to_volume_mesh",
+        "//common",
+        "//common/test_utilities",
+        "//common/test_utilities:eigen_matrix_compare",
+        "//common/test_utilities:expect_throws_message",
+    ],
+)
+
+drake_cc_googletest(
     name = "field_intersection_test",
     deps = [
         ":contact_surface_utility",

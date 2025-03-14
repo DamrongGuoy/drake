@@ -835,6 +835,9 @@ filegroup(
         "test/quad_cube.mtl",
         "test/quad_cube.obj",
         "test/two_cube_objects.obj",
+        "test/yellow_bell_pepper_no_stem_low.mtl",
+        "test/yellow_bell_pepper_no_stem_low.obj",
+        "test/yellow_pepper_MLabPrec5mmOffset5mm.obj",
     ],
 )
 
@@ -851,6 +854,7 @@ filegroup(
         "test/some_volume.vtk",
         "test/two_tetrahedra_with_field_variable.vtk",
         "test/unstructured.vtk",
+        "test/yellow_pepper_offset_and_grids_tetgen.vtk",
     ],
 )
 
