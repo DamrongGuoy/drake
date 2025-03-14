@@ -85,8 +85,81 @@ TEST_F(SignedDistanceToInputYellowBellPepperSurfaceTest, FromCentroid) {
       kEps));
 }
 
-/* E N A B L E   W H E N   W E   N E E D   N E W   M E S H E S .
-GTEST_TEST(BCCInsideOutOffsetSurface, Generate) {
+/* E N A B L E   W H E N   W E   N E E D   N E W   M E S H E S . */
+
+// Recipe.
+// 1. Input: a watertight, manifold, self-intersecting-free surface mesh.
+// 2. Run MeshLab:
+//      Filter/Remeshing_Simplification_Reconstruction
+//        /Uniform Mesh Resampling (marching cube)
+//    with coarse resolution and positive offset distance; for example,
+//    1 centimeter (0.01 meter) for both the precision and the offset
+//    parameters.
+// 3. Save into _offset1cm.obj (no mtl).
+// 4. Load the offset surface into this test.
+// 5. Generate grid points at twice resolution of the offset surface; for
+//    example, 2 centimeters.
+// 6. Keep only the good grid points enclosed by the offset surface.
+// 7. Output: the offset surface together with the good grid points in
+//    a _surface.vtk file.
+//
+// After this test, externally run TetGen to create the background
+// volumetric mesh and go to the next test. (Use venv_vtk2obj.py to convert the
+// _surface.vtk file to .obj. Use venv_tetgen.py to create the embedding
+// tetrahedral mesh.)
+
+/******************* archive *
+GTEST_TEST(GridInOffsetSurface, Offset1cmGrid2cm) {
+  const TriangleSurfaceMesh<double> surface_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_pepper_offset1cm.obj"));
+  EXPECT_EQ(surface_M.num_vertices(), 436);
+  EXPECT_EQ(surface_M.num_triangles(), 868);
+
+  const Bvh<Obb, TriangleSurfaceMesh<double>> surface_bvh_M{surface_M};
+  const FeatureNormalSet surface_normal_M =
+      std::get<FeatureNormalSet>(FeatureNormalSet::MaybeCreate(surface_M));
+
+  // TODO(DamrongGuoy): Auto check for the bounding box and generate much
+  //  less candidate points. Right now I happened to know the offset surface
+  //  is bounded by [-0.050, 0.051]x[-0.051, 0.050]x[-0.01, 0.091], so
+  //  a box of (±0.051)x(±0.051)x[±0.091] would be enough. Therefore, the box
+  //  size is 0.102 x 0.102 x 0.182 meters (about 10x10x18 centimeters)
+  Box bound(0.102, 0.102, 0.182);
+  const double grid_resolution = 0.02;  // 2 centimeters.
+  VolumeMesh<double> cover_grid =
+      MakeBoxVolumeMesh<double>(bound, grid_resolution);
+
+  std::vector<SurfaceTriangle> triangles{surface_M.triangles()};
+  std::vector<Vector3d> vertices_M{surface_M.vertices()};
+  // TODO(DamrongGuoy): Estimate the number of vertices in a better way.
+  //  Right now I just guess.
+  vertices_M.reserve(6000);
+
+  int count_good_grid_points = 0;
+  for (const Vector3d& grid : cover_grid.vertices()) {
+    const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+        grid, surface_M, surface_bvh_M, surface_normal_M);
+    // TODO(DamrongGuoy): Better estimate of the distance threshold. Right now
+    //  we pick any grid points inside the offset surface 1 millimeter and
+    //  deeper.
+    if (d.signed_distance <= -0.001) {
+      ++count_good_grid_points;
+      vertices_M.push_back(grid);
+    }
+  }
+  EXPECT_EQ(count_good_grid_points, 92);
+
+  TriangleSurfaceMesh<double> surface_with_grids{std::move(triangles),
+                                                 std::move(vertices_M)};
+  EXPECT_EQ(surface_with_grids.num_triangles(), 868);
+  EXPECT_EQ(surface_with_grids.num_vertices(), 528);
+
+  WriteSurfaceMeshToVtk("yellow_pepper_offset1cm_grid2cm_surface.vtk",
+                        surface_with_grids, "YellowPepperOffsetEmbeddingGrid");
+}
+
+GTEST_TEST(BCCInsideOutOffsetSurface, GenerateOffset5mGrid1cm) {
   const TriangleSurfaceMesh<double> surface_M =
       ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
           "drake/geometry/test/yellow_pepper_MLabPrec5mmOffset5mm.obj"));
@@ -136,9 +209,11 @@ GTEST_TEST(BCCInsideOutOffsetSurface, Generate) {
   WriteSurfaceMeshToVtk("yellow_pepper_offset_and_grids.vtk",
                         surface_with_grids, "YellowPepperOffsetEmbeddingGrid");
 }
- */
+******************* archive */
 
-GTEST_TEST(SignedDistanceToSurfaceMeshFromVolumeMeshPoints, SignedDF) {
+// Create interpolated signed-distance field on the tetrahedral mesh
+// (_tetgen.vtk) with respect to the input surface mesh (.obj).
+GTEST_TEST(SDToSurfaceMeshFromVolumePoints, SignedDistanceField) {
   TriangleSurfaceMesh<double> input_surface_mesh =
       ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
           "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
@@ -148,7 +223,7 @@ GTEST_TEST(SignedDistanceToSurfaceMeshFromVolumeMeshPoints, SignedDF) {
 
   VolumeMesh<double> embedding_tetrahedral_mesh =
       ReadVtkToVolumeMesh(std::filesystem::path(FindResourceOrThrow(
-          "drake/geometry/test/yellow_pepper_offset_and_grids_tetgen.vtk")));
+          "drake/geometry/test/yellow_pepper_Offset1cmGrid2cm_tetgen.vtk")));
 
   std::vector<double> signed_distances;
   for (const Vector3d& tet_vertex : embedding_tetrahedral_mesh.vertices()) {
@@ -159,11 +234,10 @@ GTEST_TEST(SignedDistanceToSurfaceMeshFromVolumeMeshPoints, SignedDF) {
 
   VolumeMeshFieldLinear<double, double> embedded_sdf{
       std::move(signed_distances), &embedding_tetrahedral_mesh};
-  WriteVolumeMeshFieldLinearToVtk("yellow_pepper_embedded_signedDF.vtk",
+  WriteVolumeMeshFieldLinearToVtk("yellow_pepper_Offset1cmGrid2cm_sdfield.vtk",
                                   "SignedDistance(meters)", embedded_sdf,
                                   "EmbeddedSignedDistanceField");
 }
-
 
 }  // namespace
 }  // namespace internal
