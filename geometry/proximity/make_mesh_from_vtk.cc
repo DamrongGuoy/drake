@@ -62,7 +62,7 @@ std::vector<T> MakePressureFromVtk(const Mesh& mesh) {
         mesh.extension(), mesh.source().description()));
   }
 
-  std::vector<double> pressure = ReadVtkToPressureValues(mesh.source());
+  std::vector<double> pressure = ReadVtkToScalarValues(mesh.source());
   if constexpr (std::is_same_v<T, double>) {
     return pressure;
   } else {
