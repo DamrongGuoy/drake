@@ -59,7 +59,7 @@ VolumeMesh<double> ReadVtkToVolumeMesh(const MeshSource& mesh_source,
                                        const Eigen::Vector3d& scale = {1, 1,
                                                                        1});
 
-std::vector<double> ReadVtkToPressureValues(const MeshSource& mesh_source);
+std::vector<double> ReadVtkToScalarValues(const MeshSource& mesh_source);
 
 }  // namespace internal
 }  // namespace geometry
