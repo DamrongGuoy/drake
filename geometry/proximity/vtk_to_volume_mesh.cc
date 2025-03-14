@@ -82,7 +82,7 @@ VolumeMesh<double> ReadVtkToVolumeMesh(const MeshSource& mesh_source,
   return {std::move(elements), std::move(vertices)};
 }
 
-std::vector<double> ReadVtkToPressureValues(const MeshSource& mesh_source) {
+std::vector<double> ReadVtkToScalarValues(const MeshSource& mesh_source) {
   vtkNew<vtkUnstructuredGridReader> reader;
   if (mesh_source.is_path()) {
     reader->SetFileName(mesh_source.path().c_str());
