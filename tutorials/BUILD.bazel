@@ -219,6 +219,7 @@ filegroup(
     name = "vtk_files",
     srcs = [
         "pepper_embsdf.vtk",
+        "yellow_pepper_Offset1cmGrid2cm_sdfield.vtk",
     ],
 )
 
