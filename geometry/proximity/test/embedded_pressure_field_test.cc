@@ -97,11 +97,6 @@ GTEST_TEST(BCCInsideOutOffsetSurface, Generate) {
   const FeatureNormalSet surface_normal_M =
       std::get<FeatureNormalSet>(FeatureNormalSet::MaybeCreate(surface_M));
 
-  // Vector3d p_MV0 = surface_M.vertex(0);
-  // std::cout << fmt::format("{:12.8f} {:12.8f} {:12.8f}\n", p_MV0.x(), p_MV0.y(),
-  //                          p_MV0.z());
-  //
-
   // TODO(DamrongGuoy): Auto check for the bounding box and generate much
   //  less candidate points. Right now I happened to know the 18-centimeter
   //  cube centered at origin is more than 8-times enough for the pepper with
@@ -148,8 +143,8 @@ GTEST_TEST(SignedDistanceToSurfaceMeshFromVolumeMeshPoints, SignedDF) {
       ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
           "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
   const Bvh<Obb, TriangleSurfaceMesh<double>> surface_bvh{input_surface_mesh};
-  const FeatureNormalSet surface_normal =
-      std::get<FeatureNormalSet>(FeatureNormalSet::MaybeCreate(input_surface_mesh));
+  const FeatureNormalSet surface_normal = std::get<FeatureNormalSet>(
+      FeatureNormalSet::MaybeCreate(input_surface_mesh));
 
   VolumeMesh<double> embedding_tetrahedral_mesh =
       ReadVtkToVolumeMesh(std::filesystem::path(FindResourceOrThrow(
@@ -165,8 +160,8 @@ GTEST_TEST(SignedDistanceToSurfaceMeshFromVolumeMeshPoints, SignedDF) {
   VolumeMeshFieldLinear<double, double> embedded_sdf{
       std::move(signed_distances), &embedding_tetrahedral_mesh};
   WriteVolumeMeshFieldLinearToVtk("yellow_pepper_embedded_signedDF.vtk",
-                                  "SignedDistance(meters)",
-                                  embedded_sdf, "EmbeddedSignedDistanceField");
+                                  "SignedDistance(meters)", embedded_sdf,
+                                  "EmbeddedSignedDistanceField");
 }
 
 ////////////////////////////////////////////////////////////////////////////
