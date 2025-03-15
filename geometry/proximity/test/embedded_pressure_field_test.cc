@@ -10,6 +10,9 @@
 #include "drake/common/test_utilities/expect_throws_message.h"
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
+#include "drake/geometry/proximity/field_intersection.h"
+#include "drake/geometry/proximity/hydroelastic_internal.h"
+#include "drake/geometry/proximity/make_box_field.h"
 #include "drake/geometry/proximity/make_box_mesh.h"
 #include "drake/geometry/proximity/make_mesh_from_vtk.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
@@ -24,6 +27,7 @@ namespace internal {
 namespace {
 
 using Eigen::Vector3d;
+using Eigen::Vector4d;
 using math::RigidTransformd;
 using math::RollPitchYawd;
 
@@ -245,23 +249,108 @@ GTEST_TEST(SDToSurfaceMeshFromVolumePoints, SignedDistanceField) {
                                   "EmbeddedSignedDistanceField");
 }
 
+Aabb CalcBoundingBox(const VolumeMesh<double>& mesh_M) {
+  Vector3d min_xyz{std::numeric_limits<double>::max(),
+                   std::numeric_limits<double>::max(),
+                   std::numeric_limits<double>::max()};
+  Vector3d max_xyz{std::numeric_limits<double>::min(),
+                   std::numeric_limits<double>::min(),
+                   std::numeric_limits<double>::min()};
+  for (const Vector3d& p_MV : mesh_M.vertices()) {
+    for (int c = 0; c < 3; ++c) {
+      if (p_MV(c) < min_xyz(c)) {
+        min_xyz(c) = p_MV(c);
+      }
+      if (p_MV(c) > max_xyz(c)) {
+        max_xyz(c) = p_MV(c);
+      }
+    }
+  }
+  return {(min_xyz + max_xyz) / 2, (max_xyz - min_xyz) / 2};
+}
+
+// Measure "distance" between the zero-level set implicit surface and the
+// original mesh.
 GTEST_TEST(MeasureDeviation, SurfaceVsSDField) {
-  TriangleSurfaceMesh<double> input_surface_mesh =
+  const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_Offset1cmGrid2cm_sdfield.vtk")};
+  auto embedded_mesh_M = std::make_unique<VolumeMesh<double>>(
+      MakeVolumeMeshFromVtk<double>(mesh_spec_with_sdfield));
+  EXPECT_EQ(embedded_mesh_M->num_vertices(), 528);
+  EXPECT_EQ(embedded_mesh_M->num_elements(), 1808);
+  auto embedded_sdfield_M =
+      std::make_unique<VolumeMeshFieldLinear<double, double>>(
+          MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
+          embedded_mesh_M.get());
+  const hydroelastic::SoftMesh compliant_embedded_mesh_M{
+      std::move(embedded_mesh_M), std::move(embedded_sdfield_M)};
+
+  const Aabb bounding_box_M = CalcBoundingBox(compliant_embedded_mesh_M.mesh());
+  // Frame B and frame M are axis-aligned. Only their origins are different.
+  const Box box_B(2.0 * bounding_box_M.half_width());
+  const RigidTransformd X_MB(bounding_box_M.center());
+  auto box_mesh_B = std::make_unique<VolumeMesh<double>>(
+      MakeBoxVolumeMeshWithMa<double>(box_B));
+  auto box_field_B = std::make_unique<VolumeMeshFieldLinear<double, double>>(
+      MakeBoxPressureField<double>(box_B, box_mesh_B.get(),
+                                   /* hydroelastic_modulus */ 1e-6));
+  const hydroelastic::SoftMesh compliant_box_B{std::move(box_mesh_B),
+                                               std::move(box_field_B)};
+
+  // The kTriangle argument makes the level0 surface include centroids of
+  // contact polygons for more checks.
+  std::unique_ptr<ContactSurface<double>> level0_M =
+      ComputeContactSurfaceFromCompliantVolumes(
+          GeometryId::get_new_id(), compliant_box_B, X_MB,
+          GeometryId::get_new_id(), compliant_embedded_mesh_M,
+          RigidTransformd::Identity(),
+          HydroelasticContactRepresentation::kTriangle);
+  EXPECT_EQ(level0_M->tri_mesh_W().num_vertices(), 6498);
+  // Sanity check visually that it makes sense to compute the level-0 surface
+  // using ComputeContactSurfaceFromCompliantVolumes().
+  //
+  // WriteTriangleSurfaceMeshFieldLinearToVtk(
+  //    "level0_surface.vtk", "SignedDistance(meters)", level0_M->tri_e_MN(),
+  //    "SignedDistance(meters)"
+  //);
+
+  const TriangleSurfaceMesh<double> input_surface_mesh_M =
       ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
           "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
-  EXPECT_EQ(input_surface_mesh.num_vertices(), 486);
-  EXPECT_EQ(input_surface_mesh.num_triangles(), 968);
+  EXPECT_EQ(input_surface_mesh_M.num_vertices(), 486);
+  EXPECT_EQ(input_surface_mesh_M.num_triangles(), 968);
+  const Bvh<Obb, TriangleSurfaceMesh<double>> input_surface_bvh_M{
+      input_surface_mesh_M};
+  const FeatureNormalSet input_surface_normal = std::get<FeatureNormalSet>(
+      FeatureNormalSet::MaybeCreate(input_surface_mesh_M));
 
-  Mesh mesh_file_sdfield{FindResourceOrThrow(
-      "drake/geometry/test/yellow_pepper_Offset1cmGrid2cm_sdfield.vtk")};
-  VolumeMesh<double> embedding_mesh =
-      MakeVolumeMeshFromVtk<double>(mesh_file_sdfield);
-  EXPECT_EQ(embedding_mesh.num_vertices(), 528);
-  EXPECT_EQ(embedding_mesh.num_elements(), 1808);
-  VolumeMeshFieldLinear<double, double> embedded_sdfield{
-      MakeScalarValuesFromVtkMesh<double>(mesh_file_sdfield), &embedding_mesh};
+  double average_absolute_deviation = 0;
+  double max_absolute_deviation = 0;
+  double min_absolute_deviation = std::numeric_limits<double>::max();
+  for (const Vector3d& level0_vertex : level0_M->tri_mesh_W().vertices()) {
+    const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+        level0_vertex, input_surface_mesh_M, input_surface_bvh_M,
+        input_surface_normal);
+    const double absolute_deviation = std::abs(d.signed_distance);
+    average_absolute_deviation += absolute_deviation;
+    if (absolute_deviation < min_absolute_deviation) {
+      min_absolute_deviation = absolute_deviation;
+    }
+    if (absolute_deviation > max_absolute_deviation) {
+      max_absolute_deviation = absolute_deviation;
+    }
+  }
+  average_absolute_deviation /= level0_M->tri_mesh_W().num_vertices();
 
+  // About 20 nanometers minimum deviation.
+  EXPECT_NEAR(min_absolute_deviation, 2.026e-8, 1e-11);
+  // About half a millimeter average deviation.
+  EXPECT_NEAR(average_absolute_deviation, 0.0006822, 1e-6);
+  // About 9 millimeters maximum deviation.
+  EXPECT_NEAR(max_absolute_deviation, 0.008890, 1e-6);
 
+  // TODO(DamrongGuoy): Measure distance from the input surface's vertices to
+  //  the level0 surface too.
 }
 
 }  // namespace
