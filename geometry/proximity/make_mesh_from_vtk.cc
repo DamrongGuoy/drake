@@ -54,10 +54,10 @@ VolumeMesh<T> MakeVolumeMeshFromVtk(const Mesh& mesh) {
 }
 
 template <typename T>
-std::vector<T> MakePressureFromVtk(const Mesh& mesh) {
+std::vector<T> MakeScalarValuesFromVtkMesh(const Mesh& mesh) {
   if (mesh.extension() != ".vtk") {
     throw std::runtime_error(fmt::format(
-        "MakePressureFromVtk() called on a Mesh specification with the"
+        "MakeScalarValuesFromVtkMesh() called on a Mesh specification with the"
         " wrong extension type. Requires '.vtk', got '{}' for mesh data {}.",
         mesh.extension(), mesh.source().description()));
   }
@@ -76,7 +76,7 @@ std::vector<T> MakePressureFromVtk(const Mesh& mesh) {
 }
 
 DRAKE_DEFINE_FUNCTION_TEMPLATE_INSTANTIATIONS_ON_DEFAULT_NONSYMBOLIC_SCALARS(
-    (&MakeVolumeMeshFromVtk<T>, &MakePressureFromVtk<T>));
+    (&MakeVolumeMeshFromVtk<T>, &MakeScalarValuesFromVtkMesh<T>));
 
 }  // namespace internal
 }  // namespace geometry

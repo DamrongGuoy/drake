@@ -592,7 +592,8 @@ std::optional<SoftGeometry> MakeSoftRepresentation(
 
     // If the .vtk file already contains signed distance, defer to those
     // loaded from file.
-    std::vector<double> field_values = MakePressureFromVtk<double>(mesh_spec);
+    std::vector<double> field_values =
+        MakeScalarValuesFromVtkMesh<double>(mesh_spec);
     if (!field_values.empty()) {
       // Hack to scale the normalized field_values by hydroelastic modulus.
       //     pressure = hydroelastic_modulus * field_value /
