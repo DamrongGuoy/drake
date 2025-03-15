@@ -11,6 +11,7 @@
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
 #include "drake/geometry/proximity/make_box_mesh.h"
+#include "drake/geometry/proximity/make_mesh_from_vtk.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
 #include "drake/geometry/proximity/volume_mesh.h"
@@ -217,6 +218,9 @@ GTEST_TEST(SDToSurfaceMeshFromVolumePoints, SignedDistanceField) {
   TriangleSurfaceMesh<double> input_surface_mesh =
       ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
           "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  EXPECT_EQ(input_surface_mesh.num_vertices(), 486);
+  EXPECT_EQ(input_surface_mesh.num_triangles(), 968);
+
   const Bvh<Obb, TriangleSurfaceMesh<double>> surface_bvh{input_surface_mesh};
   const FeatureNormalSet surface_normal = std::get<FeatureNormalSet>(
       FeatureNormalSet::MaybeCreate(input_surface_mesh));
@@ -224,6 +228,8 @@ GTEST_TEST(SDToSurfaceMeshFromVolumePoints, SignedDistanceField) {
   VolumeMesh<double> embedding_tetrahedral_mesh =
       ReadVtkToVolumeMesh(std::filesystem::path(FindResourceOrThrow(
           "drake/geometry/test/yellow_pepper_Offset1cmGrid2cm_tetgen.vtk")));
+  EXPECT_EQ(embedding_tetrahedral_mesh.num_vertices(), 528);
+  EXPECT_EQ(embedding_tetrahedral_mesh.num_elements(), 1808);
 
   std::vector<double> signed_distances;
   for (const Vector3d& tet_vertex : embedding_tetrahedral_mesh.vertices()) {
@@ -237,6 +243,25 @@ GTEST_TEST(SDToSurfaceMeshFromVolumePoints, SignedDistanceField) {
   WriteVolumeMeshFieldLinearToVtk("yellow_pepper_Offset1cmGrid2cm_sdfield.vtk",
                                   "SignedDistance(meters)", embedded_sdf,
                                   "EmbeddedSignedDistanceField");
+}
+
+GTEST_TEST(MeasureDeviation, SurfaceVsSDField) {
+  TriangleSurfaceMesh<double> input_surface_mesh =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  EXPECT_EQ(input_surface_mesh.num_vertices(), 486);
+  EXPECT_EQ(input_surface_mesh.num_triangles(), 968);
+
+  Mesh mesh_file_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_Offset1cmGrid2cm_sdfield.vtk")};
+  VolumeMesh<double> embedding_mesh =
+      MakeVolumeMeshFromVtk<double>(mesh_file_sdfield);
+  EXPECT_EQ(embedding_mesh.num_vertices(), 528);
+  EXPECT_EQ(embedding_mesh.num_elements(), 1808);
+  VolumeMeshFieldLinear<double, double> embedded_sdfield{
+      MakeScalarValuesFromVtkMesh<double>(mesh_file_sdfield), &embedding_mesh};
+
+
 }
 
 }  // namespace
