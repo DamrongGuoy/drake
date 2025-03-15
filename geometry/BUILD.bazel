@@ -855,8 +855,9 @@ filegroup(
         "test/some_volume.vtk",
         "test/two_tetrahedra_with_field_variable.vtk",
         "test/unstructured.vtk",
-        "test/yellow_pepper_offset_and_grids_tetgen.vtk",
+        "test/yellow_pepper_Offset1cmGrid2cm_sdfield.vtk",
         "test/yellow_pepper_Offset1cmGrid2cm_tetgen.vtk",
+        "test/yellow_pepper_offset_and_grids_tetgen.vtk",
     ],
 )
 

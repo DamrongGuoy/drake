@@ -1287,6 +1287,7 @@ drake_cc_googletest(
     deps = [
         ":distance_to_point_callback",
         ":make_box_mesh",
+        ":make_mesh_from_vtk",
         ":mesh_to_vtk",
         ":obj_to_surface_mesh",
         ":volume_mesh",
