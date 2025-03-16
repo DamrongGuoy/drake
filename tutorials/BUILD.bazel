@@ -63,9 +63,9 @@ drake_jupyter_py_binary(
     name = "hydroelastic_embpres",
     add_test_rule = 1,
     data = [
+        ":vtk_files",
         "@drake_models//:dishes",
         "@drake_models//:veggies",
-        ":vtk_files",
     ],
     # TODO(#21380) Revisit timeout value when deferred reification is
     # implemented.
