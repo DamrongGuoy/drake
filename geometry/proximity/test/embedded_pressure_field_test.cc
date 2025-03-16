@@ -1,6 +1,3 @@
-#include <filesystem>
-
-#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include "drake/common/find_resource.h"
@@ -10,17 +7,12 @@
 #include "drake/common/test_utilities/expect_throws_message.h"
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
-#include "drake/geometry/proximity/field_intersection.h"
-#include "drake/geometry/proximity/hydroelastic_internal.h"
-#include "drake/geometry/proximity/make_box_field.h"
-#include "drake/geometry/proximity/make_box_mesh.h"
+#include "drake/geometry/proximity/make_empress_field.h"
 #include "drake/geometry/proximity/make_mesh_from_vtk.h"
-#include "drake/geometry/proximity/mesh_distance_boundary.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
 #include "drake/geometry/proximity/volume_mesh.h"
 #include "drake/geometry/proximity/volume_to_surface_mesh.h"
-#include "drake/geometry/proximity/vtk_to_volume_mesh.h"
 
 namespace drake {
 namespace geometry {
@@ -31,6 +23,76 @@ using Eigen::Vector3d;
 using Eigen::Vector4d;
 using math::RigidTransformd;
 using math::RollPitchYawd;
+
+GTEST_TEST(EmPressSignedDistanceField, GenerateFromInputSurface) {
+  TriangleSurfaceMesh<double> input_mesh_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  EXPECT_EQ(input_mesh_M.num_vertices(), 486);
+  EXPECT_EQ(input_mesh_M.num_triangles(), 968);
+  const Aabb fitted_box_M = CalcBoundingBox(input_mesh_M);
+  EXPECT_TRUE(CompareMatrices(fitted_box_M.center(),
+                              Vector3d{-0.000021, -0.000189, 0.040183}, 1e-6));
+  EXPECT_TRUE(CompareMatrices(fitted_box_M.half_width(),
+                              Vector3d{0.040288, 0.040262, 0.040388}, 1e-6));
+
+  const auto [mesh_EmPress_M, sdfield_EmPress_M] =
+      MakeEmPressSDField(input_mesh_M,
+                         0.02,    // grid_resolution,
+                         0.001,   // out_offset,
+                         0.001);  // in_offset
+
+  EXPECT_EQ(mesh_EmPress_M->num_vertices(), 167);
+  EXPECT_EQ(mesh_EmPress_M->num_elements(), 568);
+  WriteVolumeMeshToVtk("yellow_pepper_EmPress_mesh.vtk", *mesh_EmPress_M,
+                       "Tetrahedral Mesh for EmPress Embedded Pressure Field");
+  WriteVolumeMeshFieldLinearToVtk("yellow_pepper_EmPress_sdfield.vtk",
+                                  "SignedDistance(meters)", *sdfield_EmPress_M,
+                                  "EmbeddedSignedDistanceField");
+}
+
+GTEST_TEST(EmPressSignedDistanceField, MeasureDeviation) {
+  const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_EmPress_sdfield.vtk")};
+  const VolumeMesh<double> mesh_EmPress_M =
+      MakeVolumeMeshFromVtk<double>(mesh_spec_with_sdfield);
+  EXPECT_EQ(mesh_EmPress_M.num_vertices(), 167);
+  EXPECT_EQ(mesh_EmPress_M.num_elements(), 568);
+  VolumeMeshFieldLinear<double, double> sdfield_EmPress_M{
+      MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
+      &mesh_EmPress_M};
+
+  const TriangleSurfaceMesh<double> original_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  EXPECT_EQ(original_M.num_vertices(), 486);
+  EXPECT_EQ(original_M.num_triangles(), 968);
+
+  const auto [min_absolute_deviation, average_absolute_deviation,
+              max_absolute_deviation] =
+      MesaureDeviationOfZeroLevelSet(sdfield_EmPress_M, original_M);
+
+  // About 0.1 micrometers minimum deviation, practically zero.
+  EXPECT_NEAR(min_absolute_deviation, 1.189e-07, 1e-10);
+  // About 1 millimeter average deviation.
+  EXPECT_NEAR(average_absolute_deviation, 0.000911, 1e-6);
+  // About 6 millimeters maximum deviation.
+  EXPECT_NEAR(max_absolute_deviation, 0.006099, 1e-6);
+}
+
+}  // namespace
+}  // namespace internal
+}  // namespace geometry
+}  // namespace drake
+
+////////////////////////////////////////////////////////////////////////
+//////////////////////// OLDER VERSION pre 2025-03-16 //////////////////
+////////////////////////////////////////////////////////////////////////
+// I refactored most of the following code into ":make_empress_field" library.
+// If there's a need to reuse these code, please move them back into the
+// anonymous namespace above.
+
+/******************* archive ********************
 
 class SignedDistanceToInputYellowBellPepperSurfaceTest
     : public ::testing::Test {
@@ -474,10 +536,8 @@ GTEST_TEST(MeasureDeviationOfEmPressSignedDistances, Verify) {
   //  the level0 surface too.
 }
 
-}  // namespace
-}  // namespace internal
-}  // namespace geometry
-}  // namespace drake
+
+******************* archive ********************/
 
 //////////////////////////////////////////////////////////////////////
 // O B S O L E T E   C O D E   B E L O W
