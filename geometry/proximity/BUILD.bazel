@@ -1041,6 +1041,18 @@ drake_cc_library(
 )
 
 drake_cc_binary(
+    name = "empress",
+    srcs = ["empress.cc"],
+    deps = [
+        ":make_empress_field",
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        "//common:add_text_logging_gflags",
+        "@gflags",
+    ],
+)
+
+drake_cc_binary(
     name = "refine_mesh",
     srcs = ["refine_mesh.cc"],
     deps = [
