@@ -12,10 +12,6 @@ DEFINE_string(output, "",
               "output signed-distance field together with "
               "its tetrahedral mesh (VTK file).");
 DEFINE_double(resolution, 0.02, "Resolution of the background grid (meters).");
-DEFINE_double(out_offset, 0.001,
-              "Include +out_offest signed distance outside (meters).");
-DEFINE_double(in_offset, 0.005,
-              "Include -in_offset signed distance inside (meters).");
 
 namespace drake {
 namespace geometry {
@@ -35,9 +31,8 @@ int do_main() {
   }
 
   drake::log()->info(
-      fmt::format("Create EmPress signed-distance field with "
-                  "resolution={}, out_offset={}, in_offset={}",
-                  FLAGS_resolution, FLAGS_out_offset, FLAGS_in_offset));
+      fmt::format("Create EmPress signed-distance field with resolution={}",
+                  FLAGS_resolution));
 
   // Make cwd be what the user expected, not the runfiles tree.
   if (const char* path = std::getenv("BUILD_WORKING_DIRECTORY")) {
@@ -50,8 +45,8 @@ int do_main() {
   TriangleSurfaceMesh<double> surface_mesh =
       ReadObjToTriangleSurfaceMesh(std::filesystem::path(FLAGS_input));
 
-  const auto [mesh_EmPress_M, sdfield_EmPress_M] = MakeEmPressSDField(
-      surface_mesh, FLAGS_resolution, FLAGS_out_offset, FLAGS_in_offset);
+  const auto [mesh_EmPress_M, sdfield_EmPress_M] =
+      MakeEmPressSDField(surface_mesh, FLAGS_resolution);
 
   std::filesystem::path outfile(FLAGS_output);
   internal::WriteVolumeMeshFieldLinearToVtk(
@@ -74,8 +69,6 @@ int main(int argc, char* argv[]) {
 
 empress -input [file.obj] -output [file.vtk]
         -resolution [default 0.02, i.e., 2cm]
-        -out_offset [default 0.001, i.e., 1mm]
-        -in_offset [default 0.005, i.e., 5mm]
 
 The option -helpshort will explain the above parameters.
 
