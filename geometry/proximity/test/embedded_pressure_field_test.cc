@@ -37,10 +37,7 @@ GTEST_TEST(EmPressSignedDistanceField, GenerateFromInputSurface) {
                               Vector3d{0.040288, 0.040262, 0.040388}, 1e-6));
 
   const auto [mesh_EmPress_M, sdfield_EmPress_M] =
-      MakeEmPressSDField(input_mesh_M,
-                         0.02,    // grid_resolution,
-                         0.001,   // out_offset,
-                         0.001);  // in_offset
+      MakeEmPressSDField(input_mesh_M, 0.02);  // grid_resolution,
 
   EXPECT_EQ(mesh_EmPress_M->num_vertices(), 167);
   EXPECT_EQ(mesh_EmPress_M->num_elements(), 568);
