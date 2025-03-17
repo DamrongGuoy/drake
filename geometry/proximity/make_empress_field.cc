@@ -364,6 +364,59 @@ std::tuple<double, double, double> MesaureDeviationOfZeroLevelSet(
           max_absolute_deviation};
 }
 
+double CalcRMSErrorOfSDField(
+    const VolumeMeshFieldLinear<double, double>& sdfield_M,
+    const TriangleSurfaceMesh<double>& original_M) {
+  // TODO(DamrongGuoy): Manage memory in a better way.  The
+  //  hydroelastic::SoftMesh wants to take ownership of the input
+  //  signed-distance field through unique_ptr. For simplicity, we just
+  //  copy both the mesh and the field.
+  auto temporary_mesh_M = std::make_unique<VolumeMesh<double>>(sdfield_M.mesh());
+  auto temporary_sdfield_M =
+      std::make_unique<VolumeMeshFieldLinear<double, double>>(
+          std::vector<double>(sdfield_M.values()), temporary_mesh_M.get());
+  const hydroelastic::SoftMesh compliant_hydro_EmPress_M{
+      std::move(temporary_mesh_M), std::move(temporary_sdfield_M)};
+
+  const Aabb bounding_box_M = CalcBoundingBox(compliant_hydro_EmPress_M.mesh());
+  // Frame B and frame M are axis-aligned. Only their origins are different.
+  const Box box_B(2.0 * bounding_box_M.half_width());
+  const RigidTransformd X_MB(bounding_box_M.center());
+  auto box_mesh_B = std::make_unique<VolumeMesh<double>>(
+      MakeBoxVolumeMeshWithMa<double>(box_B));
+  // Using hydroelastic_modulus = 1e-6 will try to track the implicit surface
+  // of the zero-level set of the pepper.
+  auto box_field_B = std::make_unique<VolumeMeshFieldLinear<double, double>>(
+      MakeBoxPressureField<double>(box_B, box_mesh_B.get(), 1e-6));
+  const hydroelastic::SoftMesh compliant_box_B{std::move(box_mesh_B),
+                                               std::move(box_field_B)};
+
+  // The kTriangle argument makes the level0 surface include centroids of
+  // contact polygons for more checks.
+  std::unique_ptr<ContactSurface<double>> level0_M =
+      ComputeContactSurfaceFromCompliantVolumes(
+          GeometryId::get_new_id(), compliant_box_B, X_MB,
+          GeometryId::get_new_id(), compliant_hydro_EmPress_M,
+          RigidTransformd::Identity(),
+          HydroelasticContactRepresentation::kTriangle);
+
+  // TODO(DamrongGuoy): Manage memeory in a better way.  The
+  //  MeshDistanceBoundary want to take ownership of the input surface mesh.
+  //  For simplicity, we just make a copy.
+  const MeshDistanceBoundary input_M{TriangleSurfaceMesh<double>(original_M)};
+
+  double accumulate_squared_error = 0;
+  for (const Vector3d& level0_vertex : level0_M->tri_mesh_W().vertices()) {
+    const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+        level0_vertex, input_M.tri_mesh(), input_M.tri_bvh(),
+        std::get<FeatureNormalSet>(input_M.feature_normal()));
+    accumulate_squared_error += d.signed_distance * d.signed_distance;
+  }
+
+  return std::sqrt(accumulate_squared_error /
+                   level0_M->tri_mesh_W().num_vertices());
+}
+
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake

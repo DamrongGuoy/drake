@@ -41,8 +41,6 @@ GTEST_TEST(EmPressSignedDistanceField, GenerateFromInputSurface) {
 
   EXPECT_EQ(mesh_EmPress_M->num_vertices(), 167);
   EXPECT_EQ(mesh_EmPress_M->num_elements(), 568);
-  WriteVolumeMeshToVtk("yellow_pepper_EmPress_mesh.vtk", *mesh_EmPress_M,
-                       "Tetrahedral Mesh for EmPress Embedded Pressure Field");
   WriteVolumeMeshFieldLinearToVtk("yellow_pepper_EmPress_sdfield.vtk",
                                   "SignedDistance(meters)", *sdfield_EmPress_M,
                                   "EmbeddedSignedDistanceField");
@@ -77,10 +75,35 @@ GTEST_TEST(EmPressSignedDistanceField, MeasureDeviation) {
   EXPECT_NEAR(max_absolute_deviation, 0.006099, 1e-6);
 }
 
+GTEST_TEST(CalcRMSErrorOfSDFieldTest, RootMeanSquaredError) {
+  const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_EmPress_sdfield.vtk")};
+  const VolumeMesh<double> support_mesh_M =
+      MakeVolumeMeshFromVtk<double>(mesh_spec_with_sdfield);
+  EXPECT_EQ(support_mesh_M.num_vertices(), 167);
+  EXPECT_EQ(support_mesh_M.num_elements(), 568);
+  VolumeMeshFieldLinear<double, double> sdfield_M{
+      MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
+      &support_mesh_M};
+
+  const TriangleSurfaceMesh<double> original_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  EXPECT_EQ(original_M.num_vertices(), 486);
+  EXPECT_EQ(original_M.num_triangles(), 968);
+
+  const double rms_error = CalcRMSErrorOfSDField(sdfield_M, original_M);
+
+  // About 1.2mm RMS error.
+  EXPECT_NEAR(rms_error, 0.001296, 1e-6);
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake
+
+#if 0
 
 ////////////////////////////////////////////////////////////////////////
 //////////////////////// OLDER VERSION pre 2025-03-16 //////////////////
@@ -752,3 +775,5 @@ GTEST_TEST(MeasureDeviation, SurfaceVsSDField) {
 }
 
 ******************* archive ********************/
+
+#endif
