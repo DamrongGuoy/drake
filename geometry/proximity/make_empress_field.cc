@@ -64,8 +64,8 @@ bool IsPointInTheBand(const Vector3d& p_MV, const MeshDistanceBoundary& sdf_M,
 bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
                     const double inner_offset, const double outer_offset,
                     const MeshDistanceBoundary& sdf_M) {
-  DRAKE_THROW_UNLESS(inner_offset > 0);
-  DRAKE_THROW_UNLESS(outer_offset > 0);
+  DRAKE_THROW_UNLESS(inner_offset >= 0);
+  DRAKE_THROW_UNLESS(outer_offset >= 0);
 
   // Check whether some points in the tetrahedron are in the band.
   // For simplicity, for now, we check only the four vertices and the edge's
@@ -114,7 +114,10 @@ bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
   // TODO(DamrongGuoy): Check the four face centers and one cell center?
 
   // TODO(DamrongGuoy): Find a more efficient way than bruteforce subsampling.
-  const int sampling_resolution = 3;
+  //  Consider computing an intersection between this tetrahedron and the
+  //  entire triangle surface mesh.  However, that would be more complicated
+  //  than this simple subsampling.
+  const int sampling_resolution = 5;
   const Vector3d& p_MA = tetrahedral_mesh_M.vertex(0);
   const Vector3d& p_MB = tetrahedral_mesh_M.vertex(1);
   const Vector3d& p_MC = tetrahedral_mesh_M.vertex(2);
@@ -154,9 +157,10 @@ bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
 //  for example, bazel build //tutorials/... couldn't find
 //  mesh_distance_boundary.h.
 VolumeMesh<double> MakeEmPressMesh(const MeshDistanceBoundary& input_M,
-                                   const double grid_resolution,
-                                   const double out_offset,
-                                   const double in_offset) {
+                                   const double grid_resolution) {
+  const double out_offset = 1e-3;  // 1mm tolerance.
+  const double in_offset = std::numeric_limits<double>::infinity();
+
   const Aabb fitted_box_M = CalcBoundingBox(input_M.tri_mesh());
 
   // The 10% expanded box's frame B is axis-aligned with the input mesh's
@@ -272,15 +276,14 @@ Aabb CalcBoundingBox(const TriangleSurfaceMesh<double>& mesh_M) {
 std::pair<std::unique_ptr<VolumeMesh<double>>,
           std::unique_ptr<VolumeMeshFieldLinear<double, double>>>
 MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
-                   const double grid_resolution, const double out_offset,
-                   const double in_offset) {
+                   const double grid_resolution) {
   // TODO(DamrongGuoy): Manage memory more carefully.  Right now it's easier
   //  to just making another copy of the input surface mesh and pass ownership
   //  to the MeshDistanceBoundary.
   const MeshDistanceBoundary input_M(TriangleSurfaceMesh<double>{mesh_M});
 
   auto mesh_EmPress_M = std::make_unique<VolumeMesh<double>>(
-      MakeEmPressMesh(input_M, grid_resolution, out_offset, in_offset));
+      MakeEmPressMesh(input_M, grid_resolution));
 
   std::vector<double> signed_distances;
   for (const Vector3d& tet_vertex : mesh_EmPress_M->vertices()) {

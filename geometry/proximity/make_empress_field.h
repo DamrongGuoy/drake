@@ -48,7 +48,7 @@ Aabb CalcBoundingBox(const TriangleSurfaceMesh<double>& mesh_M);
  @param[in] in_offset   Include the level-set implicit surface at the
                         -in_offset distance inside the input surface.
 
- @pre both out_offset and in_offset are positive numbers.
+ @pre both out_offset and in_offset are non-negative numbers.
 
  @return {mesh_EmPress_M, sdfield_EmPress_M}  The EmPress tetrahedral mesh
                      and the EmPress signed-distance field suitable for
@@ -64,8 +64,7 @@ Aabb CalcBoundingBox(const TriangleSurfaceMesh<double>& mesh_M);
 std::pair<std::unique_ptr<VolumeMesh<double>>,
           std::unique_ptr<VolumeMeshFieldLinear<double, double>>>
 MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
-                   double grid_resolution = 0.02, double out_offset = 0.001,
-                   double in_offset = 0.005);
+                   double grid_resolution = 0.02);
 
 /* Verifies EmPress signed-distance field.  Measure deviation between the
  signed-distance field and the original input surface.
