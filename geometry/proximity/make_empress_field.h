@@ -85,6 +85,19 @@ std::tuple<double, double, double> MesaureDeviationOfZeroLevelSet(
     const VolumeMeshFieldLinear<double, double>& sdfield_M,
     const TriangleSurfaceMesh<double>& original_M);
 
+/* Calculates the root-mean-squared error of the zero-level set implicit
+ surface of the signed-distance field `sdfield_M` from the original
+ triangulated surface `original_M`.
+
+ @return the RMS error in meters.
+
+ @note  Internally we exploit contact-surface computation to approximate the
+        zero-level set implicit surface of the signed-distance field.
+*/
+double CalcRMSErrorOfSDField(
+    const VolumeMeshFieldLinear<double, double>& sdfield_M,
+    const TriangleSurfaceMesh<double>& original_M);
+
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake
