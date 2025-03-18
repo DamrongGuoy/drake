@@ -655,12 +655,8 @@ drake_cc_library(
         ":hydroelastic_internal",
         ":make_box_field",
         ":make_box_mesh",
-        ":make_mesh_from_vtk",
-        ":mesh_to_vtk",
-        ":obj_to_surface_mesh",
         ":volume_mesh",
         ":volume_to_surface_mesh",
-        ":vtk_to_volume_mesh",
         "//common",
     ],
     implementation_deps = [
@@ -831,6 +827,23 @@ drake_cc_library(
     implementation_deps = [
         "//common:essential",
         "//geometry:read_obj",
+    ],
+)
+
+drake_cc_library(
+    name = "optimize_sdfield",
+    srcs = ["optimize_sdfield.cc"],
+    hdrs = ["optimize_sdfield.h"],
+    tags = ["exclude_from_package"],
+    deps = [
+        ":volume_mesh_refiner",
+        "//common",
+        # TODO(DamrongGuoy): Move ":distance_to_point_callback" into
+        #  implementation_deps after we expose FeatureNormalSet and
+        #  MeshDistanceBoundary, so we can remove "exclude_from_package" tag.
+        #  The calc_signed_distance_to_surface_mesh will continue to be a part
+        #  of distance_to_point_callback, which depends on FCL.
+        ":distance_to_point_callback",
     ],
 )
 
@@ -1331,6 +1344,7 @@ drake_cc_googletest(
         ":make_mesh_from_vtk",
         ":mesh_to_vtk",
         ":obj_to_surface_mesh",
+        ":optimize_sdfield",
         ":volume_mesh",
         ":volume_mesh_refiner",
         ":volume_to_surface_mesh",
