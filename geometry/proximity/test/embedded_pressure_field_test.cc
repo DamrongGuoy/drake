@@ -9,9 +9,11 @@
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
 #include "drake/geometry/proximity/make_empress_field.h"
 #include "drake/geometry/proximity/make_mesh_from_vtk.h"
+#include "drake/geometry/proximity/mesh_distance_boundary.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
 #include "drake/geometry/proximity/volume_mesh.h"
+#include "drake/geometry/proximity/volume_mesh_refiner.h"
 #include "drake/geometry/proximity/volume_to_surface_mesh.h"
 
 namespace drake {
@@ -96,6 +98,166 @@ GTEST_TEST(CalcRMSErrorOfSDFieldTest, RootMeanSquaredError) {
 
   // About 1.2mm RMS error.
   EXPECT_NEAR(rms_error, 0.001296, 1e-6);
+}
+
+// Quick hack to reuse code in VolumeMeshRefiner. For simplicity, we abuse
+// class hierarchy.
+class SDFieldOptimizer : VolumeMeshRefiner {
+ public:
+  explicit SDFieldOptimizer(
+      const VolumeMeshFieldLinear<double, double>& sdfield_M,
+      const TriangleSurfaceMesh<double>& original_M)
+      : VolumeMeshRefiner(sdfield_M.mesh()),
+        original_boundary_(TriangleSurfaceMesh<double>(original_M)) {}
+
+  VolumeMesh<double> OptimizeMeshVertices();
+
+  Vector3d CalcVariationalNewPosition(int v);
+
+ private:
+  // Map to a vertex in the support volume mesh Ω from a vertex in its
+  // triangulated boundary mesh ∂Ω.
+  // The boundary_to_volume[i] = v means the i-th vertex of ∂Ω corresponds to
+  // the v-th vertex of Ω.
+  std::vector<int> boundary_to_volume_;
+  std::unordered_map<int, int> volume_to_boundary_;
+  // TODO(DamrongGuoy):  For simplicity, we initialize support_boundary_mesh_
+  //  and evolving_volume_mesh_ to temporary meshes because
+  //  TriangleSurfaceMesh and VolumeMesh do not have default constructors
+  //  (no concepts of "empty" meshes). They will be override when the
+  //  optimization starts. Consider a cleaner scheme.
+  //
+  // TODO(DamrongGuoy): Remove them if they turn out to have no use.
+  //
+  TriangleSurfaceMesh<double> support_boundary_mesh_{
+      {{0, 1, 2}}, {Vector3d::Zero(), Vector3d::UnitX(), Vector3d::UnitY()}};
+  VolumeMesh<double> evolving_volume_mesh_{
+      {{0, 1, 2, 3}},
+      {Vector3d::Zero(), Vector3d::UnitX(), Vector3d::UnitY(),
+       Vector3d::UnitZ()}};
+
+  // For signed-distance query to the original mesh during optimization.
+  const MeshDistanceBoundary original_boundary_;
+};
+
+Vector3d SDFieldOptimizer::CalcVariationalNewPosition(int v) {
+  // If we allow a dangling vertex, remove this throw and skip the
+  // dangling vertex v from the optimization.
+  DRAKE_THROW_UNLESS(vertex_to_tetrahedra_.at(v).size() > 0);
+  Vector3d accumulator{0, 0, 0};
+  for (int tet : vertex_to_tetrahedra_.at(v)) {
+    Vector3d tet_centroid =
+        (evolving_volume_mesh_.vertex(
+             evolving_volume_mesh_.element(tet).vertex(0)) +
+         evolving_volume_mesh_.vertex(
+             evolving_volume_mesh_.element(tet).vertex(1)) +
+         evolving_volume_mesh_.vertex(
+             evolving_volume_mesh_.element(tet).vertex(2)) +
+         evolving_volume_mesh_.vertex(
+             evolving_volume_mesh_.element(tet).vertex(3))) /
+        4;
+    accumulator += tet_centroid;
+  }
+  return accumulator / vertex_to_tetrahedra_.at(v).size();
+}
+
+VolumeMesh<double> SDFieldOptimizer::OptimizeMeshVertices() {
+  tetrahedra_ = input_mesh_.tetrahedra();
+  vertices_ = input_mesh_.vertices();
+  ResetVertexToTetrahedra();
+
+  // TODO(DamrongGuoy): Move initialization into its own function.
+  boundary_to_volume_.clear();
+  volume_to_boundary_.clear();
+  support_boundary_mesh_ = ConvertVolumeToSurfaceMeshWithBoundaryVertices(
+      input_mesh_, &boundary_to_volume_, nullptr);
+  for (int i = 0; i < support_boundary_mesh_.num_vertices(); ++i) {
+    const int v = boundary_to_volume_.at(i);
+    volume_to_boundary_[v] = i;
+  }
+  evolving_volume_mesh_ =
+      VolumeMesh<double>{std::vector<VolumeElement>{tetrahedra_},
+                         std::vector<Vector3d>{vertices_}};
+
+  // Sanity check: perform simple Laplacian smoothing, fixing the boundary mesh.
+  const double alpha = 0.3;
+  const double beta = 0.3;
+  // TODO(DamrongGuoy): Should this constant be the same as the out_offset
+  //  tolerance in MakeEmPressMesh() { const double out_offset = 1e-3; } ?
+  //  or a fraction of grid resolution?
+  //
+  // 5mm tolerance.
+  const double target_boundary_distance = 5e-3;
+  for (int time_iteration = 0; time_iteration < 20; ++time_iteration) {
+    // Smooth the boundary subject to distance constraints.
+    for (int i = 0; i < std::ssize(boundary_to_volume_); ++i) {
+      int bv = boundary_to_volume_.at(i);
+      SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+          vertices_.at(bv), original_boundary_.tri_mesh(),
+          original_boundary_.tri_bvh(),
+          std::get<FeatureNormalSet>(original_boundary_.feature_normal()));
+      // x^{k+1} = x^{k} - beta * (phi - d) * normal, beta is dimensionless
+      vertices_.at(bv) =
+          vertices_.at(bv) -
+          beta * (d.signed_distance - target_boundary_distance) * d.gradient;
+    }
+    // TODO(DamrongGuoy): Call VolumeMesh::SetAllPositions(VectorX<double>)
+    //  instead.  I'm not fluent in Egien::Ref<const VectorX<T>> yet.
+    evolving_volume_mesh_ =
+        VolumeMesh<double>{std::vector<VolumeElement>{tetrahedra_},
+                           std::vector<Vector3d>{vertices_}};
+
+    for (int v = 0; v < std::ssize(vertices_); ++v) {
+      // Fix the boundary vertices for now.
+      if (volume_to_boundary_.contains(v)) {
+        continue;
+      }
+      Vector3d target = CalcVariationalNewPosition(v);
+      // x^k (current iterate), xv (varitional new position):
+      // x^{k+1} = (1-alpha) * x^k + alpha* xv
+      vertices_.at(v) = (1.0 - alpha) * vertices_.at(v) + alpha * target;
+    }
+    // TODO(DamrongGuoy): Call VolumeMesh::SetAllPositions(VectorX<double>)
+    //  instead.  I'm not fluent in Egien::Ref<const VectorX<T>> yet.
+    evolving_volume_mesh_ =
+        VolumeMesh<double>{std::vector<VolumeElement>{tetrahedra_},
+                           std::vector<Vector3d>{vertices_}};
+  }
+
+  return evolving_volume_mesh_;
+}
+
+GTEST_TEST(OptimizeUnderConstruction, MoveToCCLater) {
+  const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_EmPress_sdfield.vtk")};
+  const VolumeMesh<double> support_mesh_M =
+      MakeVolumeMeshFromVtk<double>(mesh_spec_with_sdfield);
+  EXPECT_EQ(support_mesh_M.num_vertices(), 167);
+  EXPECT_EQ(support_mesh_M.num_elements(), 568);
+  VolumeMeshFieldLinear<double, double> sdfield_M{
+      MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
+      &support_mesh_M};
+
+  const TriangleSurfaceMesh<double> original_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  EXPECT_EQ(original_M.num_vertices(), 486);
+  EXPECT_EQ(original_M.num_triangles(), 968);
+
+  SDFieldOptimizer optimizer(sdfield_M, original_M);
+  VolumeMesh<double> optimized_mesh = optimizer.OptimizeMeshVertices();
+  EXPECT_EQ(optimized_mesh.num_vertices(), 167);
+  VolumeMeshFieldLinear<double, double> optimized_field =
+      MakeEmPressSDField(optimized_mesh, original_M);
+
+  WriteVolumeMeshFieldLinearToVtk("yellow_pepper_EmPress_optimized_sdfield.vtk",
+                                  "SignedDistance(meters)", optimized_field,
+                                  "Optimized EmbeddedSignedDistanceField");
+
+  const double rms_error = CalcRMSErrorOfSDField(optimized_field, original_M);
+
+  // About 1.2mm RMS error.
+  EXPECT_NEAR(rms_error, 0.001233, 1e-6);
 }
 
 }  // namespace
