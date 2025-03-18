@@ -231,6 +231,25 @@ VolumeMesh<double> MakeEmPressMesh(const MeshDistanceBoundary& input_M,
   //
 }
 
+// TODO(DamrongGuoy):  Move MakeEmPressSDField(...) out of anonymous namespace.
+//  Right now, it's not convenient to expose it because the
+//  MeshDistanceBoundary is not available outside geometry/proximity.
+//  If I expose it, I got build errors at the higher level;
+//  for example, bazel build //tutorials/... couldn't find
+//  mesh_distance_boundary.h.
+VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
+    const VolumeMesh<double>& support_mesh_M,
+    const MeshDistanceBoundary& input_M) {
+  std::vector<double> signed_distances;
+  for (const Vector3d& tet_vertex : support_mesh_M.vertices()) {
+    const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+        tet_vertex, input_M.tri_mesh(), input_M.tri_bvh(),
+        std::get<FeatureNormalSet>(input_M.feature_normal()));
+    signed_distances.push_back(d.signed_distance);
+  }
+  return {std::move(signed_distances), &support_mesh_M};
+}
+
 }  // namespace
 
 Aabb CalcBoundingBox(const VolumeMesh<double>& mesh_M) {
@@ -273,6 +292,17 @@ Aabb CalcBoundingBox(const TriangleSurfaceMesh<double>& mesh_M) {
   return {(min_xyz + max_xyz) / 2, (max_xyz - min_xyz) / 2};
 }
 
+VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
+    const VolumeMesh<double>& support_mesh_M,
+    const TriangleSurfaceMesh<double>& original_mesh_M) {
+  // TODO(DamrongGuoy): Manage memory more carefully.  Right now it's easier
+  //  to just making another copy of the input surface mesh and pass ownership
+  //  to the MeshDistanceBoundary.
+  return MakeEmPressSDField(
+      support_mesh_M,
+      MeshDistanceBoundary(TriangleSurfaceMesh<double>{original_mesh_M}));
+}
+
 std::pair<std::unique_ptr<VolumeMesh<double>>,
           std::unique_ptr<VolumeMeshFieldLinear<double, double>>>
 MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
@@ -284,18 +314,9 @@ MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
 
   auto mesh_EmPress_M = std::make_unique<VolumeMesh<double>>(
       MakeEmPressMesh(input_M, grid_resolution));
-
-  std::vector<double> signed_distances;
-  for (const Vector3d& tet_vertex : mesh_EmPress_M->vertices()) {
-    const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
-        tet_vertex, input_M.tri_mesh(), input_M.tri_bvh(),
-        std::get<FeatureNormalSet>(input_M.feature_normal()));
-    signed_distances.push_back(d.signed_distance);
-  }
-
   auto sdfield_EmPress_M =
       std::make_unique<VolumeMeshFieldLinear<double, double>>(
-          std::move(signed_distances), mesh_EmPress_M.get());
+          MakeEmPressSDField(*mesh_EmPress_M.get(), input_M));
 
   return {std::move(mesh_EmPress_M), std::move(sdfield_EmPress_M)};
 }
@@ -371,7 +392,8 @@ double CalcRMSErrorOfSDField(
   //  hydroelastic::SoftMesh wants to take ownership of the input
   //  signed-distance field through unique_ptr. For simplicity, we just
   //  copy both the mesh and the field.
-  auto temporary_mesh_M = std::make_unique<VolumeMesh<double>>(sdfield_M.mesh());
+  auto temporary_mesh_M =
+      std::make_unique<VolumeMesh<double>>(sdfield_M.mesh());
   auto temporary_sdfield_M =
       std::make_unique<VolumeMeshFieldLinear<double, double>>(
           std::vector<double>(sdfield_M.values()), temporary_mesh_M.get());

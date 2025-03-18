@@ -66,6 +66,12 @@ std::pair<std::unique_ptr<VolumeMesh<double>>,
 MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
                    double grid_resolution = 0.02);
 
+/* Overide of the above function that takes the support volume mesh and
+ the original surface mesh. */
+VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
+    const VolumeMesh<double>& support_mesh_M,
+    const TriangleSurfaceMesh<double>& original_mesh_M);
+
 /* Verifies EmPress signed-distance field.  Measure deviation between the
  signed-distance field and the original input surface.
 

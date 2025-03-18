@@ -1330,6 +1330,7 @@ drake_cc_googletest(
         ":mesh_to_vtk",
         ":obj_to_surface_mesh",
         ":volume_mesh",
+        ":volume_mesh_refiner",
         ":volume_to_surface_mesh",
         ":vtk_to_volume_mesh",
         "//common",
