@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "drake/geometry/proximity/make_empress_field.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/volume_to_surface_mesh.h"
 
 namespace drake {
@@ -90,10 +91,14 @@ VolumeMesh<double> SDFieldOptimizer::OptimizeVertex() {
   evolving_volume_mesh_ =
       VolumeMesh<double>{std::vector<VolumeElement>{tetrahedra_},
                          std::vector<Vector3d>{vertices_}};
+  evolving_sdfield_ =
+      MakeEmPressSDField(evolving_volume_mesh_, original_boundary_.tri_mesh());
+  WriteVolumeMeshFieldLinearToVtk(fmt::format("iteration_{:04d}.vtk", 0),
+                                  "SignedDistance(meters)", evolving_sdfield_,
+                                  "Optimized EmbeddedSignedDistanceField");
 
-  double previous_rms_error = CalcRMSErrorOfSDField(
-      MakeEmPressSDField(evolving_volume_mesh_, original_boundary_.tri_mesh()),
-      original_boundary_.tri_mesh());
+  double previous_rms_error =
+      CalcRMSErrorOfSDField(evolving_sdfield_, original_boundary_.tri_mesh());
   std::cout << previous_rms_error << std::endl;
 
   // These parameters need tuning.
@@ -101,7 +106,7 @@ VolumeMesh<double> SDFieldOptimizer::OptimizeVertex() {
   const double beta = 0.3;
   const double target_boundary_distance = 1e-3;  // 1mm tolerance.
   const int num_global_iterations = 100;
-  for (int time = 0; time < num_global_iterations; ++time) {
+  for (int time = 1; time <= num_global_iterations; ++time) {
     // Laplacian smoothing the boundary vertices "tangentially". It tends
     // to move the boundary vertices into the interior of the original
     // surface. Next step, we will move them back outside the original surface.
@@ -116,11 +121,14 @@ VolumeMesh<double> SDFieldOptimizer::OptimizeVertex() {
     evolving_volume_mesh_ =
         VolumeMesh<double>{std::vector<VolumeElement>{tetrahedra_},
                            std::vector<Vector3d>{vertices_}};
+    evolving_sdfield_ = MakeEmPressSDField(evolving_volume_mesh_,
+                                           original_boundary_.tri_mesh());
     const double rms_error =
-        CalcRMSErrorOfSDField(MakeEmPressSDField(evolving_volume_mesh_,
-                                                 original_boundary_.tri_mesh()),
-                              original_boundary_.tri_mesh());
+        CalcRMSErrorOfSDField(evolving_sdfield_, original_boundary_.tri_mesh());
     std::cout << rms_error << std::endl;
+    WriteVolumeMeshFieldLinearToVtk(fmt::format("iteration_{:04d}.vtk", time),
+                                    "SignedDistance(meters)", evolving_sdfield_,
+                                    "Optimized EmbeddedSignedDistanceField");
 
     if (std::abs(rms_error - previous_rms_error) < 1e-6) {
       break;

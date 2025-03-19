@@ -56,6 +56,8 @@ class SDFieldOptimizer : VolumeMeshRefiner {
       {{0, 1, 2, 3}},
       {Eigen::Vector3d::Zero(), Eigen::Vector3d::UnitX(),
        Eigen::Vector3d::UnitY(), Eigen::Vector3d::UnitZ()}};
+  VolumeMeshFieldLinear<double, double> evolving_sdfield_{
+      {0, 0.1, 0.2, 0.3}, &evolving_volume_mesh_};
 
   // For signed-distance query to the original mesh during optimization.
   const MeshDistanceBoundary original_boundary_;
