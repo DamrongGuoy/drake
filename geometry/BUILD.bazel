@@ -840,8 +840,6 @@ filegroup(
         "test/two_cube_objects.obj",
         "test/yellow_bell_pepper_no_stem_low.mtl",
         "test/yellow_bell_pepper_no_stem_low.obj",
-        "test/yellow_pepper_MLabPrec5mmOffset5mm.obj",
-        "test/yellow_pepper_offset1cm.obj",
     ],
 )
 
@@ -858,11 +856,7 @@ filegroup(
         "test/some_volume.vtk",
         "test/two_tetrahedra_with_field_variable.vtk",
         "test/unstructured.vtk",
-        "test/yellow_pepper_EmPress_mesh.vtk",
         "test/yellow_pepper_EmPress_sdfield.vtk",
-        "test/yellow_pepper_Offset1cmGrid2cm_sdfield.vtk",
-        "test/yellow_pepper_Offset1cmGrid2cm_tetgen.vtk",
-        "test/yellow_pepper_offset_and_grids_tetgen.vtk",
     ],
 )
 
