@@ -834,6 +834,7 @@ drake_cc_library(
     hdrs = ["optimize_sdfield.h"],
     tags = ["exclude_from_package"],
     deps = [
+        ":make_empress_field",
         ":volume_mesh_refiner",
         "//common",
         # TODO(DamrongGuoy): Move ":distance_to_point_callback" into

@@ -88,7 +88,7 @@ GTEST_TEST(SDFieldOptimizerTest, Barebone) {
   EXPECT_EQ(original_M.num_triangles(), 968);
 
   SDFieldOptimizer optimizer(sdfield_M, original_M);
-  VolumeMesh<double> optimized_mesh = optimizer.OptimizeMeshVertices();
+  VolumeMesh<double> optimized_mesh = optimizer.OptimizeVertex();
   EXPECT_EQ(optimized_mesh.num_vertices(), 167);
   VolumeMeshFieldLinear<double, double> optimized_field =
       MakeEmPressSDField(optimized_mesh, original_M);
@@ -99,8 +99,8 @@ GTEST_TEST(SDFieldOptimizerTest, Barebone) {
 
   const double rms_error = CalcRMSErrorOfSDField(optimized_field, original_M);
 
-  // About 1.2mm RMS error.
-  EXPECT_NEAR(rms_error, 0.001233, 1e-6);
+  // About 0.6mm RMS error.
+  EXPECT_NEAR(rms_error, 0.000608, 1e-6);
 }
 
 }  // namespace
