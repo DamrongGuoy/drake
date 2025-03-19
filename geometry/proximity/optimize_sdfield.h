@@ -25,11 +25,15 @@ class SDFieldOptimizer : VolumeMeshRefiner {
       : VolumeMeshRefiner(sdfield_M.mesh()),
         original_boundary_(TriangleSurfaceMesh<double>(original_M)) {}
 
-  VolumeMesh<double> OptimizeMeshVertices();
+  VolumeMesh<double> OptimizeVertex();
 
-  Eigen::Vector3d CalcVariationalNewPosition(int v);
+  Eigen::Vector3d CalcLaplacianNewPosition(int v);
 
- private:
+ protected:
+  void LaplacianBoundary(double alpha);
+  void SpringBoundary(double target_boundary_distance, double beta);
+  void LaplacianInterior(double alpha);
+
   // Map to a vertex in the support volume mesh Ω from a vertex in its
   // triangulated boundary mesh ∂Ω.
   // The boundary_to_volume[i] = v means the i-th vertex of ∂Ω corresponds to
