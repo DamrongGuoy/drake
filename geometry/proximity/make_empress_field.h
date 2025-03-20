@@ -72,6 +72,18 @@ VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
     const VolumeMesh<double>& support_mesh_M,
     const TriangleSurfaceMesh<double>& original_mesh_M);
 
+/* Similar to the above function, but the returned VolumeMesh adapts to local
+ feature size instead of a uniform mesh. */
+std::pair<std::unique_ptr<VolumeMesh<double>>,
+          std::unique_ptr<VolumeMeshFieldLinear<double, double>>>
+MakeEmPressSDFieldAdapt(const TriangleSurfaceMesh<double>& input_mesh_M);
+
+/* Helper of MakeEmPressSDFieldAdapt() */
+void AddMesh(const VolumeMesh<double>& mesh_B,
+             const math::RigidTransformd& X_MB,
+             std::vector<Eigen::Vector3d>* vertices_M,
+             std::vector<VolumeElement>* tetrahedra);
+
 /* Verifies EmPress signed-distance field.  Measure deviation between the
  signed-distance field and the original input surface.
 

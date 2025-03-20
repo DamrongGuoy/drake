@@ -250,6 +250,34 @@ VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
   return {std::move(signed_distances), &support_mesh_M};
 }
 
+class BvhVisitor {
+ public:
+  DRAKE_NO_COPY_NO_MOVE_NO_ASSIGN(BvhVisitor);
+
+  static std::vector<Obb> CollectLeafBoxes(
+      const Bvh<Obb, TriangleSurfaceMesh<double>>& bvh_M) {
+    BvhVisitor visitor;
+    visitor.Visit(bvh_M.root_node());
+    return visitor.collected_boxes_;
+  }
+
+ private:
+  BvhVisitor(){}
+
+  void Visit(const Bvh<Obb, TriangleSurfaceMesh<double>>::NodeType& node_M) {
+    if (node_M.is_leaf()) {
+      collected_boxes_.push_back(node_M.bv());
+      return;
+    }
+    this->Visit(node_M.left());
+    this->Visit(node_M.right());
+  }
+
+ private:
+  std::vector<Obb> collected_boxes_;
+};
+
+
 }  // namespace
 
 Aabb CalcBoundingBox(const VolumeMesh<double>& mesh_M) {
@@ -437,6 +465,60 @@ double CalcRMSErrorOfSDField(
 
   return std::sqrt(accumulate_squared_error /
                    level0_M->tri_mesh_W().num_vertices());
+}
+
+void AddMesh(const VolumeMesh<double>& mesh_B, const RigidTransformd& X_MB,
+             std::vector<Vector3d>* vertices_M,
+             std::vector<VolumeElement>* tetrahedra) {
+  const int num_old_vertices = vertices_M->size();
+  for (const Vector3d& vertex_B : mesh_B.vertices()) {
+    const Vector3d new_vertex_M = X_MB * vertex_B;
+    vertices_M->push_back(new_vertex_M);
+  }
+  for (const VolumeElement& tet_B : mesh_B.tetrahedra()) {
+    const VolumeElement new_tet_M {
+      tet_B.vertex(0) + num_old_vertices,
+      tet_B.vertex(1) + num_old_vertices,
+      tet_B.vertex(2) + num_old_vertices,
+      tet_B.vertex(3) + num_old_vertices
+    };
+    tetrahedra->push_back(new_tet_M);
+  }
+}
+
+std::pair<std::unique_ptr<VolumeMesh<double>>,
+          std::unique_ptr<VolumeMeshFieldLinear<double, double>>>
+MakeEmPressSDFieldAdapt(const TriangleSurfaceMesh<double>& input_mesh_M) {
+  Bvh<Obb, TriangleSurfaceMesh<double>> input_bvh_M(input_mesh_M);
+
+  // TODO(DamrongGuoy): Consider a resolution parameter to stop in interior
+  //  nodes that satisfies the resolution.
+  std::vector<Obb> leaf_boxes = BvhVisitor::CollectLeafBoxes(input_bvh_M);
+
+  std::vector<Vector3d> vertices_M;
+  std::vector<VolumeElement> tetrahedra;
+  for (const Obb& obb_B : leaf_boxes) {
+    // Just in case we deal with zero-thick box, increase it to 0.5mm minimum
+    // half thickness, so the box is at least 1mmm thick.
+    constexpr double min_half_thickness = 5e-4;
+    Vector3d box_half_width = obb_B.half_width().array().max(
+        Eigen::Array3d::Constant(min_half_thickness));
+    const Box box_B(2 * box_half_width);
+    const RigidTransformd& X_MB = obb_B.pose();
+    const VolumeMesh<double> mesh_box_B =
+    MakeBoxVolumeMesh<double>(box_B, 1);  // Very coarse 1 meter resolution
+    AddMesh(mesh_box_B, X_MB, &vertices_M, &tetrahedra);
+  }
+
+  // TODO(DamrongGuoy) Fill in the rest of the interior nodes.
+
+  auto mesh_EmPress_M = std::make_unique<VolumeMesh<double>>(
+      std::move(tetrahedra), std::move(vertices_M));
+  auto sdfield_EmPress_M =
+      std::make_unique<VolumeMeshFieldLinear<double, double>>(
+          MakeEmPressSDField(*mesh_EmPress_M, input_mesh_M));
+
+  return {std::move(mesh_EmPress_M), std::move(sdfield_EmPress_M)};
 }
 
 }  // namespace internal

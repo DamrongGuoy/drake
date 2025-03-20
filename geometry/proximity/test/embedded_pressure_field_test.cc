@@ -109,6 +109,27 @@ GTEST_TEST(SDFieldOptimizerTest, Barebone) {
   EXPECT_NEAR(rms_error, 0.000608, 1e-6);
 }
 
+GTEST_TEST(MakeEmPressSDFieldAdapt, GenerateFromInputSurface) {
+  TriangleSurfaceMesh<double> input_mesh_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  EXPECT_EQ(input_mesh_M.num_vertices(), 486);
+  EXPECT_EQ(input_mesh_M.num_triangles(), 968);
+
+  const auto [mesh_EmPress_M, sdfield_EmPress_M] =
+      MakeEmPressSDFieldAdapt(input_mesh_M);  // future: min feature size
+
+  ASSERT_NE(mesh_EmPress_M.get(), nullptr);
+  ASSERT_NE(sdfield_EmPress_M.get(), nullptr);
+
+  EXPECT_EQ(mesh_EmPress_M->num_vertices(), 7744);
+  EXPECT_EQ(mesh_EmPress_M->num_elements(), 5808);
+  WriteVolumeMeshFieldLinearToVtk("yellow_pepper_EmPress_sdfield_adapt.vtk",
+                                  "SignedDistance(meters)", *sdfield_EmPress_M,
+                                  "EmbeddedSignedDistanceField");
+
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace geometry
