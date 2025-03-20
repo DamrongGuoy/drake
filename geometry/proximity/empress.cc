@@ -6,6 +6,7 @@
 #include "drake/geometry/proximity/make_empress_field.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
+#include "drake/geometry/proximity/optimize_sdfield.h"
 
 DEFINE_string(input, "", "input surface mesh (OBJ file).");
 DEFINE_string(output, "",
@@ -30,9 +31,9 @@ int do_main() {
     return 2;
   }
 
-  drake::log()->info(
-      fmt::format("Create EmPress signed-distance field with resolution={}",
-                  FLAGS_resolution));
+  drake::log()->info(fmt::format(
+      "\nCreate EmPress signed-distance field with resolution={} for input {}",
+      FLAGS_resolution, FLAGS_input));
 
   // Make cwd be what the user expected, not the runfiles tree.
   if (const char* path = std::getenv("BUILD_WORKING_DIRECTORY")) {
@@ -56,6 +57,28 @@ int do_main() {
       "wrote signed-distance field to file '{}' with {} tets and {} vertices.",
       outfile.string(), sdfield_EmPress_M->mesh().tetrahedra().size(),
       sdfield_EmPress_M->mesh().num_vertices());
+
+  SDFieldOptimizer optimizer(*sdfield_EmPress_M, surface_mesh);
+  struct SDFieldOptimizer::RelaxationParameters parameters{
+      .alpha_exterior = 0.03,           // dimensionless
+      .alpha = 0.3,                     // dimensionless
+      .beta = 0.3,                      // dimensionless
+      .target_boundary_distance = 1e-3  // meters
+  };
+  VolumeMesh<double> optimized_mesh = optimizer.OptimizeVertex(parameters);
+  VolumeMeshFieldLinear<double, double> optimized_field =
+      MakeEmPressSDField(optimized_mesh, surface_mesh);
+
+  std::filesystem::path optimized_file(FLAGS_output + "_optimize.vtk");
+  WriteVolumeMeshFieldLinearToVtk(optimized_file.string(),
+                                  "SignedDistance(meter)", optimized_field,
+                                  "Optimized signed-distance field created by "
+                                  "drake/geometry/proximity/empress");
+  drake::log()->info(
+      "wrote signed-distance field to file '{}' with {} tets and {} "
+      "vertices.\n\n",
+      optimized_file.string(), optimized_field.mesh().tetrahedra().size(),
+      optimized_field.mesh().num_vertices());
   return 0;
 }
 

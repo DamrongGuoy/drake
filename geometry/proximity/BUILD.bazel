@@ -1060,6 +1060,7 @@ drake_cc_binary(
         ":make_empress_field",
         ":mesh_to_vtk",
         ":obj_to_surface_mesh",
+        ":optimize_sdfield",
         "//common:add_text_logging_gflags",
         "@gflags",
     ],
