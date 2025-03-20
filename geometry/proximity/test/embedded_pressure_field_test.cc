@@ -88,7 +88,13 @@ GTEST_TEST(SDFieldOptimizerTest, Barebone) {
   EXPECT_EQ(original_M.num_triangles(), 968);
 
   SDFieldOptimizer optimizer(sdfield_M, original_M);
-  VolumeMesh<double> optimized_mesh = optimizer.OptimizeVertex();
+  struct SDFieldOptimizer::RelaxationParameters parameters{
+      .alpha_exterior = 0.03,           // dimensionless
+      .alpha = 0.3,                     // dimensionless
+      .beta = 0.3,                      // dimensionless
+      .target_boundary_distance = 1e-3  // meters
+  };
+  VolumeMesh<double> optimized_mesh = optimizer.OptimizeVertex(parameters);
   EXPECT_EQ(optimized_mesh.num_vertices(), 167);
   VolumeMeshFieldLinear<double, double> optimized_field =
       MakeEmPressSDField(optimized_mesh, original_M);
