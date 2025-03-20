@@ -15,6 +15,11 @@ namespace drake {
 namespace geometry {
 namespace internal {
 
+Eigen::Vector3d CalcSimpleAveragePosition(
+    int v, const VolumeMesh<double>& mesh,
+    const std::vector<std::vector<int>>& vertex_to_tetrahedra);
+
+// Signed Distance Field Optimizer.
 // Quick hack to reuse code in VolumeMeshRefiner. For simplicity, we abuse
 // class hierarchy.
 class SDFieldOptimizer : VolumeMeshRefiner {
@@ -25,9 +30,14 @@ class SDFieldOptimizer : VolumeMeshRefiner {
       : VolumeMeshRefiner(sdfield_M.mesh()),
         original_boundary_(TriangleSurfaceMesh<double>(original_M)) {}
 
-  VolumeMesh<double> OptimizeVertex();
+  struct RelaxationParameters {
+    double alpha_exterior = 0.03;            // dimensionless
+    double alpha = 0.3;                      // dimensionless
+    double beta = 0.3;                       // dimensionless
+    double target_boundary_distance = 1e-3;  // meters
+  };
 
-  Eigen::Vector3d CalcLaplacianNewPosition(int v);
+  VolumeMesh<double> OptimizeVertex(const struct RelaxationParameters& params);
 
  protected:
   void LaplacianBoundary(double alpha);
