@@ -8,6 +8,7 @@
 // bazel-drake/external/+internal_repositories+vtk_internal/Foo/Bar/*.h
 
 // To ease build system upkeep, we annotate VTK includes with their deps.
+#include <vtkCellIterator.h>                       // vtkCommonDataModel
 #include <vtkCleanPolyData.h>                      // vtkFiltersCore
 #include <vtkDelaunay3D.h>                         // vtkFiltersCore
 #include <vtkDoubleArray.h>                        // vtkCommonCore
@@ -18,6 +19,7 @@
 #include <vtkSmartPointer.h>                       // vtkCommonCore
 #include <vtkUnstructuredGrid.h>                   // vtkCommonDataModel
 #include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
+#include <vtkUnstructuredGridReader.h>             // vtkIOLegacy
 
 #include "drake/common/find_resource.h"
 #include "drake/common/find_runfiles.h"
@@ -128,105 +130,74 @@ GTEST_TEST(SDFieldOptimizerTest, Barebone) {
   EXPECT_NEAR(rms_error, 0.000608, 1e-6);
 }
 
-GTEST_TEST(TetrahedralFieldDecimator, SmokeTest) {
-  // From
-  // https://gitlab.kitware.com/vtk/vtk/-/blob/v9.4.0/Filters/Core/Testing/Cxx/TestUnstructuredGridQuadricDecimation.cxx
+GTEST_TEST(DecimateOptimizedSdFieldTest, FromVtkFile) {
+  const std::string vtk_file = FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_EmPress_optimized_sdfield.vtk");
 
-  // SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill
-  // Lorensen SPDX-License-Identifier: BSD-3-Clause
+  // Read the VTK file.
+  vtkNew<vtkUnstructuredGridReader> reader;
+  reader->SetFileName(vtk_file.c_str());
+  reader->Update();
+  const vtkIdType num_input_tetrahedra =
+      reader->GetOutput()->GetNumberOfCells();
+  EXPECT_EQ(num_input_tetrahedra, 568);
 
-  // This test constructs a tetrahedrally meshed sphere by first generating
-  // <numberOfOriginalPoints> points randomly placed within a unit sphere, then
-  // removing points that overlap within a tolerance, and finally constructing a
-  // delaunay 3d tetrahedralization from the points. Additionally, point data
-  // corresponding to the points distance from the origin are added to this
-  // data. The resulting tetrahedral mesh is then decimated <numberOfTests>
-  // times, each time with a target reduction facter <targetReduction[test]>.
-  // The number of remaining tetrahedra is then compared to the original number
-  // of tetrahedra and compared against the target reduction factor. If the
-  // difference is greater than <absTolerance>, the test fails. Otherwise, the
-  // test passes.
+  // Decimate the tetrahedral mesh + field.
+  vtkNew<vtkUnstructuredGridQuadricDecimation> decimate;
+  decimate->SetInputConnection(reader->GetOutputPort());
+  decimate->SetScalarsName("SignedDistance(meters)");
+  // This will shrink the tetrahedral count to 1/10 original.
+  const double kTargetReduction = 0.9;
+  decimate->SetTargetReduction(kTargetReduction);
+  decimate->Update();
+  vtkUnstructuredGrid* vtk_mesh = decimate->GetOutput();
+  const vtkIdType num_tetrahedra = vtk_mesh->GetNumberOfCells();
+  EXPECT_EQ(num_tetrahedra, 56);
+  const vtkIdType num_vertices = vtk_mesh->GetNumberOfPoints();
+  EXPECT_EQ(num_vertices, 28);
 
-  // # of points to generate the original tetrahedral mesh
-  const vtkIdType numberOfOriginalPoints = 1.e4;
-
-  // # of decimation tests to perform
-  const vtkIdType numberOfTests = 4;
-
-  // target reduction values for each test
-  const double targetReduction[numberOfTests] = {.1, .3, .5, .7};
-
-  // absolute tolerance between the expected and received tetrahedron reduction
-  // to determine whether the decimation successfully executed
-  const double absTolerance = 1.e-1;
-
-  // Generate points within a unit sphere centered at the origin.
-  vtkSmartPointer<vtkPointSource> source =
-      vtkSmartPointer<vtkPointSource>::New();
-  source->SetNumberOfPoints(numberOfOriginalPoints);
-  source->SetCenter(0., 0., 0.);
-  source->SetRadius(1.);
-  source->SetDistributionToUniform();
-  source->SetOutputPointsPrecision(vtkAlgorithm::DOUBLE_PRECISION);
-
-  // Clean the polydata. This will remove overlapping points that may be
-  // present in the input data.
-  vtkSmartPointer<vtkCleanPolyData> cleaner =
-      vtkSmartPointer<vtkCleanPolyData>::New();
-  cleaner->SetInputConnection(source->GetOutputPort());
-  cleaner->Update();
-
-  // Create point data for use in decimation (the point data acts as a fourth
-  // dimension in a Euclidean metric for determining the "nearness" of points).
-  vtkPolyData* pd = cleaner->GetOutput();
-  vtkPoints* points = pd->GetPoints();
-  vtkSmartPointer<vtkDoubleArray> radius =
-      vtkSmartPointer<vtkDoubleArray>::New();
-  radius->SetName("radius");
-  radius->SetNumberOfComponents(1);
-  radius->SetNumberOfTuples(points->GetNumberOfPoints());
-  double xyz[3];
-  double r;
-  for (vtkIdType i = 0; i < points->GetNumberOfPoints(); i++) {
-    points->GetPoint(i, xyz);
-    r = std::sqrt(xyz[0] * xyz[0] + xyz[1] * xyz[1] + xyz[2] * xyz[2]);
-    radius->SetTypedTuple(i, &r);
+  // Convert to drake::geometry::VolumeMesh.
+  std::vector<Vector3d> vertices;
+  vertices.reserve(num_vertices);
+  vtkPoints* vtk_vertices = vtk_mesh->GetPoints();
+  for (vtkIdType id = 0; id < num_vertices; id++) {
+    double xyz[3];
+    vtk_vertices->GetPoint(id, xyz);
+    vertices.emplace_back(xyz);
   }
-  pd->GetPointData()->SetScalars(radius);
-
-  // Generate a tetrahedral mesh from the input points. By
-  // default, the generated volume is the convex hull of the points.
-  vtkSmartPointer<vtkDelaunay3D> delaunay3D =
-      vtkSmartPointer<vtkDelaunay3D>::New();
-  delaunay3D->SetInputData(pd);
-  delaunay3D->Update();
-
-  const vtkIdType numberOfOriginalTetras =
-      delaunay3D->GetOutput()->GetNumberOfCells();
-
-  for (vtkIdType test = 0; test < numberOfTests; test++) {
-    // Decimate the tetrahedral mesh.
-    vtkSmartPointer<vtkUnstructuredGridQuadricDecimation> decimate =
-        vtkSmartPointer<vtkUnstructuredGridQuadricDecimation>::New();
-    decimate->SetInputConnection(delaunay3D->GetOutputPort());
-    decimate->SetScalarsName("radius");
-    decimate->SetTargetReduction(targetReduction[test]);
-    decimate->Update();
-
-    // Compare the resultant decimation fraction with the expected fraction.
-    double fraction =
-        (1. - static_cast<double>(decimate->GetOutput()->GetNumberOfCells()) /
-                  numberOfOriginalTetras);
-
-    std::cout << "Test # " << test << std::endl;
-    std::cout << "number of original tetras: " << numberOfOriginalTetras
-              << std::endl;
-    std::cout << "number of tetras after decimation: "
-              << decimate->GetOutput()->GetNumberOfCells() << std::endl;
-    std::cout << "fraction: " << fraction << std::endl;
-    std::cout << "expected fraction: " << targetReduction[test] << std::endl;
-    EXPECT_LE(std::fabs(fraction - targetReduction[test]), absTolerance);
+  std::vector<VolumeElement> tetrahedra;
+  tetrahedra.reserve(vtk_mesh->GetNumberOfCells());
+  auto iter =
+      vtkSmartPointer<vtkCellIterator>::Take(vtk_mesh->NewCellIterator());
+  for (iter->InitTraversal(); !iter->IsDoneWithTraversal();
+       iter->GoToNextCell()) {
+    DRAKE_THROW_UNLESS(iter->GetCellType() == VTK_TETRA);
+    vtkIdList* vtk_vertex_ids = iter->GetPointIds();
+    // clang-format off
+    tetrahedra.emplace_back(vtk_vertex_ids->GetId(0),
+                            vtk_vertex_ids->GetId(1),
+                            vtk_vertex_ids->GetId(2),
+                            vtk_vertex_ids->GetId(3));
+    // clang-format on
   }
+  VolumeMesh<double> decimated_mesh{std::move(tetrahedra), std::move(vertices)};
+
+  // Regenerate the signed-distance field with respect to the original input
+  // surface again.
+  TriangleSurfaceMesh<double> original_surface_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  VolumeMeshFieldLinear<double, double> decimated_field =
+      MakeEmPressSDField(decimated_mesh, original_surface_M);
+
+  // 7mm RMS Error.
+  EXPECT_NEAR(CalcRMSErrorOfSDField(decimated_field, original_surface_M), 0.007,
+              1e-3);
+  // For debugging.
+  // WriteVolumeMeshFieldLinearToVtk(
+  //     "yellow_pepper_EmPress_decimated_optimized_sdfield.vtk",
+  //     "SignedDistance(meters)", decimated_field,
+  //     "Decimated Optimized EmbeddedSignedDistanceField");
 }
 
 }  // namespace

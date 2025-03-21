@@ -854,6 +854,7 @@ filegroup(
         "test/two_tetrahedra_with_field_variable.vtk",
         "test/unstructured.vtk",
         "test/yellow_pepper_EmPress_sdfield.vtk",
+        "test/yellow_pepper_EmPress_optimized_sdfield.vtk",
     ],
 )
 

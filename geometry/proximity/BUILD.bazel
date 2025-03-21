@@ -1360,6 +1360,7 @@ drake_cc_googletest(
         "@vtk_internal//:vtkCommonDataModel",
         "@vtk_internal//:vtkFiltersCore",
         "@vtk_internal//:vtkFiltersSources",
+        "@vtk_internal//:vtkIOLegacy",
     ],
 )
 
