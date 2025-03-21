@@ -43,14 +43,14 @@ int do_main() {
     }
   }
 
-  TriangleSurfaceMesh<double> surface_mesh =
+  const TriangleSurfaceMesh<double> surface_mesh =
       ReadObjToTriangleSurfaceMesh(std::filesystem::path(FLAGS_input));
 
   const auto [mesh_EmPress_M, sdfield_EmPress_M] =
       MakeEmPressSDField(surface_mesh, FLAGS_resolution);
 
-  std::filesystem::path outfile(FLAGS_output);
-  internal::WriteVolumeMeshFieldLinearToVtk(
+  const std::filesystem::path outfile(FLAGS_output);
+  WriteVolumeMeshFieldLinearToVtk(
       outfile.string(), "SignedDistance(meter)", *sdfield_EmPress_M,
       "signed-distance field created by drake/geometry/proximity/empress");
   drake::log()->info(
@@ -59,26 +59,49 @@ int do_main() {
       sdfield_EmPress_M->mesh().num_vertices());
 
   SDFieldOptimizer optimizer(*sdfield_EmPress_M, surface_mesh);
-  struct SDFieldOptimizer::RelaxationParameters parameters{
+  const struct SDFieldOptimizer::RelaxationParameters parameters{
       .alpha_exterior = 0.03,           // dimensionless
       .alpha = 0.3,                     // dimensionless
       .beta = 0.3,                      // dimensionless
       .target_boundary_distance = 1e-3  // meters
   };
-  VolumeMesh<double> optimized_mesh = optimizer.OptimizeVertex(parameters);
-  VolumeMeshFieldLinear<double, double> optimized_field =
+  const VolumeMesh<double> optimized_mesh =
+      optimizer.OptimizeVertex(parameters);
+  const VolumeMeshFieldLinear<double, double> optimized_field =
       MakeEmPressSDField(optimized_mesh, surface_mesh);
 
-  std::filesystem::path optimized_file(FLAGS_output + "_optimize.vtk");
+  const std::filesystem::path optimized_file(FLAGS_output + "_optimize.vtk");
   WriteVolumeMeshFieldLinearToVtk(optimized_file.string(),
                                   "SignedDistance(meter)", optimized_field,
                                   "Optimized signed-distance field created by "
                                   "drake/geometry/proximity/empress");
   drake::log()->info(
       "wrote signed-distance field to file '{}' with {} tets and {} "
-      "vertices.\n\n",
+      "vertices.",
       optimized_file.string(), optimized_field.mesh().tetrahedra().size(),
       optimized_field.mesh().num_vertices());
+
+  const VolumeMesh<double> coarsen_mesh_M =
+      CoarsenSdField(optimized_field, 0.1);
+  VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
+      MakeEmPressSDField(coarsen_mesh_M, surface_mesh);
+  const std::filesystem::path coarsen_file(FLAGS_output +
+                                           "_optimize_coarsen.vtk");
+  WriteVolumeMeshFieldLinearToVtk(coarsen_file.string(),
+                                  "SignedDistance(meter)", coarsen_sdf_M,
+                                  "Coarsen signded-distance field created by "
+                                  "drake/geometry/proximity/empress");
+  drake::log()->info(
+      "wrote signed-distance field to file '{}' with {} tets and {} "
+      "vertices.",
+      coarsen_file.string(), coarsen_sdf_M.mesh().tetrahedra().size(),
+      coarsen_sdf_M.mesh().num_vertices());
+
+  drake::log()->info(
+      "The final approximated signed-distance field has RMS error = "
+      "{} meters from the original surface.\n\n",
+      CalcRMSErrorOfSDField(coarsen_sdf_M, surface_mesh));
+
   return 0;
 }
 
