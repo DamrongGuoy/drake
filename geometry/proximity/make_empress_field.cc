@@ -1,5 +1,22 @@
 #include "drake/geometry/proximity/make_empress_field.h"
 
+// You might see these files in:
+// bazel-drake/external/+internal_repositories+vtk_internal/...
+//
+// To ease build system upkeep, we annotate VTK includes with their deps.
+#include <vtkCellIterator.h>                       // vtkCommonDataModel
+#include <vtkCleanPolyData.h>                      // vtkFiltersCore
+#include <vtkDelaunay3D.h>                         // vtkFiltersCore
+#include <vtkDoubleArray.h>                        // vtkCommonCore
+#include <vtkPointData.h>                          // vtkCommonDataModel
+#include <vtkPointSource.h>                        // vtkFiltersSources
+#include <vtkPoints.h>                             // vtkCommonCore
+#include <vtkPolyData.h>                           // vtkCommonDataModel
+#include <vtkSmartPointer.h>                       // vtkCommonCore
+#include <vtkUnstructuredGrid.h>                   // vtkCommonDataModel
+#include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
+#include <vtkUnstructuredGridReader.h>             // vtkIOLegacy
+
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
 #include "drake/geometry/proximity/field_intersection.h"
@@ -321,7 +338,65 @@ MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
   return {std::move(mesh_EmPress_M), std::move(sdfield_EmPress_M)};
 }
 
-std::tuple<double, double, double> MesaureDeviationOfZeroLevelSet(
+VolumeMesh<double> CoarsenSdField(
+    const VolumeMeshFieldLinear<double, double>& sdf_M, const double fraction) {
+  // Convert drake's VolumeMeshFieldLinear to vtk's mesh data.
+  vtkNew<vtkPoints> vtk_points;
+  for (const Vector3d& p_MV : sdf_M.mesh().vertices()) {
+    vtk_points->InsertNextPoint(p_MV.x(), p_MV.y(), p_MV.z());
+  }
+  vtkNew<vtkUnstructuredGrid> vtk_mesh;
+  vtk_mesh->SetPoints(vtk_points);
+  for (const VolumeElement& tet : sdf_M.mesh().tetrahedra()) {
+    const vtkIdType ptIds[] = {tet.vertex(0), tet.vertex(1), tet.vertex(2),
+                               tet.vertex(3)};
+    vtk_mesh->InsertNextCell(VTK_TETRA, 4, ptIds);
+  }
+  vtkNew<vtkDoubleArray> vtk_signed_distances;
+  vtk_signed_distances->Allocate(sdf_M.mesh().num_vertices());
+  const std::string kFieldName("SignedDistance(meter)");
+  vtk_signed_distances->SetName(kFieldName.c_str());
+  for (int v = 0; v < sdf_M.mesh().num_vertices(); ++v) {
+    vtk_signed_distances->SetValue(v, sdf_M.EvaluateAtVertex(v));
+  }
+  vtk_mesh->GetPointData()->AddArray(vtk_signed_distances);
+
+  // Decimate the tetrahedral mesh + field.
+  vtkNew<vtkUnstructuredGridQuadricDecimation> decimate;
+  decimate->SetInputData(vtk_mesh);
+  decimate->SetScalarsName(kFieldName.c_str());
+  const double target_reduction = 1.0 - fraction;
+  decimate->SetTargetReduction(target_reduction);
+  decimate->Update();
+
+  vtkNew<vtkUnstructuredGrid> vtk_decimated_mesh;
+  vtk_decimated_mesh->ShallowCopy(decimate->GetOutput());
+
+  // Convert vtk's mesh data back to drake's VolumeMesh.
+  const vtkIdType num_vertices = vtk_decimated_mesh->GetNumberOfPoints();
+  std::vector<Vector3d> vertices;
+  vertices.reserve(num_vertices);
+  vtkPoints* vtk_vertices = vtk_decimated_mesh->GetPoints();
+  for (vtkIdType id = 0; id < num_vertices; id++) {
+    double xyz[3];
+    vtk_vertices->GetPoint(id, xyz);
+    vertices.emplace_back(xyz);
+  }
+  std::vector<VolumeElement> tetrahedra;
+  tetrahedra.reserve(vtk_decimated_mesh->GetNumberOfCells());
+  auto iter = vtkSmartPointer<vtkCellIterator>::Take(
+      vtk_decimated_mesh->NewCellIterator());
+  for (iter->InitTraversal(); !iter->IsDoneWithTraversal();
+       iter->GoToNextCell()) {
+    DRAKE_THROW_UNLESS(iter->GetCellType() == VTK_TETRA);
+    vtkIdList* vtk_vertex_ids = iter->GetPointIds();
+    tetrahedra.emplace_back(vtk_vertex_ids->GetId(0), vtk_vertex_ids->GetId(1),
+                            vtk_vertex_ids->GetId(2), vtk_vertex_ids->GetId(3));
+  }
+  return {std::move(tetrahedra), std::move(vertices)};
+}
+
+std::tuple<double, double, double> MeasureDeviationOfZeroLevelSet(
     const VolumeMeshFieldLinear<double, double>& sdfield_M,
     const TriangleSurfaceMesh<double>& original_M) {
   // TODO(DamrongGuoy): Manage memory in a better way.  The

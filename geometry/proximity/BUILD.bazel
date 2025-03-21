@@ -657,10 +657,16 @@ drake_cc_library(
         ":make_box_mesh",
         ":volume_mesh",
         ":volume_to_surface_mesh",
+        ":vtk_to_volume_mesh",
         "//common",
     ],
     implementation_deps = [
         ":distance_to_point_callback",
+        "@vtk_internal//:vtkCommonCore",
+        "@vtk_internal//:vtkCommonDataModel",
+        "@vtk_internal//:vtkFiltersCore",
+        "@vtk_internal//:vtkFiltersSources",
+        "@vtk_internal//:vtkIOLegacy",
     ],
 )
 
@@ -1356,6 +1362,11 @@ drake_cc_googletest(
         "//common/test_utilities",
         "//common/test_utilities:eigen_matrix_compare",
         "//common/test_utilities:expect_throws_message",
+        "@vtk_internal//:vtkCommonCore",
+        "@vtk_internal//:vtkCommonDataModel",
+        "@vtk_internal//:vtkFiltersCore",
+        "@vtk_internal//:vtkFiltersSources",
+        "@vtk_internal//:vtkIOLegacy",
     ],
 )
 

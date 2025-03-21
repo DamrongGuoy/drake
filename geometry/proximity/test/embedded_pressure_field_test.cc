@@ -1,5 +1,26 @@
 #include <gtest/gtest.h>
 
+// TODO(DamrongGuoy): Remove these #include vtk.  Right now I'm checking
+//  that bazel let me summon vtkUnstructuredGridQuadricDecimation from
+//  the @vtk_internal.
+
+// For files in "@vtk_internal//:vtkFooBar", you might see them in
+// bazel-drake/external/+internal_repositories+vtk_internal/Foo/Bar/*.h
+
+// To ease build system upkeep, we annotate VTK includes with their deps.
+#include <vtkCellIterator.h>                       // vtkCommonDataModel
+#include <vtkCleanPolyData.h>                      // vtkFiltersCore
+#include <vtkDelaunay3D.h>                         // vtkFiltersCore
+#include <vtkDoubleArray.h>                        // vtkCommonCore
+#include <vtkPointData.h>                          // vtkCommonDataModel
+#include <vtkPointSource.h>                        // vtkFiltersSources
+#include <vtkPoints.h>                             // vtkCommonCore
+#include <vtkPolyData.h>                           // vtkCommonDataModel
+#include <vtkSmartPointer.h>                       // vtkCommonCore
+#include <vtkUnstructuredGrid.h>                   // vtkCommonDataModel
+#include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
+#include <vtkUnstructuredGridReader.h>             // vtkIOLegacy
+
 #include "drake/common/find_resource.h"
 #include "drake/common/find_runfiles.h"
 #include "drake/common/test_utilities/eigen_matrix_compare.h"
@@ -107,6 +128,68 @@ GTEST_TEST(SDFieldOptimizerTest, Barebone) {
 
   // About 0.6mm RMS error.
   EXPECT_NEAR(rms_error, 0.000608, 1e-6);
+}
+
+GTEST_TEST(CoarsenSdField, FromMeshFieldLinear) {
+  const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_EmPress_optimized_sdfield.vtk")};
+  const VolumeMesh<double> support_mesh_M =
+      MakeVolumeMeshFromVtk<double>(mesh_spec_with_sdfield);
+  EXPECT_EQ(support_mesh_M.num_vertices(), 167);
+  EXPECT_EQ(support_mesh_M.num_elements(), 568);
+  VolumeMeshFieldLinear<double, double> sdf_M{
+      MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
+      &support_mesh_M};
+
+  VolumeMesh<double> coarsen_mesh_M = CoarsenSdField(sdf_M, 0.1);
+  EXPECT_LT(coarsen_mesh_M.num_vertices(), 50);
+  EXPECT_LT(coarsen_mesh_M.num_elements(), 200);
+
+  TriangleSurfaceMesh<double> original_surface_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
+      MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
+
+  EXPECT_LT(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.01);
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk(
+      "yellow_pepper_EmPress_decimated_optimized_sdfield.vtk",
+      "SignedDistance(meters)", coarsen_sdf_M,
+      "Decimated Optimized EmbeddedSignedDistanceField");
+}
+
+GTEST_TEST(CoarsenSdField, pepper_r0_005_sdf_optimize) {
+  const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/pepper_r0.005_sdf_optimize.vtk")};
+  const VolumeMesh<double> support_mesh_M =
+      MakeVolumeMeshFromVtk<double>(mesh_spec_with_sdfield);
+  EXPECT_EQ(support_mesh_M.num_vertices(), 3575);
+  EXPECT_EQ(support_mesh_M.num_elements(), 17413);
+  VolumeMeshFieldLinear<double, double> sdf_M{
+      MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
+      &support_mesh_M};
+
+  VolumeMesh<double> coarsen_mesh_M = CoarsenSdField(sdf_M, 0.1);
+  // TODO(DamrongGuoy):  We cannot check the exact number of vertices and
+  //  tetrahedra due to the randomization in
+  //  vtkUnstructuredGridQuadricDecimation. If we change the implementation
+  //  of CoarsenSdField() to be deterministic, use EXPECT_EQ() instead.
+  EXPECT_LT(coarsen_mesh_M.num_vertices(), 600);
+  EXPECT_LT(coarsen_mesh_M.num_elements(), 1800);
+
+  TriangleSurfaceMesh<double> original_surface_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
+      MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
+
+  EXPECT_NEAR(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.0005,
+              1e-4);
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk(
+      "pepper_r0.005_sdf_optimize_coarsen.vtk", "SignedDistance(meters)",
+      coarsen_sdf_M, "Decimated Optimized EmbeddedSignedDistanceField");
 }
 
 }  // namespace
