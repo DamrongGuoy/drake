@@ -144,9 +144,11 @@ VolumeMesh<double> SDFieldOptimizer::OptimizeVertex(
     const double rms_error =
         CalcRMSErrorOfSDField(evolving_sdfield_, original_boundary_.tri_mesh());
     std::cout << rms_error << std::endl;
-    WriteVolumeMeshFieldLinearToVtk(fmt::format("iteration_{:04d}.vtk", time),
-                                    "SignedDistance(meters)", evolving_sdfield_,
-                                    "Optimized EmbeddedSignedDistanceField");
+    // For debugging:
+    // WriteVolumeMeshFieldLinearToVtk(
+    //     fmt::format("iteration_{:04d}.vtk", time),
+    //     "SignedDistance(meters)", evolving_sdfield_,
+    //     "Optimized EmbeddedSignedDistanceField");
 
     const double relative_change =
         std::abs(rms_error - previous_rms_error) / previous_rms_error;
