@@ -259,13 +259,16 @@ MODULE_SETTINGS = {
         "srcs_glob_exclude": ["**"],
         "srcs_extra": [
             "Filters/Core/vtkAppendPolyData.cxx",
+            "Filters/Core/vtkCleanPolyData.cxx",
             "Filters/Core/vtkDecimatePro.cxx",
+            "Filters/Core/vtkDelaunay3D.cxx",
             "Filters/Core/vtkGlyph3D.cxx",
             "Filters/Core/vtkOrientPolyData.cxx",
             "Filters/Core/vtkPolyDataNormals.cxx",
             "Filters/Core/vtkPolyDataTangents.cxx",
             "Filters/Core/vtkSplitSharpEdgesPolyData.cxx",
             "Filters/Core/vtkTriangleFilter.cxx",
+            "Filters/Core/vtkUnstructuredGridQuadricDecimation.cxx",
         ],
     },
     "VTK::FiltersGeneral": {

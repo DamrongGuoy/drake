@@ -30,7 +30,7 @@ class VolumeMeshRefiner {
   // is a copy of the input.
   VolumeMesh<double> Refine();
 
- private:
+ protected:
   // Refines a tetrahedron into four tetrahedra.
   //
   // @param tetrahedron  Tetrahedron index into the mesh.
