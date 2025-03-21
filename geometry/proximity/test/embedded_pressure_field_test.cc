@@ -211,6 +211,38 @@ GTEST_TEST(DecimateOptimizedSdFieldTest, FromMeshFieldLinear) {
       MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
       &support_mesh_M};
 
+  TriangleSurfaceMesh<double> original_surface_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+
+  auto [coarsen_mesh_M, coarsen_sdf_M] =
+      CoarsenSdField(sdf_M, original_surface_M, 0.1);
+
+  EXPECT_EQ(coarsen_mesh_M->num_vertices(), 31);
+  EXPECT_EQ(coarsen_mesh_M->num_elements(), 56);
+
+  // 7mm RMS Error.
+  EXPECT_NEAR(CalcRMSErrorOfSDField(*coarsen_sdf_M, original_surface_M), 0.003,
+              1e-3);
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk(
+      "yellow_pepper_EmPress_decimated_optimized_sdfield.vtk",
+      "SignedDistance(meters)", *coarsen_sdf_M,
+      "Decimated Optimized EmbeddedSignedDistanceField");
+}
+
+#if 0
+GTEST_TEST(DecimateOptimizedSdFieldTest, FromMeshFieldLinear) {
+  const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_EmPress_optimized_sdfield.vtk")};
+  const VolumeMesh<double> support_mesh_M =
+      MakeVolumeMeshFromVtk<double>(mesh_spec_with_sdfield);
+  EXPECT_EQ(support_mesh_M.num_vertices(), 167);
+  EXPECT_EQ(support_mesh_M.num_elements(), 568);
+  VolumeMeshFieldLinear<double, double> sdf_M{
+      MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
+      &support_mesh_M};
+
   vtkNew<vtkPoints> vtk_points;
   for (const Vector3d& p_MV : support_mesh_M.vertices()) {
     vtk_points->InsertNextPoint(p_MV.x(), p_MV.y(), p_MV.z());
@@ -292,6 +324,7 @@ GTEST_TEST(DecimateOptimizedSdFieldTest, FromMeshFieldLinear) {
       "SignedDistance(meters)", decimated_field,
       "Decimated Optimized EmbeddedSignedDistanceField");
 }
+#endif
 
 }  // namespace
 }  // namespace internal

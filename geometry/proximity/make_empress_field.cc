@@ -1,9 +1,18 @@
 #include "drake/geometry/proximity/make_empress_field.h"
 
-#include <iostream>
-
 // To ease build system upkeep, we annotate VTK includes with their deps.
+#include <vtkCellIterator.h>                       // vtkCommonDataModel
+#include <vtkCleanPolyData.h>                      // vtkFiltersCore
+#include <vtkDelaunay3D.h>                         // vtkFiltersCore
+#include <vtkDoubleArray.h>                        // vtkCommonCore
+#include <vtkPointData.h>                          // vtkCommonDataModel
+#include <vtkPointSource.h>                        // vtkFiltersSources
+#include <vtkPoints.h>                             // vtkCommonCore
+#include <vtkPolyData.h>                           // vtkCommonDataModel
+#include <vtkSmartPointer.h>                       // vtkCommonCore
+#include <vtkUnstructuredGrid.h>                   // vtkCommonDataModel
 #include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
+#include <vtkUnstructuredGridReader.h>             // vtkIOLegacy
 
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
@@ -332,11 +341,76 @@ CoarsenSdField(const VolumeMeshFieldLinear<double, double>& sdf_M,
                const TriangleSurfaceMesh<double>& surface_M,
                const double fraction) {
   unused(sdf_M);
-  unused(surface_M);
-  const double reduction_fraction = 1.0 - fraction;
-  std::cout << reduction_fraction;
+  const VolumeMesh<double>& support_mesh_M = sdf_M.mesh();
 
-  return {nullptr, nullptr};
+  vtkNew<vtkPoints> vtk_points;
+  for (const Vector3d& p_MV : support_mesh_M.vertices()) {
+    vtk_points->InsertNextPoint(p_MV.x(), p_MV.y(), p_MV.z());
+  }
+  vtk_points->Modified();
+  vtkNew<vtkUnstructuredGrid> vtk_mesh;
+  vtk_mesh->SetPoints(vtk_points);
+  for (const VolumeElement& tet : support_mesh_M.tetrahedra()) {
+    const vtkIdType ptIds[] = {tet.vertex(0), tet.vertex(1), tet.vertex(2),
+                               tet.vertex(3)};
+    vtk_mesh->InsertNextCell(VTK_TETRA, 4, ptIds);
+  }
+  vtk_mesh->Modified();
+  vtkNew<vtkDoubleArray> vtk_signed_distances;
+  vtk_signed_distances->Allocate(support_mesh_M.num_vertices());
+  vtk_signed_distances->SetName("SignedDistance(meters)");
+  for (int v = 0; v < support_mesh_M.num_vertices(); ++v) {
+    vtk_signed_distances->SetValue(v, sdf_M.EvaluateAtVertex(v));
+  }
+  vtk_signed_distances->Modified();
+  vtk_mesh->GetPointData()->AddArray(vtk_signed_distances);
+  vtk_mesh->Modified();
+
+  // Decimate the tetrahedral mesh + field.
+  vtkNew<vtkUnstructuredGridQuadricDecimation> decimate;
+  decimate->SetInputData(vtk_mesh);
+  decimate->SetScalarsName("SignedDistance(meters)");
+  // This will shrink the tetrahedral count to 1/10 original.
+  const double kTargetReduction = 1.0 - fraction;
+  decimate->SetTargetReduction(kTargetReduction);
+  decimate->Update();
+  vtkUnstructuredGrid* vtk_decimated_mesh = decimate->GetOutput();
+
+  // Convert to drake::geometry::VolumeMesh.
+  const vtkIdType num_vertices = vtk_decimated_mesh->GetNumberOfPoints();
+  std::vector<Vector3d> vertices;
+  vertices.reserve(num_vertices);
+  vtkPoints* vtk_vertices = vtk_decimated_mesh->GetPoints();
+  for (vtkIdType id = 0; id < num_vertices; id++) {
+    double xyz[3];
+    vtk_vertices->GetPoint(id, xyz);
+    vertices.emplace_back(xyz);
+  }
+  std::vector<VolumeElement> tetrahedra;
+  tetrahedra.reserve(vtk_decimated_mesh->GetNumberOfCells());
+  auto iter = vtkSmartPointer<vtkCellIterator>::Take(
+      vtk_decimated_mesh->NewCellIterator());
+  for (iter->InitTraversal(); !iter->IsDoneWithTraversal();
+       iter->GoToNextCell()) {
+    DRAKE_THROW_UNLESS(iter->GetCellType() == VTK_TETRA);
+    vtkIdList* vtk_vertex_ids = iter->GetPointIds();
+    // clang-format off
+    tetrahedra.emplace_back(vtk_vertex_ids->GetId(0),
+                            vtk_vertex_ids->GetId(1),
+                            vtk_vertex_ids->GetId(2),
+                            vtk_vertex_ids->GetId(3));
+    // clang-format on
+  }
+  auto decimated_mesh = std::make_unique<VolumeMesh<double>>(
+      std::move(tetrahedra), std::move(vertices));
+
+  // Regenerate the signed-distance field with respect to the original input
+  // surface again.
+  auto decimated_field =
+      std::make_unique<VolumeMeshFieldLinear<double, double>>(
+          MakeEmPressSDField(*decimated_mesh, surface_M));
+
+  return {std::move(decimated_mesh), std::move(decimated_field)};
 }
 
 std::tuple<double, double, double> MeasureDeviationOfZeroLevelSet(
