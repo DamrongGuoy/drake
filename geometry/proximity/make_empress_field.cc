@@ -1,5 +1,7 @@
 #include "drake/geometry/proximity/make_empress_field.h"
 
+#include <iostream>
+
 // To ease build system upkeep, we annotate VTK includes with their deps.
 #include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
 
@@ -324,7 +326,20 @@ MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
   return {std::move(mesh_EmPress_M), std::move(sdfield_EmPress_M)};
 }
 
-std::tuple<double, double, double> MesaureDeviationOfZeroLevelSet(
+std::pair<std::unique_ptr<VolumeMesh<double>>,
+          std::unique_ptr<VolumeMeshFieldLinear<double, double>>>
+CoarsenSdField(const VolumeMeshFieldLinear<double, double>& sdf_M,
+               const TriangleSurfaceMesh<double>& surface_M,
+               const double fraction) {
+  unused(sdf_M);
+  unused(surface_M);
+  const double reduction_fraction = 1.0 - fraction;
+  std::cout << reduction_fraction;
+
+  return {nullptr, nullptr};
+}
+
+std::tuple<double, double, double> MeasureDeviationOfZeroLevelSet(
     const VolumeMeshFieldLinear<double, double>& sdfield_M,
     const TriangleSurfaceMesh<double>& original_M) {
   // TODO(DamrongGuoy): Manage memory in a better way.  The

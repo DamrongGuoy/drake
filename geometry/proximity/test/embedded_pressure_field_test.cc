@@ -200,6 +200,99 @@ GTEST_TEST(DecimateOptimizedSdFieldTest, FromVtkFile) {
   //     "Decimated Optimized EmbeddedSignedDistanceField");
 }
 
+GTEST_TEST(DecimateOptimizedSdFieldTest, FromMeshFieldLinear) {
+  const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
+      "drake/geometry/test/yellow_pepper_EmPress_optimized_sdfield.vtk")};
+  const VolumeMesh<double> support_mesh_M =
+      MakeVolumeMeshFromVtk<double>(mesh_spec_with_sdfield);
+  EXPECT_EQ(support_mesh_M.num_vertices(), 167);
+  EXPECT_EQ(support_mesh_M.num_elements(), 568);
+  VolumeMeshFieldLinear<double, double> sdf_M{
+      MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
+      &support_mesh_M};
+
+  vtkNew<vtkPoints> vtk_points;
+  for (const Vector3d& p_MV : support_mesh_M.vertices()) {
+    vtk_points->InsertNextPoint(p_MV.x(), p_MV.y(), p_MV.z());
+  }
+  vtk_points->Modified();
+  vtkNew<vtkUnstructuredGrid> vtk_mesh;
+  vtk_mesh->SetPoints(vtk_points);
+  for (const VolumeElement& tet : support_mesh_M.tetrahedra()) {
+    const vtkIdType ptIds[] = {tet.vertex(0), tet.vertex(1), tet.vertex(2),
+                               tet.vertex(3)};
+    vtk_mesh->InsertNextCell(VTK_TETRA, 4, ptIds);
+  }
+  vtk_mesh->Modified();
+  vtkNew<vtkDoubleArray> vtk_signed_distances;
+  vtk_signed_distances->Allocate(support_mesh_M.num_vertices());
+  vtk_signed_distances->SetName("SignedDistance(meters)");
+  for (int v = 0; v < support_mesh_M.num_vertices(); ++v) {
+    vtk_signed_distances->SetValue(v, sdf_M.EvaluateAtVertex(v));
+  }
+  vtk_signed_distances->Modified();
+  vtk_mesh->GetPointData()->AddArray(vtk_signed_distances);
+  vtk_mesh->Modified();
+
+  // Decimate the tetrahedral mesh + field.
+  vtkNew<vtkUnstructuredGridQuadricDecimation> decimate;
+  decimate->SetInputData(vtk_mesh);
+  decimate->SetScalarsName("SignedDistance(meters)");
+  // This will shrink the tetrahedral count to 1/10 original.
+  const double kTargetReduction = 0.9;
+  decimate->SetTargetReduction(kTargetReduction);
+  decimate->Update();
+
+  vtkUnstructuredGrid* vtk_decimated_mesh = decimate->GetOutput();
+  const vtkIdType num_tetrahedra = vtk_decimated_mesh->GetNumberOfCells();
+  EXPECT_EQ(num_tetrahedra, 56);
+  const vtkIdType num_vertices = vtk_decimated_mesh->GetNumberOfPoints();
+  EXPECT_EQ(num_vertices, 31);
+
+  // Convert to drake::geometry::VolumeMesh.
+  std::vector<Vector3d> vertices;
+  vertices.reserve(num_vertices);
+  vtkPoints* vtk_vertices = vtk_decimated_mesh->GetPoints();
+  for (vtkIdType id = 0; id < num_vertices; id++) {
+    double xyz[3];
+    vtk_vertices->GetPoint(id, xyz);
+    vertices.emplace_back(xyz);
+  }
+  std::vector<VolumeElement> tetrahedra;
+  tetrahedra.reserve(vtk_decimated_mesh->GetNumberOfCells());
+  auto iter = vtkSmartPointer<vtkCellIterator>::Take(
+      vtk_decimated_mesh->NewCellIterator());
+  for (iter->InitTraversal(); !iter->IsDoneWithTraversal();
+       iter->GoToNextCell()) {
+    DRAKE_THROW_UNLESS(iter->GetCellType() == VTK_TETRA);
+    vtkIdList* vtk_vertex_ids = iter->GetPointIds();
+    // clang-format off
+    tetrahedra.emplace_back(vtk_vertex_ids->GetId(0),
+                            vtk_vertex_ids->GetId(1),
+                            vtk_vertex_ids->GetId(2),
+                            vtk_vertex_ids->GetId(3));
+    // clang-format on
+  }
+  VolumeMesh<double> decimated_mesh{std::move(tetrahedra), std::move(vertices)};
+
+  // Regenerate the signed-distance field with respect to the original input
+  // surface again.
+  TriangleSurfaceMesh<double> original_surface_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  VolumeMeshFieldLinear<double, double> decimated_field =
+      MakeEmPressSDField(decimated_mesh, original_surface_M);
+
+  // 7mm RMS Error.
+  EXPECT_NEAR(CalcRMSErrorOfSDField(decimated_field, original_surface_M), 0.003,
+              1e-3);
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk(
+      "yellow_pepper_EmPress_decimated_optimized_sdfield.vtk",
+      "SignedDistance(meters)", decimated_field,
+      "Decimated Optimized EmbeddedSignedDistanceField");
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace geometry
