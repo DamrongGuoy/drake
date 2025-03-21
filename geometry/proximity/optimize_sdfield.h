@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "drake/common/eigen_types.h"
 #include "drake/common/sorted_pair.h"
 #include "drake/geometry/proximity/mesh_distance_boundary.h"
 #include "drake/geometry/proximity/sorted_triplet.h"
@@ -15,9 +16,23 @@ namespace drake {
 namespace geometry {
 namespace internal {
 
+double CalcTetrahedronVolume(
+    int tetrahedron_index, const std::vector<VolumeElement>& tetrahedra,
+    const std::vector<Eigen::Vector3<double>>& vertices);
+
+// Return true if all incident tetrahedra of the given vertex have
+// positive volumes. Return false if an incident tetrahedron has zero or
+// negative volume.
+bool AreAllIncidentTetrahedraPositive(
+    int vertex_index, const std::vector<VolumeElement>& tetrahedra,
+    const std::vector<Eigen::Vector3<double>>& vertices,
+    const std::vector<std::vector<int>>& vertex_to_tetrahedra);
+
 Eigen::Vector3d CalcSimpleAveragePosition(
     int v, const VolumeMesh<double>& mesh,
     const std::vector<std::vector<int>>& vertex_to_tetrahedra);
+
+double MinTetrahedralVolume(const VolumeMesh<double>& mesh);
 
 // Signed Distance Field Optimizer.
 // Quick hack to reuse code in VolumeMeshRefiner. For simplicity, we abuse

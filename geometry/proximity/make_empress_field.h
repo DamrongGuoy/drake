@@ -72,6 +72,16 @@ VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
     const VolumeMesh<double>& support_mesh_M,
     const TriangleSurfaceMesh<double>& original_mesh_M);
 
+/* Return a new coarsen tetrahedral mesh supporting the field.
+
+ @param[in] sdf_M      signed distance field on a support mesh.
+ @param[in] fraction   a number between 0 and 1 that control how aggressive
+                       the coarsening process is. The target number of
+                       tetrahedra equals the `fraction` times the number of
+                       the given tetrahedra.  */
+VolumeMesh<double> CoarsenSdField(
+    const VolumeMeshFieldLinear<double, double>& sdf_M, double fraction);
+
 /* Verifies EmPress signed-distance field.  Measure deviation between the
  signed-distance field and the original input surface.
 
@@ -87,7 +97,7 @@ VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
          mean_deviation = average absolute deviation, like 1mm.
          max_deviation = maximum absolute deviation, like 5mm.
 */
-std::tuple<double, double, double> MesaureDeviationOfZeroLevelSet(
+std::tuple<double, double, double> MeasureDeviationOfZeroLevelSet(
     const VolumeMeshFieldLinear<double, double>& sdfield_M,
     const TriangleSurfaceMesh<double>& original_M);
 

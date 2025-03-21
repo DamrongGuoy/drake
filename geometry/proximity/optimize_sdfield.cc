@@ -15,6 +15,30 @@ namespace internal {
 
 using Eigen::Vector3d;
 
+double CalcTetrahedronVolume(const int tetrahedron_index,
+                             const std::vector<VolumeElement>& tetrahedra,
+                             const std::vector<Vector3<double>>& vertices) {
+  const int v0 = tetrahedra.at(tetrahedron_index).vertex(0);
+  const int v1 = tetrahedra.at(tetrahedron_index).vertex(1);
+  const int v2 = tetrahedra.at(tetrahedron_index).vertex(2);
+  const int v3 = tetrahedra.at(tetrahedron_index).vertex(3);
+  const Vector3d edge_01 = vertices.at(v1) - vertices.at(v0);
+  const Vector3d edge_02 = vertices.at(v2) - vertices.at(v0);
+  const Vector3d edge_03 = vertices.at(v3) - vertices.at(v0);
+  return edge_01.cross(edge_02).dot(edge_03) / 6.0;
+}
+
+bool AreAllIncidentTetrahedraPositive(
+    int vertex_index, const std::vector<VolumeElement>& tetrahedra,
+    const std::vector<Eigen::Vector3<double>>& vertices,
+    const std::vector<std::vector<int>>& vertex_to_tetrahedra) {
+  return std::ranges::all_of(
+      vertex_to_tetrahedra.at(vertex_index).cbegin(),
+      vertex_to_tetrahedra.at(vertex_index).cend(), [&](int tet) {
+        return CalcTetrahedronVolume(tet, tetrahedra, vertices) > 0;
+      });
+}
+
 // This is just a quick way to get something like an average position around
 // a neighborhood of a vertex.  I did it using what's available at the time.
 // I got the vertex_to_tetrahedra for free from the existing
@@ -94,6 +118,17 @@ void SDFieldOptimizer::LaplacianInterior(const double alpha) {
   }
 }
 
+double MinTetrahedralVolume(const VolumeMesh<double>& mesh) {
+  double min_volume = std::numeric_limits<double>::max();
+  for (int tet = 0; tet < mesh.num_elements(); ++tet) {
+    const double volume = mesh.CalcTetrahedronVolume(tet);
+    if (volume < min_volume) {
+      min_volume = volume;
+    }
+  }
+  return min_volume;
+}
+
 VolumeMesh<double> SDFieldOptimizer::OptimizeVertex(
     const struct RelaxationParameters& params) {
   tetrahedra_ = input_mesh_.tetrahedra();
@@ -114,13 +149,17 @@ VolumeMesh<double> SDFieldOptimizer::OptimizeVertex(
                          std::vector<Vector3d>{vertices_}};
   evolving_sdfield_ =
       MakeEmPressSDField(evolving_volume_mesh_, original_boundary_.tri_mesh());
-  WriteVolumeMeshFieldLinearToVtk(fmt::format("iteration_{:04d}.vtk", 0),
-                                  "SignedDistance(meters)", evolving_sdfield_,
-                                  "Optimized EmbeddedSignedDistanceField");
+  // For debugging.
+  // WriteVolumeMeshFieldLinearToVtk(
+  //     fmt::format("iteration_{:04d}.vtk", 0),
+  //     "SignedDistance(meter)", evolving_sdfield_,
+  //     "Optimized EmbeddedSignedDistanceField");
 
   double previous_rms_error =
       CalcRMSErrorOfSDField(evolving_sdfield_, original_boundary_.tri_mesh());
-  std::cout << previous_rms_error << std::endl;
+
+  // For debugging.
+  // std::cout << previous_rms_error << std::endl;
 
   // These parameters need tuning.
   const int num_global_iterations = 100;
@@ -136,17 +175,26 @@ VolumeMesh<double> SDFieldOptimizer::OptimizeVertex(
 
     LaplacianInterior(params.beta);
 
-    evolving_volume_mesh_ =
+    // Quit on negative-volume tetrahedron.
+    const VolumeMesh<double> test_mesh =
         VolumeMesh<double>{std::vector<VolumeElement>{tetrahedra_},
                            std::vector<Vector3d>{vertices_}};
+    if (MinTetrahedralVolume(test_mesh) <= 0) {
+      break;
+    } else {
+      evolving_volume_mesh_ = test_mesh;
+    }
+
     evolving_sdfield_ = MakeEmPressSDField(evolving_volume_mesh_,
                                            original_boundary_.tri_mesh());
     const double rms_error =
         CalcRMSErrorOfSDField(evolving_sdfield_, original_boundary_.tri_mesh());
-    std::cout << rms_error << std::endl;
-    WriteVolumeMeshFieldLinearToVtk(fmt::format("iteration_{:04d}.vtk", time),
-                                    "SignedDistance(meters)", evolving_sdfield_,
-                                    "Optimized EmbeddedSignedDistanceField");
+    // For debugging.
+    // std::cout << rms_error << std::endl;
+    // WriteVolumeMeshFieldLinearToVtk(
+    //     fmt::format("iteration_{:04d}.vtk", time),
+    //     "SignedDistance(meter)", evolving_sdfield_,
+    //     "Optimized EmbeddedSignedDistanceField");
 
     const double relative_change =
         std::abs(rms_error - previous_rms_error) / previous_rms_error;
