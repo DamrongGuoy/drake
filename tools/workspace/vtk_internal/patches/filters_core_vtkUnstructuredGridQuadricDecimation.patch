@@ -1,0 +1,29 @@
+Fix tolerances in vtkUnstructuredGridQuadricDecimation.cxx
+
+Previously it did not work with very fine meshes because it skipped any
+tetrahedron with volume less than 1e-6 cubic meters, which is the same as
+the volume of a 1-cm cube. I change it to 1e-12 cubic meters to support
+millimeter tetrahedra. A 0.1-mm cube has volume 1e-12 cubic meters.
+
+--- Filters/Core/vtkUnstructuredGridQuadricDecimation.cxx
++++ Filters/Core/vtkUnstructuredGridQuadricDecimation.cxx
+@@ -28,8 +28,9 @@ class vtkUnstructuredGridQuadricDecimationVertex;
+ class vtkUnstructuredGridQuadricDecimationTetMesh;
+
+ // floating point epsilons
+-#define VTK_FEPS 1e-6
+-#define VTK_TEPS 1e-6
++// These 1e-12-cubic-meter tolerances could handle a 0.1-millimeter cube.
++#define VTK_FEPS 1e-12
++#define VTK_TEPS 1e-12
+
+ // =============================================================================
+ // Vector 4 class
+@@ -1565,6 +1566,7 @@ int vtkUnstructuredGridQuadricDecimation::RequestData(vtkInformation* vtkNotUsed
+     vtkUnstructuredGrid::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
+
+   vtkUnstructuredGridQuadricDecimationTetMesh myMesh;
++  myMesh.setSize = this->NumberOfCandidates;
+   myMesh.doublingRatio = this->AutoAddCandidatesThreshold;
+   myMesh.noDoubling = !this->AutoAddCandidates;
+   myMesh.boundaryWeight = this->BoundaryWeight;
