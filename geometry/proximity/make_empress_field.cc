@@ -1,5 +1,8 @@
 #include "drake/geometry/proximity/make_empress_field.h"
 
+// To ease build system upkeep, we annotate VTK includes with their deps.
+#include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
+
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
 #include "drake/geometry/proximity/field_intersection.h"
