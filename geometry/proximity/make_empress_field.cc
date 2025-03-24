@@ -367,6 +367,8 @@ VolumeMesh<double> CoarsenSdField(
   decimate->SetScalarsName(kFieldName.c_str());
   const double target_reduction = 1.0 - fraction;
   decimate->SetTargetReduction(target_reduction);
+  // Default BoundaryWeight is 100.
+  decimate->SetBoundaryWeight(1);
   decimate->Update();
 
   vtkNew<vtkUnstructuredGrid> vtk_decimated_mesh;
