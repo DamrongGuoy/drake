@@ -1062,13 +1062,26 @@ drake_cc_library(
 )
 
 drake_cc_binary(
-    name = "empress",
-    srcs = ["empress.cc"],
+    name = "empress0",
+    srcs = ["empress0.cc"],
+    deps = [
+        ":make_empress_field",
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        "//common:add_text_logging_gflags",
+        "@gflags",
+    ],
+)
+
+drake_cc_binary(
+    name = "empress1",
+    srcs = ["empress1.cc"],
     deps = [
         ":make_empress_field",
         ":mesh_to_vtk",
         ":obj_to_surface_mesh",
         ":optimize_sdfield",
+        ":vtk_to_volume_mesh",
         "//common:add_text_logging_gflags",
         "@gflags",
     ],
