@@ -169,23 +169,24 @@ GTEST_TEST(CoarsenSdField, pepper_r0_005_sdf_optimize) {
   VolumeMeshFieldLinear<double, double> sdf_M{
       MakeScalarValuesFromVtkMesh<double>(mesh_spec_with_sdfield),
       &support_mesh_M};
+  TriangleSurfaceMesh<double> original_surface_M =
+      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
+          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
+  EXPECT_NEAR(CalcRMSErrorOfSDField(sdf_M, original_surface_M), 0.00016, 1e-5);
 
-  VolumeMesh<double> coarsen_mesh_M = CoarsenSdField(sdf_M, 0.1);
+  VolumeMesh<double> coarsen_mesh_M = CoarsenSdField(sdf_M, 0.5);
   // TODO(DamrongGuoy):  We cannot check the exact number of vertices and
   //  tetrahedra due to the randomization in
   //  vtkUnstructuredGridQuadricDecimation. If we change the implementation
   //  of CoarsenSdField() to be deterministic, use EXPECT_EQ() instead.
-  EXPECT_LT(coarsen_mesh_M.num_vertices(), 600);
-  EXPECT_LT(coarsen_mesh_M.num_elements(), 1800);
+  EXPECT_LT(coarsen_mesh_M.num_vertices(), 2100);
+  EXPECT_LT(coarsen_mesh_M.num_elements(), 9000);
 
-  TriangleSurfaceMesh<double> original_surface_M =
-      ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
-          "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
       MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
 
-  EXPECT_NEAR(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.0005,
-              1e-4);
+  EXPECT_NEAR(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.00020,
+              1e-5);
   // For debugging.
   WriteVolumeMeshFieldLinearToVtk(
       "pepper_r0.005_sdf_optimize_coarsen.vtk", "SignedDistance(meters)",
