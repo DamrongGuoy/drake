@@ -187,6 +187,7 @@ def vtk_internal_repository(
             ":patches/common_core_rm_cin_prompting.patch",
             ":patches/common_core_version.patch",
             ":patches/disable_static_destructors.patch",
+            ":patches/filters_core_vtkUnstructuredGridQuadricDecimation.patch",
             ":patches/io_image_formats.patch",
             ":patches/nerf_pegtl.patch",
             ":patches/preserve_direct_light_specular_reflections.patch",
