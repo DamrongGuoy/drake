@@ -1,9 +1,12 @@
-Fix tolerances in vtkUnstructuredGridQuadricDecimation.cxx
+Improve vtkUnstructuredGridQuadricDecimation for Embedded Pressure Field.
 
-Previously it did not work with very fine meshes because it skipped any
-tetrahedron with volume less than 1e-6 cubic meters, which is the same as
-the volume of a 1-cm cube. I change it to 1e-12 cubic meters to support
-millimeter tetrahedra. A 0.1-mm cube has volume 1e-12 cubic meters.
+1. Previously, it did not work with very fine meshes because it skipped any
+   tetrahedron with volume less than 1e-6 cubic meters = 1 cubic centimeters.
+   I changed the tolerance to 1e-12 cubic meters to support millimeter
+   tetrahedra. A 0.1-mm cube has a volume of 1e-12 cubic meters.
+2. Disallow edge contraction if the new position has the opposite sign of
+   the field variable.  This condition preserves the zero-level set implicit
+   surface better.
 
 --- Filters/Core/vtkUnstructuredGridQuadricDecimation.cxx
 +++ Filters/Core/vtkUnstructuredGridQuadricDecimation.cxx
@@ -19,7 +22,28 @@ millimeter tetrahedra. A 0.1-mm cube has volume 1e-12 cubic meters.
 
  // =============================================================================
  // Vector 4 class
-@@ -1565,6 +1566,7 @@ int vtkUnstructuredGridQuadricDecimation::RequestData(vtkInformation* vtkNotUsed
+@@ -874,10 +875,19 @@ public:
+     return Verts[0] == v || Verts[1] == v || Verts[2] == v || Verts[3] == v;
+   }
+
+-  // check to see if we can change fromV to toV without changing the orientation
++  // check to see if we can change fromV to v4 without changing the orientation
+   bool Changeable(vtkUnstructuredGridQuadricDecimationVertex* fromV,
+     const vtkUnstructuredGridQuadricDecimationVec4& v4)
+   {
++    // (DamrongGuoy): Hack for Embedded Pressure Field to disallow changing
++    // sign of the field value when we try to displace Vertex `fromV`
++    // to the new space-field position Vector4 `v4`(x, y, z, phi). Recall that
++    // x = 0, y = 1, z = 2, phi = 3.
++    if ((fromV->Q.p[3] < 0 && v4[3] > 0) ||
++        (fromV->Q.p[3] > 0 && v4[3] < 0)) {
++      return false;
++    }
++
+     if (fromV == Verts[0])
+     {
+       return Orientation(v4, Verts[1]->Q.p, Verts[2]->Q.p, Verts[3]->Q.p) > VTK_TEPS;
+@@ -1565,6 +1575,7 @@ int vtkUnstructuredGridQuadricDecimation::RequestData(vtkInformation* vtkNotUsed
      vtkUnstructuredGrid::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
    vtkUnstructuredGridQuadricDecimationTetMesh myMesh;
