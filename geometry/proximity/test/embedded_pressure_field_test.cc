@@ -185,7 +185,7 @@ GTEST_TEST(CoarsenSdField, pepper_r0_005_sdf_optimize) {
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
       MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
 
-  EXPECT_NEAR(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.00020,
+  EXPECT_NEAR(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.00018,
               1e-5);
   // For debugging.
   WriteVolumeMeshFieldLinearToVtk(
