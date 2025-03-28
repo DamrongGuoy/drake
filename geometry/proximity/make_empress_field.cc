@@ -17,6 +17,8 @@
 #include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
 #include <vtkUnstructuredGridReader.h>             // vtkIOLegacy
 
+#include <iostream>
+
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
 #include "drake/geometry/proximity/field_intersection.h"
@@ -41,6 +43,75 @@ using math::RollPitchYawd;
 // TODO(DamrongGuoy):  Move functions out of the anonymous namespace for
 //  appropriate unit testings.
 namespace {
+
+bool IsVertexInTheBand(const int v,
+                       const std::vector<double>& signed_distance_at_vertex,
+                       const double inner_offset, const double outer_offset,
+                       int* count_positive, int* count_negative,
+                       int* count_zero) {
+  DRAKE_THROW_UNLESS(0 <= v);
+  DRAKE_THROW_UNLESS(v < std::ssize(signed_distance_at_vertex));
+  const double sd = signed_distance_at_vertex[v];
+  if (sd < 0) {
+    ++(*count_negative);
+  } else if (sd > 0) {
+    ++(*count_positive);
+  } else {
+    ++(*count_zero);
+  }
+  if (-inner_offset <= sd && sd <= outer_offset) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
+					const double inner_offset, const double outer_offset,
+					const std::vector<double>& signed_distance_at_vertex) {
+  DRAKE_THROW_UNLESS(inner_offset >= 0);
+  DRAKE_THROW_UNLESS(outer_offset >= 0);
+
+  // Check whether a vertex of the tetrahedron is in the band.
+  // We also check whether some vertices have different sign. That's an
+  // indicator that the tetrahedron cross the implicit surface of the zero-th
+  // level set, i.e., the input surface mesh.
+  int count_positive = 0;
+  int count_negative = 0;
+  int count_zero = 0;  // Unlikely, but we want to be sure.
+  for (int i = 0; i < 4; ++i) {
+    if (IsVertexInTheBand(tetrahedral_mesh_M.tetrahedra()[tet].vertex(i),
+                          signed_distance_at_vertex, inner_offset, outer_offset,
+                          &count_positive, &count_negative, &count_zero)) {
+      return true;
+    }
+    if (count_zero > 0 || (count_positive > 0 && count_negative > 0)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+std::vector<double> CalcSignedDistanceAtVertices(
+	const VolumeMesh<double>& mesh_M, const MeshDistanceBoundary& sdf_M) {
+  std::vector<double> signed_distance_at_vertices;
+  signed_distance_at_vertices.reserve(mesh_M.num_vertices());
+  for (const Vector3d& p_MV : mesh_M.vertices()) {
+	signed_distance_at_vertices.push_back(
+		CalcSignedDistanceToSurfaceMesh(
+			p_MV, sdf_M.tri_mesh(), sdf_M.tri_bvh(),
+			std::get<FeatureNormalSet>(sdf_M.feature_normal()))
+			.signed_distance);
+  }
+
+  return signed_distance_at_vertices;
+}
+
+//
+// Hide these functions for now.  They good for generating coarse meshes only.
+//
+#if 0
 bool IsPointInTheBand(const Vector3d& p_MV, const MeshDistanceBoundary& sdf_M,
                       const double inner_offset, const double outer_offset,
                       int* count_positive, int* count_negative,
@@ -166,6 +237,7 @@ bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
 
   return false;
 }
+#endif
 
 // TODO(DamrongGuoy):  Move MakeEmPressMesh out of anonymous namespace.
 //  Right now, it's not convenient to expose MakeEmPressMesh because the
@@ -186,31 +258,37 @@ VolumeMesh<double> MakeEmPressMesh(const MeshDistanceBoundary& input_M,
   // width", and hence the extra 2.0 factor below.
   const Box expanded_box_B(1.1 * 2.0 * fitted_box_M.half_width());
   const RigidTransformd X_MB(fitted_box_M.center());
-  const VolumeMesh<double> background_B =
+  VolumeMesh<double> background_B =
       MakeBoxVolumeMesh<double>(expanded_box_B, grid_resolution);
-  // Translate/change to the common frame of reference.
-  VolumeMesh<double> temp = background_B;
-  temp.TransformVertices(X_MB);
-  const VolumeMesh<double> background_M = temp;
+  // Translate/change to the common frame of reference. This makes the
+  // letter B in background_B a lie, so we will alias it with the
+  // correct name background_M afterward.
+  background_B.TransformVertices(X_MB);
+  const VolumeMesh<double>& background_M = background_B;
+  drake::log()->info(
+	  "MakeEmPressMesh: finished creating a background Box mesh.");
+
+  const std::vector<double> signed_distance_at_vertices =
+	  CalcSignedDistanceAtVertices(background_M, input_M);
 
   // Collect tetrahedra in the band between the inner offset and
   // the outer offset.
-  std::vector<int> non_unique_tetrahedra;
+  std::vector<int> qualified_tetrahedra;
+  qualified_tetrahedra.reserve(background_M.num_elements());
   for (int tet = 0; tet < background_M.num_elements(); ++tet) {
-    if (IsTetInTheBand(tet, background_M, in_offset, out_offset, input_M)) {
-      non_unique_tetrahedra.push_back(tet);
+    if (IsTetInTheBand(tet, background_M, in_offset, out_offset,
+					   signed_distance_at_vertices)) {
+	  qualified_tetrahedra.push_back(tet);
     }
   }
-  std::sort(non_unique_tetrahedra.begin(), non_unique_tetrahedra.end());
-  auto last =
-      std::unique(non_unique_tetrahedra.begin(), non_unique_tetrahedra.end());
-  non_unique_tetrahedra.erase(last, non_unique_tetrahedra.end());
-  // The tetrahedra are unique now; alias to a better name.
-  const std::vector<int>& qualified_tetrahedra = non_unique_tetrahedra;
+  drake::log()->info(
+  	  "MakeEmPressMesh: finished selecting qualified tetrahedra.");
 
-  // Vertex index from the background_M to the ImPress.
+  // Vertex index from the background_M to the output mesh.
   std::unordered_map<int, int> old_to_new;
+  old_to_new.reserve(background_M.num_vertices());
   std::vector<Vector3d> new_vertices;
+  new_vertices.reserve(4 * qualified_tetrahedra.size());
   int count = 0;
   for (const int tet : qualified_tetrahedra) {
     for (int i = 0; i < 4; ++i) {
@@ -224,6 +302,7 @@ VolumeMesh<double> MakeEmPressMesh(const MeshDistanceBoundary& input_M,
   }
 
   std::vector<VolumeElement> new_tetrahedra;
+  new_tetrahedra.reserve(qualified_tetrahedra.size());
   for (const int tet : qualified_tetrahedra) {
     new_tetrahedra.emplace_back(
         old_to_new.at(background_M.tetrahedra()[tet].vertex(0)),
@@ -328,12 +407,19 @@ MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
   //  to just making another copy of the input surface mesh and pass ownership
   //  to the MeshDistanceBoundary.
   const MeshDistanceBoundary input_M(TriangleSurfaceMesh<double>{mesh_M});
+  drake::log()->info(
+      "MakeEmPressSDField: finished MeshDistanceBoundary from input");
 
   auto mesh_EmPress_M = std::make_unique<VolumeMesh<double>>(
       MakeEmPressMesh(input_M, grid_resolution));
+  drake::log()->info(
+	  "MakeEmPressSDField: finished MakeEmPressMesh");
+
   auto sdfield_EmPress_M =
       std::make_unique<VolumeMeshFieldLinear<double, double>>(
           MakeEmPressSDField(*mesh_EmPress_M.get(), input_M));
+  drake::log()->info(
+	  "MakeEmPressSDField: finished MakeEmPressSDField");
 
   return {std::move(mesh_EmPress_M), std::move(sdfield_EmPress_M)};
 }
