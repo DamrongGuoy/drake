@@ -32,6 +32,13 @@ namespace internal {
 VolumeMesh<double> TempCoarsenVolumeMeshOfSdField(
     const VolumeMeshFieldLinear<double, double>& sdf_M, double fraction);
 
+// Quadric Error Metric (similar to vtkUnstructuredGridQuadricDecimationQEF)
+struct QEM {
+  Eigen::Matrix4d A;
+  Eigen::Vector4d b;
+  double c;
+};
+
 class VolumeMeshCoarsener : VolumeMeshRefiner {
  public:
   VolumeMeshCoarsener(const VolumeMeshFieldLinear<double, double>& sdfield_M,

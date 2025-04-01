@@ -137,6 +137,8 @@ bool VolumeMeshCoarsener::AreAllMorphedTetrahedraPositive(
       vertex_to_tetrahedra.at(vertex_index).cend(), [&](int tet) {
         if (std::find(exclude_tetrahedra.begin(), exclude_tetrahedra.end(),
                       tet) != exclude_tetrahedra.end()) {
+          // Tetrahedron with both vertices 'vertex_index' and
+          // 'exclude_vertex_index' do not count.
           return true;
         }
         return CalcTetrahedronVolume(tet, tetrahedra, vertices) >= kTinyVolume;
