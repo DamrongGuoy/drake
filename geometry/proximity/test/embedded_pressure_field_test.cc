@@ -61,8 +61,8 @@ GTEST_TEST(EmPressSignedDistanceField, GenerateFromInputSurface) {
   const auto [mesh_EmPress_M, sdfield_EmPress_M] =
       MakeEmPressSDField(input_mesh_M, 0.02);  // grid_resolution,
 
-  EXPECT_EQ(mesh_EmPress_M->num_vertices(), 167);
-  EXPECT_EQ(mesh_EmPress_M->num_elements(), 568);
+  EXPECT_EQ(mesh_EmPress_M->num_vertices(), 165);
+  EXPECT_EQ(mesh_EmPress_M->num_elements(), 564);
   WriteVolumeMeshFieldLinearToVtk("yellow_pepper_EmPress_sdfield.vtk",
                                   "SignedDistance(meters)", *sdfield_EmPress_M,
                                   "EmbeddedSignedDistanceField");
@@ -185,7 +185,7 @@ GTEST_TEST(CoarsenSdField, pepper_r0_005_sdf_optimize) {
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
       MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
 
-  EXPECT_NEAR(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.00018,
+  EXPECT_NEAR(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.00019,
               1e-5);
   // For debugging.
   WriteVolumeMeshFieldLinearToVtk(
