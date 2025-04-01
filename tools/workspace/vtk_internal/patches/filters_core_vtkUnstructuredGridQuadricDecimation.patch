@@ -7,6 +7,12 @@ Improve vtkUnstructuredGridQuadricDecimation for Embedded Pressure Field.
 2. Disallow edge contraction if the new position has the opposite sign of
    the field variable.  This condition preserves the zero-level set implicit
    surface better.
+3. Increase the number of iterations since we have fewer candidates from the
+   random samplings due to the constraint in step 2 above. It significantly
+   increases the number of edge contractions, but not as much as the original
+   unconstrained version. When the mesh reached 2.5% small (4,000,000 tetrahedra
+   became 100,000 tetrahedra), the constraint made it difficult to find a
+   valid candidate for edge contraction.
 
 --- Filters/Core/vtkUnstructuredGridQuadricDecimation.cxx
 +++ Filters/Core/vtkUnstructuredGridQuadricDecimation.cxx
@@ -43,7 +49,30 @@ Improve vtkUnstructuredGridQuadricDecimation for Embedded Pressure Field.
      if (fromV == Verts[0])
      {
        return Orientation(v4, Verts[1]->Q.p, Verts[2]->Q.p, Verts[3]->Q.p) > VTK_TEPS;
-@@ -1565,6 +1575,7 @@ int vtkUnstructuredGridQuadricDecimation::RequestData(vtkInformation* vtkNotUsed
+@@ -1204,6 +1214,13 @@ void vtkUnstructuredGridQuadricDecimationTetMesh::DeleteMin(
+         e.Verts[1] = tets[k].Verts[rand() % 4];
+       } while (e.Verts[1] == e.Verts[0]);
+
++      if ((e.Verts[0]->Q.p[3] < 0 && e.Verts[1]->Q.p[3] > 0) ||
++          (e.Verts[0]->Q.p[3] > 0 && e.Verts[1]->Q.p[3] < 0)) {
++        // Skip the edge with two vertices of opposite signs of field values.
++        i = i - 1;
++        continue;
++      }
++
+       if (!stored)
+       {
+         finalE = e;
+@@ -1239,7 +1256,7 @@ int vtkUnstructuredGridQuadricDecimationTetMesh::Simplify(int n, int desiredTets
+   int count = 0;
+   int run = 0;
+   int checkAbortInterval = std::min(n / 10 + 1, 1000);
+-  while ((count < n || desiredTets < (tCount - unusedTets)) && (run < 1000))
++  while ((count < n || desiredTets < (tCount - unusedTets)) && (run < 1234567))
+   {
+     if ((run + count) % checkAbortInterval == 0 && this->filter->CheckAbort())
+     {
+@@ -1565,6 +1582,7 @@ int vtkUnstructuredGridQuadricDecimation::RequestData(vtkInformation* vtkNotUsed
      vtkUnstructuredGrid::SafeDownCast(outInfo->Get(vtkDataObject::DATA_OBJECT()));
 
    vtkUnstructuredGridQuadricDecimationTetMesh myMesh;
