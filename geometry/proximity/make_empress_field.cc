@@ -17,8 +17,6 @@
 #include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
 #include <vtkUnstructuredGridReader.h>             // vtkIOLegacy
 
-#include <iostream>
-
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
 #include "drake/geometry/proximity/field_intersection.h"
@@ -67,8 +65,8 @@ bool IsVertexInTheBand(const int v,
 }
 
 bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
-					const double inner_offset, const double outer_offset,
-					const std::vector<double>& signed_distance_at_vertex) {
+                    const double inner_offset, const double outer_offset,
+                    const std::vector<double>& signed_distance_at_vertex) {
   DRAKE_THROW_UNLESS(inner_offset >= 0);
   DRAKE_THROW_UNLESS(outer_offset >= 0);
 
@@ -94,15 +92,15 @@ bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
 }
 
 std::vector<double> CalcSignedDistanceAtVertices(
-	const VolumeMesh<double>& mesh_M, const MeshDistanceBoundary& sdf_M) {
+    const VolumeMesh<double>& mesh_M, const MeshDistanceBoundary& sdf_M) {
   std::vector<double> signed_distance_at_vertices;
   signed_distance_at_vertices.reserve(mesh_M.num_vertices());
   for (const Vector3d& p_MV : mesh_M.vertices()) {
-	signed_distance_at_vertices.push_back(
-		CalcSignedDistanceToSurfaceMesh(
-			p_MV, sdf_M.tri_mesh(), sdf_M.tri_bvh(),
-			std::get<FeatureNormalSet>(sdf_M.feature_normal()))
-			.signed_distance);
+    signed_distance_at_vertices.push_back(
+        CalcSignedDistanceToSurfaceMesh(
+            p_MV, sdf_M.tri_mesh(), sdf_M.tri_bvh(),
+            std::get<FeatureNormalSet>(sdf_M.feature_normal()))
+            .signed_distance);
   }
 
   return signed_distance_at_vertices;
@@ -266,10 +264,10 @@ VolumeMesh<double> MakeEmPressMesh(const MeshDistanceBoundary& input_M,
   background_B.TransformVertices(X_MB);
   const VolumeMesh<double>& background_M = background_B;
   drake::log()->info(
-	  "MakeEmPressMesh: finished creating a background Box mesh.");
+      "MakeEmPressMesh: finished creating a background Box mesh.");
 
   const std::vector<double> signed_distance_at_vertices =
-	  CalcSignedDistanceAtVertices(background_M, input_M);
+      CalcSignedDistanceAtVertices(background_M, input_M);
 
   // Collect tetrahedra in the band between the inner offset and
   // the outer offset.
@@ -277,12 +275,12 @@ VolumeMesh<double> MakeEmPressMesh(const MeshDistanceBoundary& input_M,
   qualified_tetrahedra.reserve(background_M.num_elements());
   for (int tet = 0; tet < background_M.num_elements(); ++tet) {
     if (IsTetInTheBand(tet, background_M, in_offset, out_offset,
-					   signed_distance_at_vertices)) {
-	  qualified_tetrahedra.push_back(tet);
+                       signed_distance_at_vertices)) {
+      qualified_tetrahedra.push_back(tet);
     }
   }
   drake::log()->info(
-  	  "MakeEmPressMesh: finished selecting qualified tetrahedra.");
+      "MakeEmPressMesh: finished selecting qualified tetrahedra.");
 
   // Vertex index from the background_M to the output mesh.
   std::unordered_map<int, int> old_to_new;
@@ -412,14 +410,12 @@ MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
 
   auto mesh_EmPress_M = std::make_unique<VolumeMesh<double>>(
       MakeEmPressMesh(input_M, grid_resolution));
-  drake::log()->info(
-	  "MakeEmPressSDField: finished MakeEmPressMesh");
+  drake::log()->info("MakeEmPressSDField: finished MakeEmPressMesh");
 
   auto sdfield_EmPress_M =
       std::make_unique<VolumeMeshFieldLinear<double, double>>(
           MakeEmPressSDField(*mesh_EmPress_M.get(), input_M));
-  drake::log()->info(
-	  "MakeEmPressSDField: finished MakeEmPressSDField");
+  drake::log()->info("MakeEmPressSDField: finished MakeEmPressSDField");
 
   return {std::move(mesh_EmPress_M), std::move(sdfield_EmPress_M)};
 }
