@@ -204,6 +204,7 @@ def vtk_internal_repository(
             ":patches/common_core_version.patch",
             ":patches/common_datamodel_no_pegtl.patch",
             ":patches/common_executionmodel_disable_static_destructors.patch",
+            ":patches/filters_core_vtkUnstructuredGridQuadricDecimation.patch",
             ":patches/io_image_formats.patch",
             ":patches/rendering_opengl2_nobacktrace.patch",
             ":patches/rendering_opengl2_no_factory.patch",
