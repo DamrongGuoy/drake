@@ -35,6 +35,7 @@ namespace drake {
 namespace geometry {
 namespace internal {
 
+using Eigen::Matrix4d;
 using Eigen::Vector3d;
 using Eigen::Vector4d;
 using math::RigidTransformd;
@@ -349,6 +350,109 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
   //  vertices (using std::map) in each valid_tetrahedra's record.
 
   return {std::move(valid_tetrahedra), std::move(vertices_)};
+}
+
+//***************************************************************************
+// These two numerical routines follow Section 3.4 "Numerical Issues" in:
+//
+//   [Huy2007] Huy, Vo; Callahan, Steven; Lindstrom, Peter; Pascucci, Valerio;
+//   and Silva, Claudio. (2007). Streaming Simplification of Tetrahedral
+//   Meshes.  IEEE transactions on visualization and computer graphics.
+//   13. 145-55. 10.1109/TVCG.2007.21.
+//
+// with a reference implementation in:
+// - vtkUnstructuredGridQuadricDecimationSymMat4::ConjugateR()
+// - vtkUnstructuredGridQuadricDecimationTetra::UpdateQuadric()
+//***************************************************************************
+
+void QEF::SymMat4::ConjugateR(const drake::geometry::internal::QEF::SymMat4& A1,
+                              const drake::geometry::internal::QEF::SymMat4& A2,
+                              const Eigen::Vector4d& p1,
+                              Eigen::Vector4d* x) const {
+  // The paper [Huy2007], page 7, uses κₘₐₓ = 10⁴. The VTK implementation uses
+  // κₘₐₓ = 10³.  For now, we follow VTK.
+  constexpr double kKappaMax = 1e3;
+  // tr(A) / (n * κₘₐₓ) with n = 4 for tetrahedral meshes.
+  double exit_threshold =
+      (M_(0, 0) + M_(1, 1) + M_(2, 2) + M_(3, 3)) / (4 * kKappaMax);
+  Vector4d r = (A1 - A2) * (p1 - (*x));  // Nagative gradient.
+  Vector4d displace = Vector4d::Zero();  // p in the paper.
+  for (int k = 0; k < 4; ++k) {
+    const double s = r.squaredNorm();
+    // TODO(DamrongGuoy): The "==" should be enough; we just follow VTK to use
+    //  "<=" here.  Change it to "==" later.
+    if (s <= 0) {
+      break;
+    }
+    displace += (r / s);                    // displace = displace + r/∥r∥²
+    const Vector4d q = (*this) * displace;  // q = Ap
+    const double t = displace.dot(q);
+    if (s * t <= exit_threshold) {
+      break;
+    }
+    r -= (q / t);            // Update negative gradient.
+    (*x) += (displace / t);  // Move x.
+  }
+}
+
+void VolumeMeshCoarsener::UpdateVertexQuadrics(int tet) {
+  DRAKE_THROW_UNLESS(0 <= tet && tet < ssize(tetrahedra_));
+  const int v0 = tetrahedra_[tet].vertex(0);
+  const int v1 = tetrahedra_[tet].vertex(1);
+  const int v2 = tetrahedra_[tet].vertex(2);
+  const int v3 = tetrahedra_[tet].vertex(3);
+  DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(vertex_Qs_));
+  // Coefficients of each vector has unit in meters.
+  // The coordinates (x,y,z) are in meters.
+  // The signed distance is also in meters.
+  const Vector4d a = vertex_Qs_[v1].p - vertex_Qs_[v0].p;
+  const Vector4d b = vertex_Qs_[v2].p - vertex_Qs_[v0].p;
+  const Vector4d c = vertex_Qs_[v3].p - vertex_Qs_[v0].p;
+
+  // TODO(DamrongGuoy): Use a more compact spelling of Eigen than this very
+  // long formula of the generalized cross product of three 4-vectors.
+
+  // n is the generalized cross product of the three Vector4d a, b, c.
+  // See the determinant formula in Section 3.4 "Numerical Issues" of
+  // [Huy2007].
+  //
+  //            | Fx Fy Fz Fw |
+  //   n =  det | <--- a ---> | ; Fx,Fy,Fz,Fw are the basis vectors.
+  //            | <--- b ---> |
+  //            | <--- c ---> |
+  //
+  // Each coefficient of n has unit in cubic meters.
+  //
+  const Vector4d n = {
+      // clang-format off
+      a.y() * (b.z() * c.w() - b.w() * c.z()) +
+      a.z() * (b.w() * c.y() - b.y() * c.w()) +
+      a.w() * (b.y() * c.z() - b.z() * c.y()),
+
+      a.z() * (b.x() * c.w() - b.w() * c.x()) +
+      a.w() * (b.z() * c.x() - b.x() * c.z()) +
+      a.x() * (b.w() * c.z() - b.z() * c.w()),
+
+      a.w() * (b.x() * c.y() - b.y() * c.x()) +
+      a.x() * (b.y() * c.w() - b.w() * c.y()) +
+      a.y() * (b.w() * c.x() - b.x() * c.w()),
+
+      a.x() * (b.z() * c.y() - b.y() * c.z()) +
+      a.y() * (b.x() * c.z() - b.z() * c.x()) +
+      a.z() * (b.y() * c.x() - b.x() * c.y()),
+      // clang-format on
+  };
+  // Outer product of 4-vector n gives the 4x4 symmetric matrix A.
+  // After this step, coefficients of A have units in meter^6.
+  QEF::SymMat4 A = QEF::SymMat4::FromOuterProductOfVector4d(n);
+  // Weight by the inverse volume of the tetrahedron shared by 4 vertices.
+  // After this step, coefficients of A have units in cubic meters.
+  A *= 1.0 / (4.0 * CalcTetrahedronVolume(tet, tetrahedra_, vertices_));
+
+  vertex_Qs_[v0].A += A;
+  vertex_Qs_[v1].A += A;
+  vertex_Qs_[v2].A += A;
+  vertex_Qs_[v3].A += A;
 }
 
 }  // namespace internal
