@@ -1120,6 +1120,7 @@ drake_cc_binary(
         ":make_empress_field",
         ":mesh_to_vtk",
         ":obj_to_surface_mesh",
+        ":temp_volume_coarsener",
         ":vtk_to_volume_mesh",
         "//common:add_text_logging_gflags",
         "@gflags",

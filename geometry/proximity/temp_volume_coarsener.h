@@ -32,6 +32,69 @@ namespace internal {
 VolumeMesh<double> TempCoarsenVolumeMeshOfSdField(
     const VolumeMeshFieldLinear<double, double>& sdf_M, double fraction);
 
+// This class is similar to vtkUnstructuredGridQuadricDecimationSymMat4.
+// It represents the A matrix in the class document of QEF below.
+//
+// In this implementation, SymMat4 has a private member M of type
+// Eigen::Matrix4d and provide the conjugate gradient solver for the
+// new minimizer (see ConjugateR() below).
+//
+// Eigen doesn't have a direct representation of a symmetric matrix.
+// For a quick prototype, we store and operate the entire 16 coefficients.
+// In the future, for efficiency, we should consider Eigen's views
+// for Triangular and Self-adjoint(symmetric) matrices. See
+// https://eigen.tuxfamily.org/dox/group__QuickRefPage.html#QuickRef_DiagTriSymm
+//
+// N.B.: Do not expose M_ since we might change to a quicker implementation
+// in the future.
+//
+class SymMat4 {
+ public:
+  DRAKE_DEFAULT_COPY_AND_MOVE_AND_ASSIGN(SymMat4);
+
+  SymMat4() : M_(Eigen::Matrix4d::Zero()) {}
+
+  static SymMat4 FromOuterProductOfVector4d(const Eigen::Vector4d& n) {
+    const Eigen::Matrix4d M = n * n.transpose();
+    return SymMat4(M);
+  }
+
+  static SymMat4 Zero() { return SymMat4(Eigen::Matrix4d::Zero()); }
+  static SymMat4 Identity() { return SymMat4(Eigen::Matrix4d::Identity()); }
+
+  SymMat4 operator+(const SymMat4& A1) const { return SymMat4(M_ + A1.M_); }
+  SymMat4 operator-(const SymMat4& A1) const { return SymMat4(M_ - A1.M_); }
+  SymMat4 operator*=(const double& f) {
+    M_ *= f;
+    return *this;
+  }
+  SymMat4 operator/=(const double& f) {
+    M_ /= f;
+    return *this;
+  }
+  SymMat4 operator+=(const SymMat4& A1) {
+    M_ += A1.M_;
+    return *this;
+  }
+  Eigen::Vector4d operator*(const Eigen::Vector4d& v) const { return M_ * v; }
+
+  // Conjugate gradient solver to update the symmetric matrix.
+  // See the algorithm in Fig. 5 of [Huy2007].
+  //
+  // For an example usage, see the implementation of the constructor
+  // QEF(const QEF&, const QEF&, const Vector4d&).
+  //
+  // @param[in,out] x is the new minimizer after following the gradient from
+  //                its initial position.
+  //
+  void ConjugateR(const SymMat4& A1, const SymMat4& A2,
+                  const Eigen::Vector4d& p1, Eigen::Vector4d* x) const;
+
+ protected:
+  explicit SymMat4(Eigen::Matrix4d M_in) : M_(std::move(M_in)) {}
+  Eigen::Matrix4d M_;
+};
+
 // Representation of Quadric Error Metric function (similar to
 // vtkUnstructuredGridQuadricDecimationQEF).  Instead of the standard
 // representation as (A, b, c) in [Garland & Zhou]:
@@ -57,64 +120,9 @@ VolumeMesh<double> TempCoarsenVolumeMeshOfSdField(
 // Apr. 2005.
 //
 struct QEF {
-  QEF() : p(0, 0, 0, 0), e(0) {}
+  QEF() : A(SymMat4::Zero()), p(0, 0, 0, 0), e(0) {}
 
-  // This class-internal type `QEF::SymMat4` is similar to
-  // vtkUnstructuredGridQuadricDecimationSymMat4.
-  // It represents the A matrix in the class document of QEF above.
-  //
-  // In this implementation, SymMat4 has a private member M of type
-  // Eigen::Matrix4d and provide the conjugate gradient solver for the
-  // new minimizer (see ConjugateR() below).
-  //
-  // Eigen doesn't have a direct representation of a symmetric matrix.
-  // For a quick prototype, we store and operate the entire 16 coefficients.
-  // In the future, for efficiency, we should consider Eigen's views
-  // for Triangular and Self-adjoint(symmetric) matrices. See
-  // https://eigen.tuxfamily.org/dox/group__QuickRefPage.html#QuickRef_DiagTriSymm
-  //
-  // N.B.: Do not expose M_ since we might change to a quicker implementation
-  // in the future.
-  //
-  class SymMat4 {
-   public:
-    SymMat4() : M_(Eigen::Matrix4d::Zero()) {}
-
-    static SymMat4 FromOuterProductOfVector4d(const Eigen::Vector4d& n) {
-      const Eigen::Matrix4d M = n * n.transpose();
-      return SymMat4(M);
-    }
-
-    static SymMat4 Zero() { return SymMat4(Eigen::Matrix4d::Zero()); }
-
-    SymMat4 operator+(const SymMat4& A1) const { return SymMat4(M_ + A1.M_); }
-    SymMat4 operator-(const SymMat4& A1) const { return SymMat4(M_ - A1.M_); }
-    SymMat4 operator*=(const double& f) {
-      M_ *= f;
-      return *this;
-    }
-    SymMat4 operator+=(const SymMat4& A1) {
-      M_ += A1.M_;
-      return *this;
-    }
-    Eigen::Vector4d operator*(const Eigen::Vector4d& v) const { return M_ * v; }
-
-    // Conjugate gradient solver to update the symmetric matrix.
-    // See the algorithm in Fig. 5 of [Huy2007].
-    //
-    // For an example usage, see the implementation of the constructor
-    // QEF(const QEF&, const QEF&, const Vector4d&).
-    //
-    // @param[in,out] x is the new minimizer after following the gradient from
-    //                its initial position.
-    //
-    void ConjugateR(const SymMat4& A1, const SymMat4& A2,
-                    const Eigen::Vector4d& p1, Eigen::Vector4d* x) const;
-
-   protected:
-    explicit SymMat4(Eigen::Matrix4d M_in) : M_(std::move(M_in)) {}
-    Eigen::Matrix4d M_;
-  };
+  static QEF Zero() { return {SymMat4::Zero(), Eigen::Vector4d::Zero(), 0}; }
 
   QEF(SymMat4 A_in, Eigen::Vector4d p_in, const double& e_in)
       : A(std::move(A_in)), p(std::move(p_in)), e(e_in) {}
@@ -167,8 +175,15 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // The v0-th vertex will gain all incident tetrahedra from v1-th vertex,
   // except the "deleted" tetrahedra sharing both vertices.
   //
-  bool ContractEdge(int v0, int v1, const Eigen::Vector3d& new_position,
+  // @throw  if IsEdgeContractible() is false.
+  //
+  void ContractEdge(int v0, int v1, const Eigen::Vector3d& new_position,
                     double new_scalar);
+
+  // Is the edge(v0,v1) contractible to the new position with new scalar
+  // field value.  This is a precondition before calling ContractEdge().
+  bool IsEdgeContractible(int v0, int v1, const Eigen::Vector3d& new_position,
+                          double new_scalar);
 
   static double CalcTetrahedronVolume(
       int tetrahedron_index, const std::vector<VolumeElement>& tetrahedra,
@@ -194,7 +209,7 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // interpolated signed distances.
   //--------------------------------------------------------
 
-  const double kTinyVolume = 1e-12;  // cubic meters, 0.1x0.1x0.1-mm cube.
+  const double kTinyVolume = 1e-14;  // cubic meters
 
   // signed_distances[i] := the signed distance value of the i-th vertex.
   // As we perform edge contraction, the value of `signed_distances[i]` can
@@ -236,11 +251,42 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // Related to Quadric Error Metrics
   //--------------------------------------------------------
 
+  // Update QEF of the four vertices of the tet-th tetrahedron.
+  //
+  // The fundamental quadric matrix A of the tetrahedron is the
+  // outer product of the (column) Vector4d n divided by the volume of
+  // the tetrahedron.
+  //
+  //         A = n nᵀ / volume
+  //
+  // The vector n is the generalized cross product of the three edge vectors
+  // V01, V02, V03 (V0i = Vi - V0) of the tetrahedron + scalar field in
+  // four dimensions. See the determinant formula in Section 3.4
+  // "Numerical Issues" of [Huy2007].
+  //
+  //            | ∂x ∂y ∂z ∂w |
+  //   n =  det | <-- V01 --> | ; ∂x,∂y,∂z,∂w are the basis vectors in ℝ⁴.
+  //            | <-- V02 --> |
+  //            | <-- V03 --> |
+  //
+  // Each coefficient of n has its unit in cubic meters.
+  // Each coefficient of A has its unit in cubic meters.
+  //
+  // Finally, the contribution of A into each of the four vertices is A/4.
+  //
+  void UpdateVerticesQuadricsFromTet(int tet);
+
+  // Reference implementation is in
+  // vtkUnstructuredGridQuadricDecimationFace::UpdateQuadric().
+  //
+  // N.B. Do this after calling UpdateVerticesQuadricsFromTet() for all
+  // tetrahedra.
+  void UpdateVerticesQuadricsFromBoundaryFace(int boundary_tri);
+
+  void InitializeVertexQEFs();
+
   // vertex_Qs[i] = Quadric error metric at the i-th vertex.
   std::vector<QEF> vertex_Qs_;
-
-  // Update QEF of the four vertices of the tet-th tetrahedron.
-  void UpdateVertexQuadrics(int tet);
 };
 
 }  // namespace internal
