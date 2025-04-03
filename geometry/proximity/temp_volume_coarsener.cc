@@ -146,9 +146,9 @@ bool VolumeMeshCoarsener::AreAllMorphedTetrahedraPositive(
       });
 }
 
-bool VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
-                                       const Vector3d& new_position,
-                                       double new_scalar) {
+bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
+                                             const Vector3d& new_position,
+                                             double new_scalar) {
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(vertices_));
   DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(vertices_));
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(vertex_to_tetrahedra_));
@@ -156,12 +156,6 @@ bool VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(signed_distances_));
   DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(signed_distances_));
 
-  // Prohibit edge contraction between two vertices with opposite signs of
-  // the scalar values.
-  if ((signed_distances_[v0] < 0 && signed_distances_[v1] > 0) ||
-      (signed_distances_[v0] > 0 && signed_distances_[v1] < 0)) {
-    return false;
-  }
   // Prohibit edge contraction to the new position with different sign of the
   // new scalar value.
   if ((new_scalar < 0 && signed_distances_[v0] > 0) ||
@@ -176,30 +170,46 @@ bool VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
   // volumes.
   const Vector3d saved_v0_position(vertices_[v0]);
   const Vector3d saved_v1_position(vertices_[v1]);
-  // TODO(DamrongGuoy):  I'm not sure whether we need to save-and-rollback
-  //  the scalar field values. Remove it if not needed. At the time of this
-  //  writing, we do not use signed_distances[] to check for inverted
-  //  tetrahedra.
   const double saved_value0 = signed_distances_[v0];
   const double saved_value1 = signed_distances_[v1];
   vertices_[v0] = new_position;
   vertices_[v1] = new_position;
   signed_distances_[v0] = new_scalar;
   signed_distances_[v1] = new_scalar;
-  if (!(AreAllMorphedTetrahedraPositive(v0, tetrahedra_, vertices_,
-                                        vertex_to_tetrahedra_, v1,
-                                        kTinyVolume) &&
-        AreAllMorphedTetrahedraPositive(v1, tetrahedra_, vertices_,
-                                        vertex_to_tetrahedra_, v0,
-                                        kTinyVolume))) {
-    // Roll-back.  This edge contraction would create a tiny-positive- or
-    // negative-volume tetrahedron.
-    vertices_[v0] = saved_v0_position;
-    vertices_[v1] = saved_v1_position;
-    signed_distances_[v0] = saved_value0;
-    signed_distances_[v1] = saved_value1;
-    return false;
-  }
+
+  const bool is_contractible0 = AreAllMorphedTetrahedraPositive(
+      v0, tetrahedra_, vertices_, vertex_to_tetrahedra_, v1, kTinyVolume);
+  const bool is_contractible1 = AreAllMorphedTetrahedraPositive(
+      v1, tetrahedra_, vertices_, vertex_to_tetrahedra_, v0, kTinyVolume);
+
+  // Roll-back. Later the actual edge contraction will happen, if it's
+  // contractible.
+  vertices_[v0] = saved_v0_position;
+  vertices_[v1] = saved_v1_position;
+  signed_distances_[v0] = saved_value0;
+  signed_distances_[v1] = saved_value1;
+
+  return is_contractible0 && is_contractible1;
+}
+
+void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
+                                       const Vector3d& new_position,
+                                       double new_scalar) {
+  DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(vertices_));
+  DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(vertices_));
+  DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(vertex_to_tetrahedra_));
+  DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(vertex_to_tetrahedra_));
+  DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(signed_distances_));
+  DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(signed_distances_));
+
+  // The caller is supposed to check for contractibility before calling
+  // this function.
+  DRAKE_THROW_UNLESS(IsEdgeContractible(v0, v1, new_position, new_scalar));
+
+  vertices_[v0] = new_position;
+  vertices_[v1] = new_position;
+  signed_distances_[v0] = new_scalar;
+  signed_distances_[v1] = new_scalar;
 
   // Save copies of these data before changing tetrahedra_ and
   // vertex_to_tetrahedra_, so we can safely update auxiliary data structures
@@ -235,13 +245,17 @@ bool VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
     tetrahedra_.at(tet) = VolumeElement(v[0], v[1], v[2], v[3]);
     vertex_to_tetrahedra_[v0].push_back(tet);
   }
+  // Clear all of vertex_to_tetrahedra_[v1].
   vertex_to_tetrahedra_[v1] = std::vector<int>({});
+  // Clear some of vertex_to_tetrahedra_[v0].
+  for (const int tet : tetrahedra_of_v0v1) {
+    std::erase(vertex_to_tetrahedra_[v0], tet);
+  }
 
   // Update auxiliary data structures.
+
   is_vertex_deleted_[v1] = true;
-  for (int tet : tetrahedra_of_v0v1) {
-    // TODO(DamrongGuoy):  It's unlikely that we need this extra check. We
-    //  do it just to be safe. Remove it when we're sure.
+  for (const int tet : tetrahedra_of_v0v1) {
     if (!is_tet_deleted_[tet]) {
       is_tet_deleted_[tet] = true;
       ++num_tet_deleted_;
@@ -258,8 +272,6 @@ bool VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
       is_tet_morphed_[tet] = true;
     }
   }
-
-  return true;
 }
 
 VolumeMeshCoarsener::VolumeMeshCoarsener(
@@ -287,6 +299,30 @@ VolumeMeshCoarsener::VolumeMeshCoarsener(
   }
 }
 
+void VolumeMeshCoarsener::InitializeVertexQEFs() {
+  int num_vertices = vertices_.size();
+  // Initialize each vertex_Qs_[v] from (x,y,z,sdf).
+  vertex_Qs_.clear();
+  for (int v = 0; v < num_vertices; ++v) {
+    QEF Q = QEF::Zero();
+    Q.p(0) = vertices_[v].x();
+    Q.p(1) = vertices_[v].y();
+    Q.p(2) = vertices_[v].z();
+    Q.p(3) = signed_distances_[v];
+    vertex_Qs_.push_back(Q);
+  }
+  int num_tetrahedra = tetrahedra_.size();
+  // Contribute every tetrahedron's QEM to its four vertices.
+  for (int tet = 0; tet < num_tetrahedra; ++tet) {
+    UpdateVerticesQuadricsFromTet(tet);
+  }
+  // Contribute every boundary triangle's QEM to its three vertices.
+  for (int boundary_tri = 0; boundary_tri < ssize(boundary_to_volume_);
+       ++boundary_tri) {
+    UpdateVerticesQuadricsFromBoundaryFace(boundary_tri);
+  }
+}
+
 VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
   const int num_input_tetrahedra = tetrahedra_.size();
   drake::log()->info("Number of input tetrahedra = {}.", num_input_tetrahedra);
@@ -295,13 +331,24 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
   drake::log()->info("Target number of tetrahedra = {}.",
                      target_num_tetrahedra);
 
+  InitializeVertexQEFs();
+
   int num_edge_contraction = 0;
-  int restart_countdown = 1000;
-  while (--restart_countdown >= 1) {
+  // Increase max_error_threshold in the range (0, kMaxError] linearly from
+  // one iteration to the next.
+  constexpr double kMaxError = 1e-6;
+  constexpr int kNumIteration = 10000;
+  const double delta_max_error = kMaxError / kNumIteration;
+  double max_error_threshold = 0;
+  for (int iteration = 0; iteration < kNumIteration; ++iteration) {
+    max_error_threshold += delta_max_error;
+    double min_error = std::numeric_limits<double>::max();
+    double max_error = std::numeric_limits<double>::min();
     if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
       break;
     }
     is_tet_morphed_ = std::vector<bool>(tetrahedra_.size(), false);
+    int num_edge_considered_for_contraction_in_this_iteration = 0;
     for (int tet = 0; tet < num_input_tetrahedra; ++tet) {
       if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
         break;
@@ -319,22 +366,52 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
         int vi = tetrahedron.vertex(ij.first);
         int vj = tetrahedron.vertex(ij.second);
 
-        // TODO(DamrongGuoy): Change to the optimal position according to QEM.
-        //   For a quick-and-dirty development, we use the midpoint for now.
-        const Vector3d optimal_point = (vertices_[vi] + vertices_[vj]) / 2;
-        const double optimal_value =
-            (signed_distances_[vi] + signed_distances_[vj]) / 2;
+        DRAKE_THROW_UNLESS(!is_vertex_deleted_[vi]);
+        DRAKE_THROW_UNLESS(!is_vertex_deleted_[vj]);
 
-        if (ContractEdge(vi, vj, optimal_point, optimal_value)) {
+        QEF edge_Q = QEF::Zero();
+        edge_Q.Sum(vertex_Qs_[vi], vertex_Qs_[vj]);
+
+        // Thresholding on expected error if we contract the edge(vi,vj).
+        if (edge_Q.e < min_error) {
+          min_error = edge_Q.e;
+        }
+        if (edge_Q.e > max_error) {
+          max_error = edge_Q.e;
+        }
+        if (edge_Q.e >= max_error_threshold) {
+          continue;
+        }
+        const Vector3d optimal_point{edge_Q.p.x(), edge_Q.p.y(), edge_Q.p.z()};
+        const double optimal_value = edge_Q.p.w();
+
+        ++num_edge_considered_for_contraction_in_this_iteration;
+        if (IsEdgeContractible(vi, vj, optimal_point, optimal_value)) {
+          ContractEdge(vi, vj, optimal_point, optimal_value);
           ++num_edge_contraction;
+          vertex_Qs_[vi] = edge_Q;
+          vertex_Qs_[vj] = edge_Q;
           break;
         }
       }  // for (std::pair<int, int> ij
     }  // for (int tet
-  }  // while(restart_countdown--
-  drake::log()->info("Number of edge contractions = {}.", num_edge_contraction);
+    // drake::log()->info("");
+    // drake::log()->info("iteration {}", iteration);
+    // drake::log()->info("Number of edge contractions = {}",
+    //                    num_edge_contraction);
+    // drake::log()->info("Number of deleted tetrahedra = {}",
+    //                    num_tet_deleted_);
+    // drake::log()->info("Minimum edge error = {}", min_error);
+    // drake::log()->info("Maximum edge error = {}", max_error);
+    // drake::log()->info(
+    //     "num_edge_considered_for_contraction_in_this_iteration = {}",
+    //     num_edge_considered_for_contraction_in_this_iteration);
+  }  // for iteration
+  drake::log()->info("");
+  drake::log()->info("End iterations.");
+  drake::log()->info("");
+  drake::log()->info("Number of edge contractions = {}", num_edge_contraction);
   drake::log()->info("Number of deleted tetrahedra = {}", num_tet_deleted_);
-  drake::log()->info("Number of restart left = {}.", restart_countdown);
 
   std::vector<VolumeElement> valid_tetrahedra;
   for (int tet = 0; tet < ssize(tetrahedra_); ++tet) {
@@ -365,13 +442,12 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
 // - vtkUnstructuredGridQuadricDecimationTetra::UpdateQuadric()
 //***************************************************************************
 
-void QEF::SymMat4::ConjugateR(const drake::geometry::internal::QEF::SymMat4& A1,
-                              const drake::geometry::internal::QEF::SymMat4& A2,
-                              const Eigen::Vector4d& p1,
-                              Eigen::Vector4d* x) const {
+void SymMat4::ConjugateR(const drake::geometry::internal::SymMat4& A1,
+                         const drake::geometry::internal::SymMat4& A2,
+                         const Eigen::Vector4d& p1, Eigen::Vector4d* x) const {
   // The paper [Huy2007], page 7, uses κₘₐₓ = 10⁴. The VTK implementation uses
-  // κₘₐₓ = 10³.  For now, we follow VTK.
-  constexpr double kKappaMax = 1e3;
+  // κₘₐₓ = 10³.  For now, we follow the paper.
+  constexpr double kKappaMax = 1e4;
   // tr(A) / (n * κₘₐₓ) with n = 4 for tetrahedral meshes.
   double exit_threshold =
       (M_(0, 0) + M_(1, 1) + M_(2, 2) + M_(3, 3)) / (4 * kKappaMax);
@@ -395,7 +471,7 @@ void QEF::SymMat4::ConjugateR(const drake::geometry::internal::QEF::SymMat4& A1,
   }
 }
 
-void VolumeMeshCoarsener::UpdateVertexQuadrics(int tet) {
+void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
   DRAKE_THROW_UNLESS(0 <= tet && tet < ssize(tetrahedra_));
   const int v0 = tetrahedra_[tet].vertex(0);
   const int v1 = tetrahedra_[tet].vertex(1);
@@ -444,15 +520,56 @@ void VolumeMeshCoarsener::UpdateVertexQuadrics(int tet) {
   };
   // Outer product of 4-vector n gives the 4x4 symmetric matrix A.
   // After this step, coefficients of A have units in meter^6.
-  QEF::SymMat4 A = QEF::SymMat4::FromOuterProductOfVector4d(n);
-  // Weight by the inverse volume of the tetrahedron shared by 4 vertices.
-  // After this step, coefficients of A have units in cubic meters.
-  A *= 1.0 / (4.0 * CalcTetrahedronVolume(tet, tetrahedra_, vertices_));
+  SymMat4 A = SymMat4::FromOuterProductOfVector4d(n);
+  // Divide A by the volume of the tetrahedron gives the fundamental quadric
+  // matrix with the units of its coefficients in cubic meters.
+  const double tetrahedron_volume =
+      CalcTetrahedronVolume(tet, tetrahedra_, vertices_);
+  DRAKE_THROW_UNLESS(tetrahedron_volume > 0);
+  A /= tetrahedron_volume;
+  // Divide the tetrahedrn's quadric matrix to its 4 vertices equally.
+  A /= 4.0;
 
   vertex_Qs_[v0].A += A;
   vertex_Qs_[v1].A += A;
   vertex_Qs_[v2].A += A;
   vertex_Qs_[v3].A += A;
+}
+
+void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
+    int boundary_tri) {
+  const SurfaceTriangle& triangle =
+      support_boundary_mesh_.triangles().at(boundary_tri);
+  const int boundary_vertex0 = triangle.vertex(0);
+  const int boundary_vertex1 = triangle.vertex(1);
+  const int boundary_vertex2 = triangle.vertex(2);
+  const int v0 = boundary_to_volume_.at(boundary_vertex0);
+  const int v1 = boundary_to_volume_.at(boundary_vertex1);
+  const int v2 = boundary_to_volume_.at(boundary_vertex2);
+
+  Vector4d e1, e2;
+  e1 = vertex_Qs_.at(v1).p - vertex_Qs_.at(v0).p;
+  e2 = vertex_Qs_.at(v2).p - vertex_Qs_.at(v0).p;
+  e1.normalize();
+  e2 = e2 - e1 * e2.dot(e1);
+  e2.normalize();
+
+  // A = I - e1*e1ᵀ - e2*e2ᵀ
+  SymMat4 A = SymMat4::Identity() - SymMat4::FromOuterProductOfVector4d(e1) -
+              SymMat4::FromOuterProductOfVector4d(e2);
+
+  // TODO(DamrongGuoy): Check the units.  It looks like the matrix A's
+  //  coefficients have units in squared meters not cubic meters.
+
+  // TODO(DamrongGuoy): VTK has "boundaryWeight" parameter (default 100) that
+  //  multiplies A for even larger weight. Is this a hack?
+  constexpr double kBoundaryWeight = 100;
+
+  // Multiply by area of the triangle and share (/3) it among three vertices.
+  A *= support_boundary_mesh_.area(boundary_tri) / 3 * kBoundaryWeight;
+  vertex_Qs_.at(v0).A += A;
+  vertex_Qs_.at(v1).A += A;
+  vertex_Qs_.at(v2).A += A;
 }
 
 }  // namespace internal

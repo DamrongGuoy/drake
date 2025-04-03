@@ -228,6 +228,20 @@ class VolumeMesh {
     return volume;
   }
 
+  T CalcMinTetrahedralVolume() const {
+    if (num_elements() == 0) {
+      return 0;
+    }
+    T min_volume(std::numeric_limits<double>::max());
+    for (int e = 0; e < num_elements(); ++e) {
+      const T volume = CalcTetrahedronVolume(e);
+      if (volume < min_volume) {
+        min_volume = volume;
+      }
+    }
+    return min_volume;
+  }
+
   /** Calculate barycentric coordinates with respect to the tetrahedron `e`
    of the point Q. This operation is expensive compared with going from
    barycentric to Cartesian.
