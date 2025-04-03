@@ -59,16 +59,23 @@ GTEST_TEST(VolumeMeshCoarsenerTest, FromMeshFieldLinear) {
       ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(
           "drake/geometry/test/yellow_bell_pepper_no_stem_low.obj"));
 
+  ASSERT_GT(support_mesh_M.CalcMinTetrahedralVolume(), 0);
+
+  const double kFraction = 0.7;
   VolumeMesh<double> coarsen_mesh_M =
-      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(0.1);
-  EXPECT_EQ(coarsen_mesh_M.tetrahedra().size(), 420);
+      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
+  EXPECT_LT(coarsen_mesh_M.num_elements(),
+            static_cast<int>(1.1 * kFraction * 568));
+  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
 
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
       MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
   // For debugging.
   WriteVolumeMeshFieldLinearToVtk("test_coarsen_sdf.vtk",
-                                  "SignedDistance(meter)", coarsen_sdf_M,
+                                  "SignedDistance(meters)", coarsen_sdf_M,
                                   "VolumeMeshCoarsener coarsen");
+
+  EXPECT_LT(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.01);
 }
 
 GTEST_TEST(TempCoarsenVolumeMeshOfSdField, FromMeshFieldLinear) {
@@ -84,8 +91,7 @@ GTEST_TEST(TempCoarsenVolumeMeshOfSdField, FromMeshFieldLinear) {
 
   VolumeMesh<double> coarsen_mesh_M =
       TempCoarsenVolumeMeshOfSdField(sdf_M, 0.1);
-  EXPECT_LT(coarsen_mesh_M.num_vertices(), 50);
-  EXPECT_LT(coarsen_mesh_M.num_elements(), 200);
+  EXPECT_LT(coarsen_mesh_M.num_elements(), 60);
 
   TriangleSurfaceMesh<double> original_surface_M =
       ReadObjToTriangleSurfaceMesh(FindResourceOrThrow(

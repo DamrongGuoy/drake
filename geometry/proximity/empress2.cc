@@ -7,6 +7,7 @@
 #include "drake/geometry/proximity/make_mesh_from_vtk.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/obj_to_surface_mesh.h"
+#include "drake/geometry/proximity/temp_volume_coarsener.h"
 #include "drake/geometry/proximity/vtk_to_volume_mesh.h"
 
 DEFINE_string(input, "", "input signed distance field (VTK file).");
@@ -59,8 +60,18 @@ int do_main() {
       "Read signed distance field from {} with {} tets and {} vertices.",
       FLAGS_input, sdf_mesh_M.num_elements(), sdf_mesh_M.num_vertices());
 
-  const VolumeMesh<double> coarse_mesh_M =
-      CoarsenSdField(sdf_M, FLAGS_fraction);
+  // This one uses VTK.
+  // const VolumeMesh<double> coarse_mesh_M =
+  //     CoarsenSdField(sdf_M, FLAGS_fraction);
+  VolumeMesh<double> coarse_mesh_M =
+      VolumeMeshCoarsener(sdf_M, surface_mesh_M).coarsen(FLAGS_fraction);
+
+  drake::log()->info(
+      "the coarsen mesh has {} tets and {} vertices and "
+      "minimum tetrahedral volume = {}",
+      coarse_mesh_M.num_elements(), coarse_mesh_M.num_vertices(),
+      coarse_mesh_M.CalcMinTetrahedralVolume());
+
   VolumeMeshFieldLinear<double, double> coarse_sdf_M =
       MakeEmPressSDField(coarse_mesh_M, surface_mesh_M);
   const std::filesystem::path coarse_file(FLAGS_output + "_coarse.vtk");
