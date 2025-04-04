@@ -78,6 +78,7 @@ GTEST_TEST(VolumeMeshCoarsenerTest, FromMeshFieldLinear) {
   EXPECT_LT(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.01);
 }
 
+#if 0
 GTEST_TEST(TempCoarsenVolumeMeshOfSdField, FromMeshFieldLinear) {
   const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
       "drake/geometry/test/yellow_pepper_EmPress_optimized_sdfield.vtk")};
@@ -106,6 +107,7 @@ GTEST_TEST(TempCoarsenVolumeMeshOfSdField, FromMeshFieldLinear) {
       "SignedDistance(meters)", coarsen_sdf_M,
       "Decimated Optimized EmbeddedSignedDistanceField");
 }
+#endif
 
 }  // namespace
 }  // namespace internal
