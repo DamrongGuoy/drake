@@ -333,21 +333,35 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
 
   InitializeVertexQEFs();
 
-  int num_edge_contraction = 0;
-  // Increase max_error_threshold in the range (0, kMaxError] linearly from
-  // one iteration to the next.
-  constexpr double kMaxError = 1e-6;
-  constexpr int kNumIteration = 10000;
-  const double delta_max_error = kMaxError / kNumIteration;
+  int num_total_edge_contraction = 0;
+  // Increase max_error_threshold in the range (0, kLastErrorThreshold] linearly
+  // from one iteration to the next.
+  constexpr double kFirstErrorThreshold = 1e-12;
+  constexpr double kLastErrorThreshold = 1e-6;
+  constexpr double kGrowthErrorThreshold =
+      kLastErrorThreshold / kFirstErrorThreshold;
+  constexpr int kNumIterations = 1000;
+  constexpr int kNumReports = 10;
+  constexpr int kReportPeriod = kNumIterations / kNumReports;
   double max_error_threshold = 0;
-  for (int iteration = 0; iteration < kNumIteration; ++iteration) {
-    max_error_threshold += delta_max_error;
-    double min_error = std::numeric_limits<double>::max();
-    double max_error = std::numeric_limits<double>::min();
+  int num_perform_iterations = 0;
+  for (int iteration = 0; iteration < kNumIterations; ++iteration) {
+    // If we exhaust all iterations, both num_performed_iterations and
+    // `iteration` variables will become kNumIterations.
+    // If we exit early, num_performed_iterations will be 1 + `iteration`
+    // because `iteration` starts at 0 not 1.
+    ++num_perform_iterations;
+    max_error_threshold =
+        kFirstErrorThreshold *
+        std::pow(kGrowthErrorThreshold,
+                 (static_cast<double>(iteration) / (kNumIterations - 1)));
+    double min_edge_error = std::numeric_limits<double>::max();
+    double max_edge_error = std::numeric_limits<double>::min();
     if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
       break;
     }
     is_tet_morphed_ = std::vector<bool>(tetrahedra_.size(), false);
+    int num_edge_contraction_in_this_iteration = 0;
     int num_edge_considered_for_contraction_in_this_iteration = 0;
     for (int tet = 0; tet < num_input_tetrahedra; ++tet) {
       if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
@@ -369,15 +383,14 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
         DRAKE_THROW_UNLESS(!is_vertex_deleted_[vi]);
         DRAKE_THROW_UNLESS(!is_vertex_deleted_[vj]);
 
-        QEF edge_Q = QEF::Zero();
-        edge_Q.Sum(vertex_Qs_[vi], vertex_Qs_[vj]);
+        QEF edge_Q = QEF::Sum(vertex_Qs_[vi], vertex_Qs_[vj]);
 
         // Thresholding on expected error if we contract the edge(vi,vj).
-        if (edge_Q.e < min_error) {
-          min_error = edge_Q.e;
+        if (edge_Q.e < min_edge_error) {
+          min_edge_error = edge_Q.e;
         }
-        if (edge_Q.e > max_error) {
-          max_error = edge_Q.e;
+        if (edge_Q.e > max_edge_error) {
+          max_edge_error = edge_Q.e;
         }
         if (edge_Q.e >= max_error_threshold) {
           continue;
@@ -388,29 +401,39 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
         ++num_edge_considered_for_contraction_in_this_iteration;
         if (IsEdgeContractible(vi, vj, optimal_point, optimal_value)) {
           ContractEdge(vi, vj, optimal_point, optimal_value);
-          ++num_edge_contraction;
+          ++num_total_edge_contraction;
+          ++num_edge_contraction_in_this_iteration;
           vertex_Qs_[vi] = edge_Q;
           vertex_Qs_[vj] = edge_Q;
           break;
         }
       }  // for (std::pair<int, int> ij
     }  // for (int tet
-    // drake::log()->info("");
-    // drake::log()->info("iteration {}", iteration);
-    // drake::log()->info("Number of edge contractions = {}",
-    //                    num_edge_contraction);
-    // drake::log()->info("Number of deleted tetrahedra = {}",
-    //                    num_tet_deleted_);
-    // drake::log()->info("Minimum edge error = {}", min_error);
-    // drake::log()->info("Maximum edge error = {}", max_error);
-    // drake::log()->info(
-    //     "num_edge_considered_for_contraction_in_this_iteration = {}",
-    //     num_edge_considered_for_contraction_in_this_iteration);
+
+    if (iteration % kReportPeriod == 0) {
+      drake::log()->info("");
+      drake::log()->info(
+          "iteration {}, max_error_threshold {}, "
+          "max_edge_error = {}, min_edge_error = {}",
+          iteration, max_error_threshold, max_edge_error, min_edge_error);
+      drake::log()->info(
+          "num_edge_contraction_in_this_iteration = {}, "
+          "num_edge_considered_for_contraction_in_this_iteration = {}, "
+          "num_total_edge_contraction = {}, "
+          "num_tet_deleted_ = {}, "
+          "num_input_tetrahedra - num_tet_deleted_ = {}",
+          num_edge_contraction_in_this_iteration,
+          num_edge_considered_for_contraction_in_this_iteration,
+          num_total_edge_contraction, num_tet_deleted_,
+          num_input_tetrahedra - num_tet_deleted_);
+    }
   }  // for iteration
   drake::log()->info("");
-  drake::log()->info("End iterations.");
+  drake::log()->info("End iterations: num_perform_iterations = {}",
+                     num_perform_iterations);
   drake::log()->info("");
-  drake::log()->info("Number of edge contractions = {}", num_edge_contraction);
+  drake::log()->info("Number of edge contractions = {}",
+                     num_total_edge_contraction);
   drake::log()->info("Number of deleted tetrahedra = {}", num_tet_deleted_);
 
   std::vector<VolumeElement> valid_tetrahedra;
@@ -420,13 +443,17 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
     }
   }
 
-  drake::log()->info("Number of output tetrahedra = {}",
-                     valid_tetrahedra.size());
-
   // TODO(DamrongGuoy) Remove deleted vertices and don't forget to renumber
   //  vertices (using std::map) in each valid_tetrahedra's record.
+  const VolumeMesh<double> coarsen_mesh{std::move(valid_tetrahedra),
+                                        std::move(vertices_)};
+  drake::log()->info(
+      "Number of output tetrahedra: coarsen_mesh.num_elements() = {}",
+      coarsen_mesh.num_elements());
+  drake::log()->info("coarsen_mesh.CalcMinTetrahedralVolume() = {}",
+                     coarsen_mesh.CalcMinTetrahedralVolume());
 
-  return {std::move(valid_tetrahedra), std::move(vertices_)};
+  return coarsen_mesh;
 }
 
 //***************************************************************************
@@ -442,33 +469,60 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
 // - vtkUnstructuredGridQuadricDecimationTetra::UpdateQuadric()
 //***************************************************************************
 
-void SymMat4::ConjugateR(const drake::geometry::internal::SymMat4& A1,
-                         const drake::geometry::internal::SymMat4& A2,
-                         const Eigen::Vector4d& p1, Eigen::Vector4d* x) const {
+Vector4d ConjugateR(const SymMat4& A1, const SymMat4& A2, const Vector4d& p1,
+                    const Vector4d& mid_point) {
+  SymMat4 A = A1 + A2;
+  Vector4d x = mid_point;
+
   // The paper [Huy2007], page 7, uses κₘₐₓ = 10⁴. The VTK implementation uses
-  // κₘₐₓ = 10³.  For now, we follow the paper.
-  constexpr double kKappaMax = 1e4;
+  // κₘₐₓ = 10³.  For now, we follow the VTK.
+  constexpr double kKappaMax = 1e3;
   // tr(A) / (n * κₘₐₓ) with n = 4 for tetrahedral meshes.
-  double exit_threshold =
-      (M_(0, 0) + M_(1, 1) + M_(2, 2) + M_(3, 3)) / (4 * kKappaMax);
-  Vector4d r = (A1 - A2) * (p1 - (*x));  // Nagative gradient.
-  Vector4d displace = Vector4d::Zero();  // p in the paper.
+  double exit_threshold = A.trace() / (4 * kKappaMax);
+
+  // Combining the standard forms Q₁(A₁,b₁,c₁) and Q₂(A₂,b₂,c₂) into
+  // Q(A,b,c) is straightforward:
+  //      A = A₁+A₂, b = b₁+b₂, c = c₁+c₂.
+  //
+  // However, combining our special forms Q₁(A₁,p₁,e₁) and Q₂(A₂,p₂,e₂)
+  // into Q(A,p,e) needs a solution to a small linear system:
+  //
+  //      A = A₁+A₂, solve for p in (A₁+A₂)p = (A₁p₁ + A₂p₂).
+  //
+  //
+  // Solve for x in (A₁+A₂)x = (A₁p₁ + A₂p₂) with initial guess of x as
+  // (p₁+p₂)/2.
+  //
+  // With the initial guess x = (p₁+p₂)/2, we have the initial residual:
+  //      r = (A₁p₁+A₂p₂) - (A₁+A₂)x
+  //        = (A₁p₁+A₂p₂) - (A₁+A₂)(p₁+p₂)/2
+  //        = A₁p₁/2 + A₂p₂/2 - A₁p₂/2 - A₂p₁/2
+  //        = A₁p₁/2 - A₂p₁/2 + A₂p₂/2 - A₁p₂/2
+  //        = (A₁-A₂)p₁/2 - (A₁-A₂)p₂/2
+  //        = (A₁ - A₂)(p₁-p₂)/2
+  //        = (A₁ - A₂)(p₁ - (p₁+p₂)/2);  half the difference (p₁-p₂)/2 is the
+  //                                      same as the difference from midpoint.
+  Vector4d r = (A1 - A2) * (p1 - x);
+
+  // See Fig.5 of [Huy2007] for this custom conjugate gradient method to solve
+  // the 4x4 linear system for the minimizer at x.
+  //
+  Vector4d p = Vector4d::Zero();
   for (int k = 0; k < 4; ++k) {
-    const double s = r.squaredNorm();
-    // TODO(DamrongGuoy): The "==" should be enough; we just follow VTK to use
-    //  "<=" here.  Change it to "==" later.
-    if (s <= 0) {
+    const double s = r.squaredNorm();  // s = ∥r∥²
+    if (s <= std::numeric_limits<double>::epsilon()) {
       break;
     }
-    displace += (r / s);                    // displace = displace + r/∥r∥²
-    const Vector4d q = (*this) * displace;  // q = Ap
-    const double t = displace.dot(q);
-    if (s * t <= exit_threshold) {
+    p += (r / s);                   // p = p + r/∥r∥²
+    const Vector4d q = A * p;       // q = Ap
+    const double t = p.dot(q);      // t = pᵀAp
+    if (s * t <= exit_threshold) {  // Check ∥r∥²(pᵀAp)  to exit.
       break;
     }
-    r -= (q / t);            // Update negative gradient.
-    (*x) += (displace / t);  // Move x.
+    r -= (q / t);  // Update residual vector, r = r - Ap/(pᵀAp)
+    x += (p / t);  // Move x.
   }
+  return x;
 }
 
 void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
@@ -536,6 +590,9 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
   vertex_Qs_[v3].A += A;
 }
 
+// This numerical routine is from [Garland & Zhou] with reference code
+// from vtkUnstructuredGridQuadricDecimationFace::UpdateQuadric().
+//
 void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
     int boundary_tri) {
   const SurfaceTriangle& triangle =
@@ -555,18 +612,19 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
   e2.normalize();
 
   // A = I - e1*e1ᵀ - e2*e2ᵀ
+  // Unitless.
   SymMat4 A = SymMat4::Identity() - SymMat4::FromOuterProductOfVector4d(e1) -
               SymMat4::FromOuterProductOfVector4d(e2);
 
-  // TODO(DamrongGuoy): Check the units.  It looks like the matrix A's
-  //  coefficients have units in squared meters not cubic meters.
-
-  // TODO(DamrongGuoy): VTK has "boundaryWeight" parameter (default 100) that
-  //  multiplies A for even larger weight. Is this a hack?
-  constexpr double kBoundaryWeight = 100;
-
   // Multiply by area of the triangle and share (/3) it among three vertices.
-  A *= support_boundary_mesh_.area(boundary_tri) / 3 * kBoundaryWeight;
+  // After this step, A has units in square meters.
+  A *= support_boundary_mesh_.area(boundary_tri) / 3;
+
+  // Set a large multiplicative weight to preserve boundary. The code will
+  // prefer contracting non-boundary edge first.
+  constexpr double kBoundaryWeight = 1e3;
+  A *= kBoundaryWeight;
+
   vertex_Qs_.at(v0).A += A;
   vertex_Qs_.at(v1).A += A;
   vertex_Qs_.at(v2).A += A;

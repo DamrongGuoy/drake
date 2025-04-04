@@ -6,6 +6,8 @@
 #include <utility>
 #include <vector>
 
+#include <Eigen/Core>
+
 #include "drake/common/eigen_types.h"
 #include "drake/common/text_logging.h"
 #include "drake/geometry/proximity/aabb.h"
@@ -64,36 +66,44 @@ class SymMat4 {
 
   SymMat4 operator+(const SymMat4& A1) const { return SymMat4(M_ + A1.M_); }
   SymMat4 operator-(const SymMat4& A1) const { return SymMat4(M_ - A1.M_); }
-  SymMat4 operator*=(const double& f) {
+  Eigen::Vector4d operator*(const Eigen::Vector4d& v) const { return M_ * v; }
+  SymMat4& operator*=(const double& f) {
     M_ *= f;
     return *this;
   }
-  SymMat4 operator/=(const double& f) {
+  SymMat4& operator/=(const double& f) {
     M_ /= f;
     return *this;
   }
-  SymMat4 operator+=(const SymMat4& A1) {
+  SymMat4& operator+=(const SymMat4& A1) {
     M_ += A1.M_;
     return *this;
   }
-  Eigen::Vector4d operator*(const Eigen::Vector4d& v) const { return M_ * v; }
-
-  // Conjugate gradient solver to update the symmetric matrix.
-  // See the algorithm in Fig. 5 of [Huy2007].
-  //
-  // For an example usage, see the implementation of the constructor
-  // QEF(const QEF&, const QEF&, const Vector4d&).
-  //
-  // @param[in,out] x is the new minimizer after following the gradient from
-  //                its initial position.
-  //
-  void ConjugateR(const SymMat4& A1, const SymMat4& A2,
-                  const Eigen::Vector4d& p1, Eigen::Vector4d* x) const;
+  double trace() { return M_(0, 0) + M_(1, 1) + M_(2, 2) + M_(3, 3); }
 
  protected:
   explicit SymMat4(Eigen::Matrix4d M_in) : M_(std::move(M_in)) {}
   Eigen::Matrix4d M_;
 };
+
+// Use conjugate gradient to find the minimizer p of the combined
+// QEF Q(A,p,e) from two QEFs Q1(A1, p1, e1) and Q2(A2, p2, e2) for
+// edge contraction. See the algorithm in Fig. 5 of [Huy2007].
+//
+// The combined QEF Q(A,p,e) will have A = A1+A2 with the minimizer p
+// returned from this function.
+//
+// @param A1  the SymMat4 of QEF Q1.
+// @param A2  the SymMat4 of QEF Q2.
+// @param p1  the minimizer of QEF Q1.
+// @param mid_point  the starting point of the minimization,
+//                       which is usually (p1 + p2) / 2.
+//
+// @return the minimizer of the combined QEF of Q1 and Q2.
+//
+Eigen::Vector4d ConjugateR(const SymMat4& A1, const SymMat4& A2,
+                           const Eigen::Vector4d& p1,
+                           const Eigen::Vector4d& mid_point);
 
 // Representation of Quadric Error Metric function (similar to
 // vtkUnstructuredGridQuadricDecimationQEF).  Instead of the standard
@@ -124,39 +134,41 @@ struct QEF {
 
   static QEF Zero() { return {SymMat4::Zero(), Eigen::Vector4d::Zero(), 0}; }
 
-  QEF(SymMat4 A_in, Eigen::Vector4d p_in, const double& e_in)
-      : A(std::move(A_in)), p(std::move(p_in)), e(e_in) {}
-
-  QEF(const QEF& Q1, const QEF& Q2, Eigen::Vector4d x)
-      : A(Q1.A + Q2.A), p(std::move(x)) {
-    UpdatePE(Q1, Q2);
+  static QEF Sum(const QEF& Q1, const QEF& Q2) {
+    QEF Q = QEF::Zero();
+    Q.Sum(Q1, Q2, (Q1.p + Q2.p) / 2.0);
+    return Q;
   }
 
-  void Sum(const QEF& Q1, const QEF& Q2, const Eigen::Vector4d& x) {
-    A = Q1.A + Q2.A;
-    p = x;
-    UpdatePE(Q1, Q2);
-  }
-
-  void Sum(const QEF& Q1, const QEF& Q2) {
-    A = Q1.A + Q2.A;
-    p = (Q1.p + Q2.p) / 2;
-    UpdatePE(Q1, Q2);
-  }
-
-  // Note: for p=origin and e=0, Q(x) = xᵀAx.
   SymMat4 A;
   // The minimizer.
   Eigen::Vector4d p;
   // The minium quadric error ε.
   double e;
 
- protected:
-  void UpdatePE(const QEF& Q1, const QEF& Q2) {
-    A.ConjugateR(Q1.A, Q2.A, Q1.p, &p);
-    const Eigen::Vector4d p1_to_p = this->p - Q1.p;
-    const Eigen::Vector4d p2_to_p = this->p - Q2.p;
-    e = Q1.e + Q2.e + p1_to_p.dot(Q1.A * p1_to_p) + p2_to_p.dot(Q2.A * p2_to_p);
+ private:
+  QEF(SymMat4 A_in, Eigen::Vector4d p_in, const double& e_in)
+      : A(std::move(A_in)), p(std::move(p_in)), e(e_in) {}
+
+  void Sum(const QEF& Q1, const QEF& Q2, const Eigen::Vector4d& x) {
+    A = Q1.A + Q2.A;
+    p = ConjugateR(Q1.A, Q2.A, Q1.p, x);
+    e = UpdateE(Q1, Q2);
+  }
+
+  // Given Q1(A1,p1,e1), Q2(A2,p2,e2), and the minimizer p of their combined
+  // QEF Q(A, p, e), i.e., A = A1+A2, calculate the combined error e:
+  //
+  //       e = e₁ + e₂ + (p-p₁)ᵀA₁(p-p₁) + (p-p₂)ᵀA₂(p-p₂)
+  //
+  double UpdateE(const QEF& Q1, const QEF& Q2) const {
+    const SymMat4& A1 = Q1.A;
+    const SymMat4& A2 = Q2.A;
+    const Eigen::Vector4d& p1 = Q1.p;
+    const Eigen::Vector4d& p2 = Q2.p;
+    const double e1 = Q1.e;
+    const double e2 = Q2.e;
+    return e1 + e2 + (p - p1).dot(A1 * (p - p1)) + (p - p2).dot(A2 * (p - p2));
   }
 };
 
