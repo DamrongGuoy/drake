@@ -101,6 +101,10 @@ VolumeMesh<double> TempCoarsenVolumeMeshOfSdField(
   return {std::move(tetrahedra), std::move(vertices)};
 }
 
+//-------------------------------------------------------------------------
+// Main VolumeMeshCoarsener
+//-------------------------------------------------------------------------
+
 double VolumeMeshCoarsener::CalcTetrahedronVolume(
     const int tetrahedron_index, const std::vector<VolumeElement>& tetrahedra,
     const std::vector<Vector3<double>>& vertices) {
@@ -112,18 +116,6 @@ double VolumeMeshCoarsener::CalcTetrahedronVolume(
   const Vector3d edge_02 = vertices.at(v2) - vertices.at(v0);
   const Vector3d edge_03 = vertices.at(v3) - vertices.at(v0);
   return edge_01.cross(edge_02).dot(edge_03) / 6.0;
-}
-
-bool VolumeMeshCoarsener::AreAllIncidentTetrahedraPositive(
-    int vertex_index, const std::vector<VolumeElement>& tetrahedra,
-    const std::vector<Eigen::Vector3<double>>& vertices,
-    const std::vector<std::vector<int>>& vertex_to_tetrahedra,
-    const double kTinyVolume) {
-  return std::ranges::all_of(
-      vertex_to_tetrahedra.at(vertex_index).cbegin(),
-      vertex_to_tetrahedra.at(vertex_index).cend(), [&](int tet) {
-        return CalcTetrahedronVolume(tet, tetrahedra, vertices) >= kTinyVolume;
-      });
 }
 
 bool VolumeMeshCoarsener::AreAllMorphedTetrahedraPositive(
@@ -156,8 +148,8 @@ bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(signed_distances_));
   DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(signed_distances_));
 
-  // Prohibit edge contraction to the new position with different sign of the
-  // new scalar value.
+  // Prohibit edge contraction to the new position with different sign of
+  // the new scalar value.
   if ((new_scalar < 0 && signed_distances_[v0] > 0) ||
       (new_scalar > 0 && signed_distances_[v0] < 0) ||
       (new_scalar < 0 && signed_distances_[v1] > 0) ||
@@ -182,7 +174,7 @@ bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
   const bool is_contractible1 = AreAllMorphedTetrahedraPositive(
       v1, tetrahedra_, vertices_, vertex_to_tetrahedra_, v0, kTinyVolume);
 
-  // Roll-back. Later the actual edge contraction will happen, if it's
+  // Roll-back. Later the actual edge contraction will happen if it's
   // contractible.
   vertices_[v0] = saved_v0_position;
   vertices_[v1] = saved_v1_position;
@@ -525,13 +517,30 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
         }
       }  // for (std::pair<int, int> ij
     }  // for (int tet
-    if (vertex0_of_edge_to_contract != -1 &&
-        vertex1_of_edge_to_contract != -1) {
+    if (found_edge_to_contract) {
       ContractEdge(vertex0_of_edge_to_contract, vertex1_of_edge_to_contract,
                    optimal_point, optimal_value);
       vertex_Qs_[vertex0_of_edge_to_contract] = Q_of_edge_to_contract;
-      vertex_Qs_[vertex0_of_edge_to_contract] = Q_of_edge_to_contract;
+      vertex_Qs_[vertex1_of_edge_to_contract] = Q_of_edge_to_contract;
       ++num_total_edge_contraction;
+
+      if (volume_to_boundary_.contains(vertex0_of_edge_to_contract) ||
+          volume_to_boundary_.contains(vertex1_of_edge_to_contract)) {
+        const Vector4d proj =
+            CalcProjectionTo1MmSurface(optimal_point, original_boundary_);
+
+        const Vector4d new_p{proj.x(), proj.y(), proj.z(), proj.w()};
+        QEF moved_Q = Q_of_edge_to_contract.WithMinimizerMoveTo(new_p);
+        vertex_Qs_[vertex0_of_edge_to_contract] = moved_Q;
+        vertex_Qs_[vertex1_of_edge_to_contract] = moved_Q;
+
+        const Vector3d position{proj.x(), proj.y(), proj.z()};
+        const double sdf = proj.w();
+        vertices_[vertex0_of_edge_to_contract] = position;
+        vertices_[vertex1_of_edge_to_contract] = position;
+        signed_distances_[vertex0_of_edge_to_contract] = sdf;
+        signed_distances_[vertex1_of_edge_to_contract] = sdf;
+      }
     }
     if (iteration % kReportPeriod == 0) {
       drake::log()->info("");
@@ -547,6 +556,9 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
           "num_input_tetrahedra - num_tet_deleted_ = {}",
           num_total_edge_contraction, num_tet_deleted_,
           num_input_tetrahedra - num_tet_deleted_);
+    }
+    if (!found_edge_to_contract) {
+      break;
     }
   }  // for iteration
   drake::log()->info("");
@@ -564,10 +576,9 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
     }
   }
 
-  // TODO(DamrongGuoy) Remove deleted vertices and don't forget to renumber
-  //  vertices (using std::map) in each valid_tetrahedra's record.
-  const VolumeMesh<double> coarsen_mesh{std::move(valid_tetrahedra),
-                                        std::move(vertices_)};
+  const VolumeMesh<double> coarsen_mesh =
+      CompactMesh(valid_tetrahedra, vertices_);
+
   drake::log()->info(
       "Number of output tetrahedra: coarsen_mesh.num_elements() = {}",
       coarsen_mesh.num_elements());
@@ -576,6 +587,48 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
 
   return coarsen_mesh;
 }
+
+VolumeMesh<double> VolumeMeshCoarsener::CompactMesh(
+    const std::vector<VolumeElement>& tetrahedra,
+    const std::vector<Vector3d>& vertices) const {
+  std::vector<Vector3d> new_vertices;
+  std::vector<VolumeElement> new_tetrahedra;
+  // old_to_new[u] = v means the old u-th vertex in vertices corresponds to
+  // the new v-th vertex in new_vertices.
+  std::unordered_map<int, int> old_to_new;
+  for (const VolumeElement old_tet : tetrahedra) {
+    for (int i = 0; i < 4; ++i) {
+      int old_vertex_index = old_tet.vertex(i);
+      if (!old_to_new.contains(old_vertex_index)) {
+        old_to_new[old_vertex_index] = new_vertices.size();
+        new_vertices.push_back(vertices.at(old_vertex_index));
+      }
+    }
+    new_tetrahedra.emplace_back(
+        old_to_new.at(old_tet.vertex(0)), old_to_new.at(old_tet.vertex(1)),
+        old_to_new.at(old_tet.vertex(2)), old_to_new.at(old_tet.vertex(3)));
+  }
+
+  return {std::move(new_tetrahedra), std::move(new_vertices)};
+}
+
+//-------------------------------------------------------------------------
+// Treatment of Triangulated Boundary Surface
+//-------------------------------------------------------------------------
+
+Vector4d CalcProjectionTo1MmSurface(const Vector3d& p,
+                                    const MeshDistanceBoundary& boundary) {
+  const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+      p, boundary.tri_mesh(), boundary.tri_bvh(),
+      std::get<FeatureNormalSet>(boundary.feature_normal()));
+
+  Vector3d xyz = d.nearest_point + 0.001 * d.gradient.stableNormalized();
+  return {xyz.x(), xyz.y(), xyz.z(), 0.001};
+}
+
+//-------------------------------------------------------------------------
+// Quadric Error Metric Functions
+//-------------------------------------------------------------------------
 
 //***************************************************************************
 // Some of these numerical routines follow Section 3.4 "Numerical Issues" in:
@@ -743,9 +796,10 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
   // After this step, A has units in square meters.
   A *= support_boundary_mesh_.area(boundary_tri) / 3.0;
 
-  // Set a large multiplicative weight to preserve boundary. The code will
-  // prefer contracting non-boundary edge first.
-  constexpr double kBoundaryWeight = 1e3;
+  // Set a large multiplicative weight to preserve boundary, so the code will
+  // contract non-boundary edges first. vtkUnstructuredGridQuadricDecimation
+  // uses 100.
+  constexpr double kBoundaryWeight = 1e2;
   A *= kBoundaryWeight;
 
   vertex_Qs_.at(v0).A += A;
