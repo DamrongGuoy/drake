@@ -61,11 +61,11 @@ GTEST_TEST(VolumeMeshCoarsenerTest, FromMeshFieldLinear) {
 
   ASSERT_GT(support_mesh_M.CalcMinTetrahedralVolume(), 0);
 
-  const double kFraction = 0.7;
+  const double kFraction = 0.70;
   VolumeMesh<double> coarsen_mesh_M =
       VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
   EXPECT_LT(coarsen_mesh_M.num_elements(),
-            static_cast<int>(1.1 * kFraction * 568));
+            static_cast<int>(1.01 * kFraction * 568));
   EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
 
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =

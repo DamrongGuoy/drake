@@ -34,6 +34,10 @@ namespace internal {
 VolumeMesh<double> TempCoarsenVolumeMeshOfSdField(
     const VolumeMeshFieldLinear<double, double>& sdf_M, double fraction);
 
+//-------------------------------------------------------------------------
+// Quadric Error Metric Functions
+//-------------------------------------------------------------------------
+
 // This class is similar to vtkUnstructuredGridQuadricDecimationSymMat4.
 // It represents the A matrix in the class document of QEF below.
 //
@@ -125,6 +129,19 @@ struct QEF {
     return Q;
   }
 
+  // Experimental feature to move the minimizer. For example, when we
+  // contract a boundary edge between two vertices, the combined minimizer is
+  // not on the boundary surface. In that case, we might want to move the
+  // minimizer to the boundary surface.
+  QEF WithMinimizerMoveTo(const Eigen::Vector4d& new_p) const {
+    double new_e = (new_p - p).dot(A * (new_p - p)) + e;
+    QEF Q;
+    Q.A = A;
+    Q.p = new_p;
+    Q.e = new_e;
+    return Q;
+  }
+
   SymMat4 A;
   // The minimizer.
   Eigen::Vector4d p;
@@ -161,6 +178,31 @@ struct QEF {
                                      const Eigen::Vector4d& p);
 };
 
+//-------------------------------------------------------------------------
+// Treatment of Triangulated Boundary Surface
+//-------------------------------------------------------------------------
+
+// Calculate the projection of the given point `p` to the 1-millimeter
+// outer offset surface from the boundary.
+//
+// @return the Vector4d V of the new position V.(x,y,z) and the signed
+// distance V.w = 0.001.
+//
+// @note For simplicity, in this implementation, we simply displace the
+// nearest point on the boundary surface for one millimeter along the
+// gradient of p.  It only works if `p` is already near the boundary
+// surface.   In the adversarial case, for example, `p` is on the
+// medial axis, the projection becomes unstable.
+//
+// @pre The point p is very near the boundary surface.
+//
+Eigen::Vector4d CalcProjectionTo1MmSurface(
+    const Eigen::Vector3d& p, const MeshDistanceBoundary& boundary);
+
+//-------------------------------------------------------------------------
+// Main VolumeMeshCoarsener
+//-------------------------------------------------------------------------
+
 class VolumeMeshCoarsener : VolumeMeshRefiner {
  public:
   VolumeMeshCoarsener(const VolumeMeshFieldLinear<double, double>& sdfield_M,
@@ -190,12 +232,6 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
       int tetrahedron_index, const std::vector<VolumeElement>& tetrahedra,
       const std::vector<Eigen::Vector3<double>>& vertices);
 
-  static bool AreAllIncidentTetrahedraPositive(
-      int vertex_index, const std::vector<VolumeElement>& tetrahedra,
-      const std::vector<Eigen::Vector3<double>>& vertices,
-      const std::vector<std::vector<int>>& vertex_to_tetrahedra,
-      const double kTinyVolume);
-
   // Return true if all incident tetrahedra of the given vertex,
   // excluding the ones also incident to the excluded vertex, have
   // positive volumes.
@@ -205,12 +241,18 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
       const std::vector<std::vector<int>>& vertex_to_tetrahedra,
       int exclude_vertex_index, double kTinyVolume);
 
+  // Create a new mesh without unused vertices. Renumber vertex indices used
+  // by the tetrahedra.
+  VolumeMesh<double> CompactMesh(
+      const std::vector<VolumeElement>& tetrahedra,
+      const std::vector<Eigen::Vector3d>& vertices) const;
+
   //--------------------------------------------------------
-  // Related to combinatorics and discrete meshes and
+  // Data related to combinatorics and discrete meshes and
   // interpolated signed distances.
   //--------------------------------------------------------
 
-  const double kTinyVolume = 1e-12;  // 0.1x0.1x0.1-millimeter cube
+  const double kTinyVolume = 1e-9;  // 1-millimeter cube
 
   // signed_distances[i] := the signed distance value of the i-th vertex.
   // As we perform edge contraction, the value of `signed_distances[i]` can
@@ -249,7 +291,7 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   const MeshDistanceBoundary original_boundary_;
 
   //--------------------------------------------------------
-  // Related to Quadric Error Metrics
+  // Functions and data related to Quadric Error Metrics
   //--------------------------------------------------------
 
   // Update QEF of the four vertices of the tet-th tetrahedron.
