@@ -323,6 +323,7 @@ void VolumeMeshCoarsener::InitializeVertexQEFs() {
   }
 }
 
+#if 0
 VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
   const int num_input_tetrahedra = tetrahedra_.size();
   drake::log()->info("Number of input tetrahedra = {}.", num_input_tetrahedra);
@@ -383,7 +384,7 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
         DRAKE_THROW_UNLESS(!is_vertex_deleted_[vi]);
         DRAKE_THROW_UNLESS(!is_vertex_deleted_[vj]);
 
-        QEF edge_Q = QEF::Sum(vertex_Qs_[vi], vertex_Qs_[vj]);
+        QEF edge_Q = QEF::Combine(vertex_Qs_[vi], vertex_Qs_[vj]);
 
         // Thresholding on expected error if we contract the edge(vi,vj).
         if (edge_Q.e < min_edge_error) {
@@ -455,9 +456,129 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
 
   return coarsen_mesh;
 }
+#endif
+
+VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
+  const int num_input_tetrahedra = tetrahedra_.size();
+  drake::log()->info("Number of input tetrahedra = {}.", num_input_tetrahedra);
+  const int target_num_tetrahedra =
+      static_cast<int>(fraction * num_input_tetrahedra);
+  drake::log()->info("Target number of tetrahedra = {}.",
+                     target_num_tetrahedra);
+
+  InitializeVertexQEFs();
+
+  int num_total_edge_contraction = 0;
+  constexpr int kNumIterations = 1000;
+  constexpr int kNumReports = 10;
+  constexpr int kReportPeriod = kNumIterations / kNumReports;
+  int num_perform_iterations = 0;
+  for (int iteration = 0; iteration < kNumIterations; ++iteration) {
+    // If we exhaust all iterations, both num_performed_iterations and
+    // `iteration` variables will become kNumIterations.
+    // If we exit early, num_performed_iterations will be 1 + `iteration`
+    // because `iteration` starts at 0 not 1.
+    ++num_perform_iterations;
+    if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
+      break;
+    }
+    bool found_edge_to_contract = false;
+    QEF Q_of_edge_to_contract;
+    int vertex0_of_edge_to_contract = -1;
+    int vertex1_of_edge_to_contract = -1;
+    Vector3d optimal_point{0, 0, 0};
+    double optimal_value{0};
+    double min_edge_error = std::numeric_limits<double>::max();
+    double max_edge_error = std::numeric_limits<double>::min();
+    for (int tet = 0; tet < num_input_tetrahedra; ++tet) {
+      if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
+        break;
+      }
+      if (is_tet_deleted_[tet]) {
+        continue;
+      }
+      const VolumeElement& tetrahedron = tetrahedra_[tet];
+      // Check for a valid edge contraction of edge(i,j) of the tetrahedron.
+      for (std::pair<int, int> ij : std::vector<std::pair<int, int>>{
+               {0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}) {
+        int vi = tetrahedron.vertex(ij.first);
+        int vj = tetrahedron.vertex(ij.second);
+        DRAKE_THROW_UNLESS(!is_vertex_deleted_[vi]);
+        DRAKE_THROW_UNLESS(!is_vertex_deleted_[vj]);
+
+        QEF edge_Q = QEF::Combine(vertex_Qs_[vi], vertex_Qs_[vj]);
+        Vector3d xyz{edge_Q.p.x(), edge_Q.p.y(), edge_Q.p.z()};
+        double value = edge_Q.p.w();
+        if (edge_Q.e > max_edge_error) {
+          max_edge_error = edge_Q.e;
+        }
+        if (edge_Q.e < min_edge_error) {
+          if (IsEdgeContractible(vi, vj, xyz, value)) {
+            found_edge_to_contract = true;
+            min_edge_error = edge_Q.e;
+            Q_of_edge_to_contract = edge_Q;
+            vertex0_of_edge_to_contract = vi;
+            vertex1_of_edge_to_contract = vj;
+            optimal_point = xyz;
+            optimal_value = value;
+          }
+        }
+      }  // for (std::pair<int, int> ij
+    }  // for (int tet
+    if (vertex0_of_edge_to_contract != -1 &&
+        vertex1_of_edge_to_contract != -1) {
+      ContractEdge(vertex0_of_edge_to_contract, vertex1_of_edge_to_contract,
+                   optimal_point, optimal_value);
+      vertex_Qs_[vertex0_of_edge_to_contract] = Q_of_edge_to_contract;
+      vertex_Qs_[vertex0_of_edge_to_contract] = Q_of_edge_to_contract;
+      ++num_total_edge_contraction;
+    }
+    if (iteration % kReportPeriod == 0) {
+      drake::log()->info("");
+      drake::log()->info("iteration {}, max_edge_error = {}", iteration,
+                         max_edge_error);
+      if (found_edge_to_contract) {
+        drake::log()->info("Contracted edge with min_edge_error = {}",
+                           min_edge_error);
+      }
+      drake::log()->info(
+          "num_total_edge_contraction = {}, "
+          "num_tet_deleted_ = {}, "
+          "num_input_tetrahedra - num_tet_deleted_ = {}",
+          num_total_edge_contraction, num_tet_deleted_,
+          num_input_tetrahedra - num_tet_deleted_);
+    }
+  }  // for iteration
+  drake::log()->info("");
+  drake::log()->info("End iterations: num_perform_iterations = {}",
+                     num_perform_iterations);
+  drake::log()->info("");
+  drake::log()->info("Number of edge contractions = {}",
+                     num_total_edge_contraction);
+  drake::log()->info("Number of deleted tetrahedra = {}", num_tet_deleted_);
+
+  std::vector<VolumeElement> valid_tetrahedra;
+  for (int tet = 0; tet < ssize(tetrahedra_); ++tet) {
+    if (!is_tet_deleted_[tet]) {
+      valid_tetrahedra.push_back(tetrahedra_[tet]);
+    }
+  }
+
+  // TODO(DamrongGuoy) Remove deleted vertices and don't forget to renumber
+  //  vertices (using std::map) in each valid_tetrahedra's record.
+  const VolumeMesh<double> coarsen_mesh{std::move(valid_tetrahedra),
+                                        std::move(vertices_)};
+  drake::log()->info(
+      "Number of output tetrahedra: coarsen_mesh.num_elements() = {}",
+      coarsen_mesh.num_elements());
+  drake::log()->info("coarsen_mesh.CalcMinTetrahedralVolume() = {}",
+                     coarsen_mesh.CalcMinTetrahedralVolume());
+
+  return coarsen_mesh;
+}
 
 //***************************************************************************
-// These two numerical routines follow Section 3.4 "Numerical Issues" in:
+// Some of these numerical routines follow Section 3.4 "Numerical Issues" in:
 //
 //   [Huy2007] Huy, Vo; Callahan, Steven; Lindstrom, Peter; Pascucci, Valerio;
 //   and Silva, Claudio. (2007). Streaming Simplification of Tetrahedral
@@ -469,30 +590,27 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
 // - vtkUnstructuredGridQuadricDecimationTetra::UpdateQuadric()
 //***************************************************************************
 
-Vector4d ConjugateR(const SymMat4& A1, const SymMat4& A2, const Vector4d& p1,
-                    const Vector4d& mid_point) {
-  SymMat4 A = A1 + A2;
-  Vector4d x = mid_point;
+Vector4d QEF::CalcCombinedMinimizer(const QEF& Q1, const QEF& Q2) {
+  const SymMat4& A1 = Q1.A;
+  const SymMat4& A2 = Q2.A;
+  const Vector4d& p1 = Q1.p;
+  const Vector4d& p2 = Q2.p;
+  const SymMat4 A = A1 + A2;
 
-  // The paper [Huy2007], page 7, uses κₘₐₓ = 10⁴. The VTK implementation uses
+  // We will use a custom conjugate gradient method to solve for p in
+  // (A₁+A₂)p = (A₁p₁ + A₂p₂). See the algorithm in Fig. 5 of [Huy2007],
+  // page 7.
+  //
+  // The paper [Huy2007] uses κₘₐₓ = 10⁴. The VTK implementation uses
   // κₘₐₓ = 10³.  For now, we follow the VTK.
   constexpr double kKappaMax = 1e3;
   // tr(A) / (n * κₘₐₓ) with n = 4 for tetrahedral meshes.
-  double exit_threshold = A.trace() / (4 * kKappaMax);
+  const double exit_threshold = A.trace() / (4 * kKappaMax);
 
-  // Combining the standard forms Q₁(A₁,b₁,c₁) and Q₂(A₂,b₂,c₂) into
-  // Q(A,b,c) is straightforward:
-  //      A = A₁+A₂, b = b₁+b₂, c = c₁+c₂.
-  //
-  // However, combining our special forms Q₁(A₁,p₁,e₁) and Q₂(A₂,p₂,e₂)
-  // into Q(A,p,e) needs a solution to a small linear system:
-  //
-  //      A = A₁+A₂, solve for p in (A₁+A₂)p = (A₁p₁ + A₂p₂).
-  //
-  //
-  // Solve for x in (A₁+A₂)x = (A₁p₁ + A₂p₂) with initial guess of x as
+  // Solve for x in (A₁+A₂)x = (A₁p₁ + A₂p₂) with the initial guess of x as
   // (p₁+p₂)/2.
-  //
+  Vector4d x = (p1 + p2) / 2;
+
   // With the initial guess x = (p₁+p₂)/2, we have the initial residual:
   //      r = (A₁p₁+A₂p₂) - (A₁+A₂)x
   //        = (A₁p₁+A₂p₂) - (A₁+A₂)(p₁+p₂)/2
@@ -500,29 +618,36 @@ Vector4d ConjugateR(const SymMat4& A1, const SymMat4& A2, const Vector4d& p1,
   //        = A₁p₁/2 - A₂p₁/2 + A₂p₂/2 - A₁p₂/2
   //        = (A₁-A₂)p₁/2 - (A₁-A₂)p₂/2
   //        = (A₁ - A₂)(p₁-p₂)/2
-  //        = (A₁ - A₂)(p₁ - (p₁+p₂)/2);  half the difference (p₁-p₂)/2 is the
-  //                                      same as the difference from midpoint.
-  Vector4d r = (A1 - A2) * (p1 - x);
-
-  // See Fig.5 of [Huy2007] for this custom conjugate gradient method to solve
-  // the 4x4 linear system for the minimizer at x.
-  //
-  Vector4d p = Vector4d::Zero();
+  Vector4d r = (A1 - A2) * (p1 - p2) / 2;
+  // Approximated gradient direction.
+  Vector4d d = Vector4d::Zero();
+  // At most four iterations for a 4x4 linear system.
   for (int k = 0; k < 4; ++k) {
     const double s = r.squaredNorm();  // s = ∥r∥²
     if (s <= std::numeric_limits<double>::epsilon()) {
       break;
     }
-    p += (r / s);                   // p = p + r/∥r∥²
-    const Vector4d q = A * p;       // q = Ap
-    const double t = p.dot(q);      // t = pᵀAp
-    if (s * t <= exit_threshold) {  // Check ∥r∥²(pᵀAp)  to exit.
+    d += (r / s);                   // d = d + r/∥r∥²
+    const Vector4d q = A * d;       // q = Ad
+    const double t = d.dot(q);      // t = dᵀAd
+    if (s * t <= exit_threshold) {  // Check ∥r∥²(dᵀAd)  to exit.
       break;
     }
-    r -= (q / t);  // Update residual vector, r = r - Ap/(pᵀAp)
-    x += (p / t);  // Move x.
+    r -= (q / t);  // Update residual vector, r = r - Ad/(dᵀAd)
+    x += (d / t);  // Update solution vector, x = x + d/(dᵀAd)
   }
   return x;
+}
+
+double QEF::CalcCombinedMinError(const QEF& Q1, const QEF& Q2,
+                                 const Eigen::Vector4d& p) {
+  const SymMat4& A1 = Q1.A;
+  const SymMat4& A2 = Q2.A;
+  const Eigen::Vector4d& p1 = Q1.p;
+  const Eigen::Vector4d& p2 = Q2.p;
+  const double e1 = Q1.e;
+  const double e2 = Q2.e;
+  return e1 + e2 + (p - p1).dot(A1 * (p - p1)) + (p - p2).dot(A2 * (p - p2));
 }
 
 void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
@@ -535,14 +660,13 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
   // Coefficients of each vector has unit in meters.
   // The coordinates (x,y,z) are in meters.
   // The signed distance is also in meters.
-  const Vector4d a = vertex_Qs_[v1].p - vertex_Qs_[v0].p;
-  const Vector4d b = vertex_Qs_[v2].p - vertex_Qs_[v0].p;
-  const Vector4d c = vertex_Qs_[v3].p - vertex_Qs_[v0].p;
+  // After subtraction, we normalize the vectors for numerical stability,
+  // and they become unit less.
+  const Vector4d a = (vertex_Qs_[v1].p - vertex_Qs_[v0].p).stableNormalized();
+  const Vector4d b = (vertex_Qs_[v2].p - vertex_Qs_[v0].p).stableNormalized();
+  const Vector4d c = (vertex_Qs_[v3].p - vertex_Qs_[v0].p).stableNormalized();
 
-  // TODO(DamrongGuoy): Use a more compact spelling of Eigen than this very
-  // long formula of the generalized cross product of three 4-vectors.
-
-  // n is the generalized cross product of the three Vector4d a, b, c.
+  // n is the generalized cross product of the three unit Vector4d a, b, c.
   // See the determinant formula in Section 3.4 "Numerical Issues" of
   // [Huy2007].
   //
@@ -551,10 +675,9 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
   //            | <--- b ---> |
   //            | <--- c ---> |
   //
-  // Each coefficient of n has unit in cubic meters.
-  //
-  const Vector4d n = {
-      // clang-format off
+  const Vector4d n =
+      Vector4d{
+          // clang-format off
       a.y() * (b.z() * c.w() - b.w() * c.z()) +
       a.z() * (b.w() * c.y() - b.y() * c.w()) +
       a.w() * (b.y() * c.z() - b.z() * c.y()),
@@ -570,17 +693,17 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
       a.x() * (b.z() * c.y() - b.y() * c.z()) +
       a.y() * (b.x() * c.z() - b.z() * c.x()) +
       a.z() * (b.y() * c.x() - b.x() * c.y()),
-      // clang-format on
-  };
+          // clang-format on
+      }
+          .normalized();
   // Outer product of 4-vector n gives the 4x4 symmetric matrix A.
-  // After this step, coefficients of A have units in meter^6.
   SymMat4 A = SymMat4::FromOuterProductOfVector4d(n);
-  // Divide A by the volume of the tetrahedron gives the fundamental quadric
-  // matrix with the units of its coefficients in cubic meters.
+  // Multiply A by the volume of the tetrahedron gives the fundamental
+  // quadric matrix with the units of its coefficients in cubic meters.
   const double tetrahedron_volume =
       CalcTetrahedronVolume(tet, tetrahedra_, vertices_);
   DRAKE_THROW_UNLESS(tetrahedron_volume > 0);
-  A /= tetrahedron_volume;
+  A *= tetrahedron_volume;
   // Divide the tetrahedrn's quadric matrix to its 4 vertices equally.
   A /= 4.0;
 
@@ -618,7 +741,7 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
 
   // Multiply by area of the triangle and share (/3) it among three vertices.
   // After this step, A has units in square meters.
-  A *= support_boundary_mesh_.area(boundary_tri) / 3;
+  A *= support_boundary_mesh_.area(boundary_tri) / 3.0;
 
   // Set a large multiplicative weight to preserve boundary. The code will
   // prefer contracting non-boundary edge first.
