@@ -27,6 +27,8 @@
 #include "drake/common/test_utilities/expect_no_throw.h"
 #include "drake/common/test_utilities/expect_throws_message.h"
 #include "drake/common/text_logging.h"
+#include "drake/geometry/proximity/make_ellipsoid_field.h"
+#include "drake/geometry/proximity/make_ellipsoid_mesh.h"
 #include "drake/geometry/proximity/make_empress_field.h"
 #include "drake/geometry/proximity/make_mesh_from_vtk.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
@@ -45,6 +47,97 @@ using Eigen::Vector4d;
 using math::RigidTransformd;
 using math::RollPitchYawd;
 
+GTEST_TEST(VolumeMeshCoarseberTest, Ellipsoid) {
+  const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);
+  const VolumeMesh<double> ellipsoid_mesh_M = MakeEllipsoidVolumeMesh<double>(
+      // 0.004, 0.005
+      ellipsoid_M, 0.003, TessellationStrategy::kSingleInteriorVertex);
+  EXPECT_EQ(ellipsoid_mesh_M.num_vertices(), 4099);
+  EXPECT_EQ(ellipsoid_mesh_M.num_elements(), 8192);
+
+  // Hydroelastic modulus = 0.02 the length of the minimum principal semi-axis
+  // will give the highest pressure = +0.02 at the center.
+  const VolumeMeshFieldLinear<double, double> pressure_M =
+      MakeEllipsoidPressureField<double>(ellipsoid_M, &ellipsoid_mesh_M, 0.02);
+  // Assign the negative of pressure values to signed distance values.
+  // The pressure and the signed distance have opposite sign conventions.
+  std::vector<double> signed_distances;
+  for (const double p : pressure_M.values()) {
+    signed_distances.push_back(-p);
+  }
+  const VolumeMeshFieldLinear<double, double> sdf_M{std::move(signed_distances),
+                                                    &ellipsoid_mesh_M};
+  const TriangleSurfaceMesh<double> original_surface_M =
+      ConvertVolumeToSurfaceMesh(ellipsoid_mesh_M);
+
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk("ellipsoid_sdf.vtk", "SignedDistance(meter)",
+                                  sdf_M, "VolumeMeshCoarsener coarsen");
+
+  const double kFraction = 5000.0 / ellipsoid_mesh_M.num_elements();
+  const VolumeMesh<double> coarsen_mesh_M =
+      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
+
+  EXPECT_LT(
+      coarsen_mesh_M.num_elements(),
+      static_cast<int>(1.01 * kFraction * ellipsoid_mesh_M.num_elements()));
+  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
+
+  VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
+      MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk("ellipsoid_coarsen_sdf.vtk",
+                                  "SignedDistance(meter)", coarsen_sdf_M,
+                                  "VolumeMeshCoarsener coarsen");
+
+  EXPECT_LT(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.01);
+}
+
+#if 0
+GTEST_TEST(VolumeMeshCoarseberTest, Box) {
+  // About the size of a computer mouse.
+  const Box box_M{0.07, 0.10, 0.04};
+  const VolumeMesh<double> box_mesh_M = MakeBoxVolumeMesh<double>(box_M, 0.01);
+  EXPECT_EQ(box_mesh_M.num_vertices(), 495);
+  EXPECT_EQ(box_mesh_M.num_elements(), 1920);
+
+  // Hydroelastic modulus = 0.02 (half thickness of the box) creates the
+  // highest pressure = +0.02 at the center rectangle.
+  const VolumeMeshFieldLinear<double, double> pressure_M =
+      MakeBoxPressureField<double>(box_M, &box_mesh_M, 0.02);
+  // Assign the negative of pressure values to signed distance values.
+  // The pressure and the signed distance have opposite sign conventions.
+  std::vector<double> signed_distances;
+  for (const double p : pressure_M.values()) {
+    signed_distances.push_back(-p);
+  }
+  const VolumeMeshFieldLinear<double, double> sdf_M{std::move(signed_distances),
+                                                    &box_mesh_M};
+  const TriangleSurfaceMesh<double> original_surface_M =
+      ConvertVolumeToSurfaceMesh(box_mesh_M);
+
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk("box_sdf.vtk", "SignedDistance(meter)", sdf_M,
+                                  "VolumeMeshCoarsener coarsen");
+
+  const double kFraction = 0.7;
+  VolumeMesh<double> coarsen_mesh_M =
+      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
+
+  EXPECT_LT(coarsen_mesh_M.num_elements(),
+            static_cast<int>(1.01 * kFraction * box_mesh_M.num_elements()));
+  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
+
+  VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
+      MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk("box_coarsen_sdf.vtk",
+                                  "SignedDistance(meter)", coarsen_sdf_M,
+                                  "VolumeMeshCoarsener coarsen");
+
+  EXPECT_LT(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.01);
+}
+
 GTEST_TEST(VolumeMeshCoarsenerTest, FromMeshFieldLinear) {
   const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
       "drake/geometry/test/yellow_pepper_EmPress_optimized_sdfield.vtk")};
@@ -61,7 +154,7 @@ GTEST_TEST(VolumeMeshCoarsenerTest, FromMeshFieldLinear) {
 
   ASSERT_GT(support_mesh_M.CalcMinTetrahedralVolume(), 0);
 
-  const double kFraction = 0.70;
+  const double kFraction = 0.7;
   VolumeMesh<double> coarsen_mesh_M =
       VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
   EXPECT_LT(coarsen_mesh_M.num_elements(),
@@ -78,7 +171,6 @@ GTEST_TEST(VolumeMeshCoarsenerTest, FromMeshFieldLinear) {
   EXPECT_LT(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.01);
 }
 
-#if 0
 GTEST_TEST(TempCoarsenVolumeMeshOfSdField, FromMeshFieldLinear) {
   const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
       "drake/geometry/test/yellow_pepper_EmPress_optimized_sdfield.vtk")};
