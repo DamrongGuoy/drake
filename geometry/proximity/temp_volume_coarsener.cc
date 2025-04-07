@@ -134,13 +134,13 @@ bool VolumeMeshCoarsener::AreAllMorphedTetrahedraPositive(
           // 'exclude_vertex_index' do not count.
           return true;
         }
-        return CalcTetrahedronVolume(tet, tetrahedra, vertices) >= kTinyVolume;
+        return CalcTetrahedronVolume(tet, tetrahedra, vertices) > kTinyVolume;
       });
 }
 
 bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
                                              const Vector3d& new_position,
-                                             double new_scalar) {
+                                             const double new_scalar) {
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(vertices_));
   DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(vertices_));
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(vertex_to_tetrahedra_));
@@ -182,6 +182,28 @@ bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
   signed_distances_[v1] = saved_value1;
 
   return is_contractible0 && is_contractible1;
+}
+
+bool VolumeMeshCoarsener::IsVertexMovable(int vertex,
+                                          const Eigen::Vector3d& new_position) {
+  DRAKE_THROW_UNLESS(0 <= vertex && vertex < ssize(vertices_));
+  DRAKE_THROW_UNLESS(0 <= vertex && vertex < ssize(vertex_to_tetrahedra_));
+  const Vector3d saved_old_position = vertices_[vertex];
+
+  // Temporary set the vertex to the new position. Later we will roll back.
+  vertices_[vertex] = new_position;
+
+  bool found_negative_tetrahedron = false;
+  for (const int tet : vertex_to_tetrahedra_[vertex]) {
+    if (CalcTetrahedronVolume(tet, tetrahedra_, vertices_) <= kTinyVolume) {
+      found_negative_tetrahedron = true;
+      break;
+    }
+  }
+
+  // Roll back.
+  vertices_[vertex] = saved_old_position;
+  return !found_negative_tetrahedron;
 }
 
 void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
@@ -239,7 +261,7 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
   }
   // Clear all of vertex_to_tetrahedra_[v1].
   vertex_to_tetrahedra_[v1] = std::vector<int>({});
-  // Clear some of vertex_to_tetrahedra_[v0].
+  // Clear tetrahedra on edges v0v1 from vertex_to_tetrahedra_[v0].
   for (const int tet : tetrahedra_of_v0v1) {
     std::erase(vertex_to_tetrahedra_[v0], tet);
   }
@@ -263,6 +285,12 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
     if (!is_tet_deleted_[tet]) {
       is_tet_morphed_[tet] = true;
     }
+  }
+
+  // Double-check that all tetrahedra has positive volumes.
+  for (int tet : vertex_to_tetrahedra_[v0]) {
+    DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_, vertices_) >=
+                       kTinyVolume);
   }
 }
 
@@ -303,13 +331,14 @@ void VolumeMeshCoarsener::InitializeVertexQEFs() {
     Q.p(3) = signed_distances_[v];
     vertex_Qs_.push_back(Q);
   }
-  int num_tetrahedra = tetrahedra_.size();
+  const int num_tetrahedra = tetrahedra_.size();
   // Contribute every tetrahedron's QEM to its four vertices.
   for (int tet = 0; tet < num_tetrahedra; ++tet) {
     UpdateVerticesQuadricsFromTet(tet);
   }
   // Contribute every boundary triangle's QEM to its three vertices.
-  for (int boundary_tri = 0; boundary_tri < ssize(boundary_to_volume_);
+  const int num_boundary_triangles = support_boundary_mesh_.num_triangles();
+  for (int boundary_tri = 0; boundary_tri < num_boundary_triangles;
        ++boundary_tri) {
     UpdateVerticesQuadricsFromBoundaryFace(boundary_tri);
   }
@@ -457,17 +486,21 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
       static_cast<int>(fraction * num_input_tetrahedra);
   drake::log()->info("Target number of tetrahedra = {}.",
                      target_num_tetrahedra);
+  drake::log()->info("input_mesh_.CalcMinTetrahedralVolume() = {}.",
+                     input_mesh_.CalcMinTetrahedralVolume());
 
   InitializeVertexQEFs();
 
   int num_total_edge_contraction = 0;
-  constexpr int kNumIterations = 1000;
+  // Each edge contraction should remove at least two tetrahedra.
+  const int num_iterations = (num_input_tetrahedra - target_num_tetrahedra) / 2;
   constexpr int kNumReports = 10;
-  constexpr int kReportPeriod = kNumIterations / kNumReports;
+  const int report_period =
+      num_iterations >= kNumReports ? num_iterations / kNumReports : 1;
   int num_perform_iterations = 0;
-  for (int iteration = 0; iteration < kNumIterations; ++iteration) {
+  for (int iteration = 0; iteration < num_iterations; ++iteration) {
     // If we exhaust all iterations, both num_performed_iterations and
-    // `iteration` variables will become kNumIterations.
+    // `iteration` variables will become num_iterations.
     // If we exit early, num_performed_iterations will be 1 + `iteration`
     // because `iteration` starts at 0 not 1.
     ++num_perform_iterations;
@@ -526,23 +559,45 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
 
       if (volume_to_boundary_.contains(vertex0_of_edge_to_contract) ||
           volume_to_boundary_.contains(vertex1_of_edge_to_contract)) {
-        const Vector4d proj =
-            CalcProjectionTo1MmSurface(optimal_point, original_boundary_);
+        double offset_distance = 0;
+        int count_num_boundary_vertices = 0;
+        if (volume_to_boundary_.contains(vertex0_of_edge_to_contract)) {
+          offset_distance += signed_distances_[vertex0_of_edge_to_contract];
+          ++count_num_boundary_vertices;
+        }
+        if (volume_to_boundary_.contains(vertex1_of_edge_to_contract)) {
+          offset_distance += signed_distances_[vertex1_of_edge_to_contract];
+          ++count_num_boundary_vertices;
+        }
+        DRAKE_THROW_UNLESS(count_num_boundary_vertices != 0);
+        offset_distance /= count_num_boundary_vertices;
 
-        const Vector4d new_p{proj.x(), proj.y(), proj.z(), proj.w()};
-        QEF moved_Q = Q_of_edge_to_contract.WithMinimizerMoveTo(new_p);
-        vertex_Qs_[vertex0_of_edge_to_contract] = moved_Q;
-        vertex_Qs_[vertex1_of_edge_to_contract] = moved_Q;
-
+        const Vector4d proj = CalcProjectionToOffsetSurface(
+            optimal_point, original_boundary_, offset_distance);
         const Vector3d position{proj.x(), proj.y(), proj.z()};
-        const double sdf = proj.w();
-        vertices_[vertex0_of_edge_to_contract] = position;
-        vertices_[vertex1_of_edge_to_contract] = position;
-        signed_distances_[vertex0_of_edge_to_contract] = sdf;
-        signed_distances_[vertex1_of_edge_to_contract] = sdf;
+
+        if (IsVertexMovable(vertex0_of_edge_to_contract, position)) {
+          const Vector4d new_p{proj.x(), proj.y(), proj.z(), proj.w()};
+          QEF moved_Q = Q_of_edge_to_contract.WithMinimizerMoveTo(new_p);
+
+          vertex_Qs_[vertex0_of_edge_to_contract] = moved_Q;
+          vertex_Qs_[vertex1_of_edge_to_contract] = moved_Q;
+
+          const double sdf = proj.w();
+          vertices_[vertex0_of_edge_to_contract] = position;
+          vertices_[vertex1_of_edge_to_contract] = position;
+          signed_distances_[vertex0_of_edge_to_contract] = sdf;
+          signed_distances_[vertex1_of_edge_to_contract] = sdf;
+        }
+
+        // Double-check that all tetrahedra has positive volumes.
+        for (int tet : vertex_to_tetrahedra_[vertex0_of_edge_to_contract]) {
+          DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_,
+                                                   vertices_) >= kTinyVolume);
+        }
       }
     }
-    if (iteration % kReportPeriod == 0) {
+    if (iteration % report_period == 0) {
       drake::log()->info("");
       drake::log()->info("iteration {}, max_edge_error = {}", iteration,
                          max_edge_error);
@@ -616,14 +671,16 @@ VolumeMesh<double> VolumeMeshCoarsener::CompactMesh(
 // Treatment of Triangulated Boundary Surface
 //-------------------------------------------------------------------------
 
-Vector4d CalcProjectionTo1MmSurface(const Vector3d& p,
-                                    const MeshDistanceBoundary& boundary) {
+Vector4d CalcProjectionToOffsetSurface(const Vector3d& p,
+                                       const MeshDistanceBoundary& boundary,
+                                       const double offset_distance) {
   const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
       p, boundary.tri_mesh(), boundary.tri_bvh(),
       std::get<FeatureNormalSet>(boundary.feature_normal()));
 
-  Vector3d xyz = d.nearest_point + 0.001 * d.gradient.stableNormalized();
-  return {xyz.x(), xyz.y(), xyz.z(), 0.001};
+  Vector3d xyz =
+      d.nearest_point + offset_distance * d.gradient.stableNormalized();
+  return {xyz.x(), xyz.y(), xyz.z(), offset_distance};
 }
 
 //-------------------------------------------------------------------------
@@ -710,6 +767,9 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
   const int v2 = tetrahedra_[tet].vertex(2);
   const int v3 = tetrahedra_[tet].vertex(3);
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(vertex_Qs_));
+  DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(vertex_Qs_));
+  DRAKE_THROW_UNLESS(0 <= v2 && v2 < ssize(vertex_Qs_));
+  DRAKE_THROW_UNLESS(0 <= v3 && v3 < ssize(vertex_Qs_));
   // Coefficients of each vector has unit in meters.
   // The coordinates (x,y,z) are in meters.
   // The signed distance is also in meters.
@@ -771,6 +831,8 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
 //
 void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
     int boundary_tri) {
+  DRAKE_THROW_UNLESS(0 <= boundary_tri &&
+                     boundary_tri < support_boundary_mesh_.num_triangles());
   const SurfaceTriangle& triangle =
       support_boundary_mesh_.triangles().at(boundary_tri);
   const int boundary_vertex0 = triangle.vertex(0);
@@ -783,9 +845,9 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
   Vector4d e1, e2;
   e1 = vertex_Qs_.at(v1).p - vertex_Qs_.at(v0).p;
   e2 = vertex_Qs_.at(v2).p - vertex_Qs_.at(v0).p;
-  e1.normalize();
+  e1.stableNormalize();
   e2 = e2 - e1 * e2.dot(e1);
-  e2.normalize();
+  e2.stableNormalize();
 
   // A = I - e1*e1ᵀ - e2*e2ᵀ
   // Unitless.

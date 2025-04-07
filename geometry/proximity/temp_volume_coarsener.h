@@ -182,22 +182,23 @@ struct QEF {
 // Treatment of Triangulated Boundary Surface
 //-------------------------------------------------------------------------
 
-// Calculate the projection of the given point `p` to the 1-millimeter
-// outer offset surface from the boundary.
+// Calculate the projection of the given point `p` to the offset surface
+// from the boundary.
 //
 // @return the Vector4d V of the new position V.(x,y,z) and the signed
-// distance V.w = 0.001.
+// distance V.w = offset distance.
 //
 // @note For simplicity, in this implementation, we simply displace the
-// nearest point on the boundary surface for one millimeter along the
-// gradient of p.  It only works if `p` is already near the boundary
-// surface.   In the adversarial case, for example, `p` is on the
+// nearest point on the boundary surface for the specified offset distance
+// along the gradient of p.  It only works if `p` is already near the
+// boundary surface.   In the adversarial case, for example, `p` is on the
 // medial axis, the projection becomes unstable.
 //
 // @pre The point p is very near the boundary surface.
 //
-Eigen::Vector4d CalcProjectionTo1MmSurface(
-    const Eigen::Vector3d& p, const MeshDistanceBoundary& boundary);
+Eigen::Vector4d CalcProjectionToOffsetSurface(
+    const Eigen::Vector3d& p, const MeshDistanceBoundary& boundary,
+    const double offset_distance);
 
 //-------------------------------------------------------------------------
 // Main VolumeMeshCoarsener
@@ -228,6 +229,10 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   bool IsEdgeContractible(int v0, int v1, const Eigen::Vector3d& new_position,
                           double new_scalar);
 
+  // Is the vertex movable to the new position without a negative-volume
+  // tetrahedron?
+  bool IsVertexMovable(int vertex, const Eigen::Vector3d& new_position);
+
   static double CalcTetrahedronVolume(
       int tetrahedron_index, const std::vector<VolumeElement>& tetrahedra,
       const std::vector<Eigen::Vector3<double>>& vertices);
@@ -252,7 +257,7 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // interpolated signed distances.
   //--------------------------------------------------------
 
-  const double kTinyVolume = 1e-9;  // 1-millimeter cube
+  const double kTinyVolume = 1e-12;  // 0.1-millimeter cube
 
   // signed_distances[i] := the signed distance value of the i-th vertex.
   // As we perform edge contraction, the value of `signed_distances[i]` can
