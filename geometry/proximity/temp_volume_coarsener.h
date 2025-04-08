@@ -24,7 +24,9 @@ namespace drake {
 namespace geometry {
 namespace internal {
 
-/* Return a new coarsen tetrahedral mesh supporting the field.
+/* Return a new coarsen tetrahedral mesh supporting the field. This version
+ uses vtkUnstructuredGridQuadricDecimation.  It's the baseline implementation.
+ The rest of this file is our own implementation.
 
  @param[in] sdf_M      signed distance field on a support mesh.
  @param[in] fraction   a number between 0 and 1 that control how aggressive
@@ -39,11 +41,11 @@ VolumeMesh<double> TempCoarsenVolumeMeshOfSdField(
 //-------------------------------------------------------------------------
 
 // This class is similar to vtkUnstructuredGridQuadricDecimationSymMat4.
-// It represents the A matrix in the class document of QEF below.
 //
-// In this implementation, SymMat4 has a private member M of type
-// Eigen::Matrix4d and provide the conjugate gradient solver for the
-// new minimizer (see ConjugateR() below).
+// In this implementation, SymMat4 has a private member M_ of type
+// Eigen::Matrix4d. This class is an adapter of Matrix4d to make sure
+// M_ always remains a symmetric matrix, from constructors to all algebraic
+// operations.
 //
 // Eigen doesn't have a direct representation of a symmetric matrix.
 // For a quick prototype, we store and operate the entire 16 coefficients.
@@ -64,10 +66,8 @@ class SymMat4 {
     const Eigen::Matrix4d M = n * n.transpose();
     return SymMat4(M);
   }
-
   static SymMat4 Zero() { return SymMat4(Eigen::Matrix4d::Zero()); }
   static SymMat4 Identity() { return SymMat4(Eigen::Matrix4d::Identity()); }
-
   SymMat4 operator+(const SymMat4& A1) const { return SymMat4(M_ + A1.M_); }
   SymMat4 operator-(const SymMat4& A1) const { return SymMat4(M_ - A1.M_); }
   Eigen::Vector4d operator*(const Eigen::Vector4d& v) const { return M_ * v; }
@@ -90,13 +90,13 @@ class SymMat4 {
   Eigen::Matrix4d M_;
 };
 
-// Representation of Quadric Error Metric function (similar to
-// vtkUnstructuredGridQuadricDecimationQEF).  Instead of the standard
-// representation as (A, b, c) in [Garland & Zhou]:
+// This representation of Quadric Error Metric function is similar to
+// vtkUnstructuredGridQuadricDecimationQEF.  Instead of the standard
+// representation as Q[A, b, c] in [Garland & Zhou]:
 //
 //                Q(x) = xᵀAx + 2bᵀx + c,
 //
-// we will use the alternative representation (A, p, e) with the
+// we will use the alternative representation Q[A, p, e] with the
 // minimum quadric error e and the minimizer p:
 //
 //                Q(x) = (x-p)ᵀA(x-p) + e,
@@ -105,7 +105,15 @@ class SymMat4 {
 // the minimum error e is readily available.  See Section 3.4 "Numerical
 // Issues" in [Huy2007].
 //
-// @pre A is a 4x4 symmetric positive semi-definite matrix.
+// The downside of this representation is that combining two QEF Q1 and Q2
+// requires solving a linear system to determine the combined minimizer and
+// then recalculating the new minimum error. (See CalcCombinedMinimizer() and
+// CalcCombinedMinError().)  Combining two standard-representation
+// Q1[A1, b1, c1] and Q2[A2, b2, c2] is simply (Q1+Q2)[A1+A2, b1+b2, c1+c2];
+// however, we will also need to solve a linear system to determine the new
+// location to which the edge contraction goes. Depending on the final
+// scheduling algorithm (still under construction), we might change this
+// design choice.
 //
 // [Huy2007] Huy, Vo; Callahan, Steven; Lindstrom, Peter; Pascucci, Valerio;
 // and Silva, Claudio. (2007). Streaming Simplification of Tetrahedral Meshes.
@@ -164,7 +172,7 @@ struct QEF {
   //      Solve for p in (A₁+A₂)p = (A₁p₁ + A₂p₂).
   //
   // Notice that A₁, A₂ are positive semi-definite symmetric matrices (eigen
-  // values are non-negative real numbers).
+  // values are non-negative real numbers). (A₁+A₂) are not always invertible.
   //
   // @return the minimizer of the combined QEF of Q1 and Q2.
   static Eigen::Vector4d CalcCombinedMinimizer(const QEF& Q1, const QEF& Q2);
@@ -179,10 +187,10 @@ struct QEF {
 };
 
 //-------------------------------------------------------------------------
-// Treatment of Triangulated Boundary Surface
+// Treatment of Boundary
 //-------------------------------------------------------------------------
 
-// Calculate the projection of the given point `p` to the offset surface
+// Calculate the projection of the given point `p` to a small-offset surface
 // from the boundary.
 //
 // @return the Vector4d V of the new position V.(x,y,z) and the signed
@@ -194,7 +202,8 @@ struct QEF {
 // boundary surface.   In the adversarial case, for example, `p` is on the
 // medial axis, the projection becomes unstable.
 //
-// @pre The point p is very near the boundary surface.
+// @pre The point p is very near the boundary surface. The offset_distance
+//      is near zero (it could be positive or negative).
 //
 Eigen::Vector4d CalcProjectionToOffsetSurface(
     const Eigen::Vector3d& p, const MeshDistanceBoundary& boundary,
@@ -230,7 +239,9 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
                           double new_scalar);
 
   // Is the vertex movable to the new position without a negative-volume
-  // tetrahedron?
+  // tetrahedron?  We use this function when we perturb a boundary vertex to
+  // a small-offset surface to check that it will not create a bad
+  // tetrahedron.
   bool IsVertexMovable(int vertex, const Eigen::Vector3d& new_position);
 
   static double CalcTetrahedronVolume(
@@ -238,8 +249,16 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
       const std::vector<Eigen::Vector3<double>>& vertices);
 
   // Return true if all incident tetrahedra of the given vertex,
-  // excluding the ones also incident to the excluded vertex, have
+  // excluding the ones incident to the excluded vertex, have
   // positive volumes.
+  //
+  // Before the edge contraction of vertices v0 and v1, the caller is supposed
+  // to temporarily change the entries in `vertices` for v0 (`vertex_index`)
+  // and v1 (`exclude_vertex_index`) to the common new position (and edge
+  // v0v1 becomes a zero-length edge). Then, this function can check whether
+  // all the morphed tetrahedra incident to v0, excluding the zero-volume
+  // tetrahedra on the zero-length edge v0v1, will continue to have positive
+  // volumes.
   static bool AreAllMorphedTetrahedraPositive(
       int vertex_index, const std::vector<VolumeElement>& tetrahedra,
       const std::vector<Eigen::Vector3<double>>& vertices,
@@ -257,7 +276,7 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // interpolated signed distances.
   //--------------------------------------------------------
 
-  const double kTinyVolume = 1e-12;  // 0.1-millimeter cube
+  const double kTinyVolume_ = 1e-12;  // 0.1-millimeter cube
 
   // signed_distances[i] := the signed distance value of the i-th vertex.
   // As we perform edge contraction, the value of `signed_distances[i]` can

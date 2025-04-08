@@ -170,9 +170,9 @@ bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
   signed_distances_[v1] = new_scalar;
 
   const bool is_contractible0 = AreAllMorphedTetrahedraPositive(
-      v0, tetrahedra_, vertices_, vertex_to_tetrahedra_, v1, kTinyVolume);
+      v0, tetrahedra_, vertices_, vertex_to_tetrahedra_, v1, kTinyVolume_);
   const bool is_contractible1 = AreAllMorphedTetrahedraPositive(
-      v1, tetrahedra_, vertices_, vertex_to_tetrahedra_, v0, kTinyVolume);
+      v1, tetrahedra_, vertices_, vertex_to_tetrahedra_, v0, kTinyVolume_);
 
   // Roll-back. Later the actual edge contraction will happen if it's
   // contractible.
@@ -195,7 +195,7 @@ bool VolumeMeshCoarsener::IsVertexMovable(int vertex,
 
   bool found_negative_tetrahedron = false;
   for (const int tet : vertex_to_tetrahedra_[vertex]) {
-    if (CalcTetrahedronVolume(tet, tetrahedra_, vertices_) <= kTinyVolume) {
+    if (CalcTetrahedronVolume(tet, tetrahedra_, vertices_) <= kTinyVolume_) {
       found_negative_tetrahedron = true;
       break;
     }
@@ -290,7 +290,7 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
   // Double-check that all tetrahedra has positive volumes.
   for (int tet : vertex_to_tetrahedra_[v0]) {
     DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_, vertices_) >=
-                       kTinyVolume);
+                       kTinyVolume_);
   }
 }
 
@@ -593,7 +593,7 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
         // Double-check that all tetrahedra has positive volumes.
         for (int tet : vertex_to_tetrahedra_[vertex0_of_edge_to_contract]) {
           DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_,
-                                                   vertices_) >= kTinyVolume);
+                                                   vertices_) >= kTinyVolume_);
         }
       }
     }
@@ -734,7 +734,7 @@ Vector4d QEF::CalcCombinedMinimizer(const QEF& Q1, const QEF& Q2) {
   // At most four iterations for a 4x4 linear system.
   for (int k = 0; k < 4; ++k) {
     const double s = r.squaredNorm();  // s = ∥r∥²
-    if (s <= std::numeric_limits<double>::epsilon()) {
+    if (s <= 0) {
       break;
     }
     d += (r / s);                   // d = d + r/∥r∥²
@@ -746,6 +746,7 @@ Vector4d QEF::CalcCombinedMinimizer(const QEF& Q1, const QEF& Q2) {
     r -= (q / t);  // Update residual vector, r = r - Ad/(dᵀAd)
     x += (d / t);  // Update solution vector, x = x + d/(dᵀAd)
   }
+
   return x;
 }
 
@@ -811,6 +812,7 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
           .normalized();
   // Outer product of 4-vector n gives the 4x4 symmetric matrix A.
   SymMat4 A = SymMat4::FromOuterProductOfVector4d(n);
+
   // Multiply A by the volume of the tetrahedron gives the fundamental
   // quadric matrix with the units of its coefficients in cubic meters.
   const double tetrahedron_volume =
