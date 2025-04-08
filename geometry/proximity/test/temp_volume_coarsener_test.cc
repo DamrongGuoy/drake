@@ -47,13 +47,15 @@ using Eigen::Vector4d;
 using math::RigidTransformd;
 using math::RollPitchYawd;
 
-GTEST_TEST(VolumeMeshCoarseberTest, Ellipsoid) {
+GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid) {
   const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);
   const VolumeMesh<double> ellipsoid_mesh_M = MakeEllipsoidVolumeMesh<double>(
-      // 0.004, 0.005
-      ellipsoid_M, 0.003, TessellationStrategy::kSingleInteriorVertex);
-  EXPECT_EQ(ellipsoid_mesh_M.num_vertices(), 4099);
-  EXPECT_EQ(ellipsoid_mesh_M.num_elements(), 8192);
+      ellipsoid_M, 0.01, TessellationStrategy::kDenseInteriorVertices);
+  // resolution:   0.005  0.01
+  // num_vertices:  6017   833
+  // num_element:  32768  4096
+  EXPECT_EQ(ellipsoid_mesh_M.num_vertices(), 833);
+  EXPECT_EQ(ellipsoid_mesh_M.num_elements(), 4096);
 
   // Hydroelastic modulus = 0.02 the length of the minimum principal semi-axis
   // will give the highest pressure = +0.02 at the center.
@@ -74,13 +76,13 @@ GTEST_TEST(VolumeMeshCoarseberTest, Ellipsoid) {
   WriteVolumeMeshFieldLinearToVtk("ellipsoid_sdf.vtk", "SignedDistance(meter)",
                                   sdf_M, "VolumeMeshCoarsener coarsen");
 
-  const double kFraction = 5000.0 / ellipsoid_mesh_M.num_elements();
+  const int kTargetNumTetrahedra = 3300;
+  const double kFraction = static_cast<double>(kTargetNumTetrahedra) /
+                           ellipsoid_mesh_M.num_elements();
   const VolumeMesh<double> coarsen_mesh_M =
       VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
 
-  EXPECT_LT(
-      coarsen_mesh_M.num_elements(),
-      static_cast<int>(1.01 * kFraction * ellipsoid_mesh_M.num_elements()));
+  EXPECT_LT(coarsen_mesh_M.num_elements(), 1.01 * kTargetNumTetrahedra);
   EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
 
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
@@ -89,8 +91,50 @@ GTEST_TEST(VolumeMeshCoarseberTest, Ellipsoid) {
   WriteVolumeMeshFieldLinearToVtk("ellipsoid_coarsen_sdf.vtk",
                                   "SignedDistance(meter)", coarsen_sdf_M,
                                   "VolumeMeshCoarsener coarsen");
+}
 
-  EXPECT_LT(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.01);
+// Use VTK implementation (vtkUnstructuredGridQuadricDecimation)
+GTEST_TEST(TempCoarsenVolumeMeshOfSdField, Ellipsoid) {
+  const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);
+  const VolumeMesh<double> support_mesh_M = MakeEllipsoidVolumeMesh<double>(
+      // 0.004, 0.005
+      ellipsoid_M, 0.01, TessellationStrategy::kDenseInteriorVertices);
+  // resolution:   0.005  0.01
+  // num_vertices:  6017   833
+  // num_element:  32768  4096
+  EXPECT_EQ(support_mesh_M.num_vertices(), 833);
+  EXPECT_EQ(support_mesh_M.num_elements(), 4096);
+
+  // Hydroelastic modulus = 0.02 the length of the minimum principal semi-axis
+  // will give the highest pressure = +0.02 at the center.
+  const VolumeMeshFieldLinear<double, double> pressure_M =
+      MakeEllipsoidPressureField<double>(ellipsoid_M, &support_mesh_M, 0.02);
+  // Assign the negative of pressure values to signed distance values.
+  // The pressure and the signed distance have opposite sign conventions.
+  std::vector<double> signed_distances;
+  for (const double p : pressure_M.values()) {
+    signed_distances.push_back(-p);
+  }
+  const VolumeMeshFieldLinear<double, double> sdf_M{std::move(signed_distances),
+                                                    &support_mesh_M};
+  const TriangleSurfaceMesh<double> original_surface_M =
+      ConvertVolumeToSurfaceMesh(support_mesh_M);
+
+  const int kTargetNumTetrahedra = 10;
+  const double kFraction =
+      static_cast<double>(kTargetNumTetrahedra) / support_mesh_M.num_elements();
+  VolumeMesh<double> coarsen_mesh_M =
+      TempCoarsenVolumeMeshOfSdField(sdf_M, kFraction);
+
+  EXPECT_LT(coarsen_mesh_M.num_elements(), 1.01 * kTargetNumTetrahedra);
+  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
+
+  VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
+      MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
+  // For debugging.
+  WriteVolumeMeshFieldLinearToVtk("ellipsoid_VtkCoarsen_sdf.vtk",
+                                  "SignedDistance(meter)", coarsen_sdf_M,
+                                  "vtkUnstructuredGridQuadricDecimation");
 }
 
 #if 0
@@ -170,7 +214,6 @@ GTEST_TEST(VolumeMeshCoarsenerTest, FromMeshFieldLinear) {
 
   EXPECT_LT(CalcRMSErrorOfSDField(coarsen_sdf_M, original_surface_M), 0.01);
 }
-
 GTEST_TEST(TempCoarsenVolumeMeshOfSdField, FromMeshFieldLinear) {
   const Mesh mesh_spec_with_sdfield{FindResourceOrThrow(
       "drake/geometry/test/yellow_pepper_EmPress_optimized_sdfield.vtk")};
