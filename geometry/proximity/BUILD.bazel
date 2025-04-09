@@ -977,6 +977,7 @@ drake_cc_library(
         ":hydroelastic_internal",
         ":make_box_field",
         ":make_box_mesh",
+        ":mesh_to_vtk",
         ":volume_mesh",
         ":volume_mesh_refiner",
         ":volume_to_surface_mesh",

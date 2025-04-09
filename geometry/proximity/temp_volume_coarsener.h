@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -248,6 +249,8 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
       int tetrahedron_index, const std::vector<VolumeElement>& tetrahedra,
       const std::vector<Eigen::Vector3<double>>& vertices);
 
+  double CalcMinIncidentTetrahedronVolume(int vertex) const;
+
   // Return true if all incident tetrahedra of the given vertex,
   // excluding the ones incident to the excluded vertex, have
   // positive volumes.
@@ -313,6 +316,24 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
 
   // For signed-distance query to the original mesh during optimization.
   const MeshDistanceBoundary original_boundary_;
+
+  //--------------------------------------------------------
+  // Visual debugging facilities
+  //--------------------------------------------------------
+
+  void WriteTetrahedraOfVertex(int v0, const std::string& file_name);
+  void WriteTetrahedraOfFirstExcludeSecond(int first_vertex, int second_vertex,
+                                           const std::string& file_name);
+  void WriteTetrahedraOfBothVertices(int first_vertex, int second_vertex,
+                                     const std::string& file_name);
+
+  void WriteTetrahedraBeforeEdgeContraction(
+      int v0, int v1, const std::string& prefix_file_name);
+  // After edge contraction, v0 gains all tetrahedra from v1.
+  // The parameter v1 goes into the output file name, but it's not used for
+  // looking up incident tetrahedra.
+  void WriteTetrahedraAfterEdgeContraction(int v0, int v1,
+                                           const std::string& prefix_file_name);
 
   //--------------------------------------------------------
   // Functions and data related to Quadric Error Metrics
