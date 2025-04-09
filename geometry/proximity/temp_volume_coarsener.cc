@@ -26,6 +26,7 @@
 #include "drake/geometry/proximity/make_box_field.h"
 #include "drake/geometry/proximity/make_box_mesh.h"
 #include "drake/geometry/proximity/mesh_distance_boundary.h"
+#include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/volume_mesh.h"
 #include "drake/geometry/proximity/volume_mesh_field.h"
 #include "drake/geometry/proximity/volume_to_surface_mesh.h"
@@ -116,6 +117,19 @@ double VolumeMeshCoarsener::CalcTetrahedronVolume(
   const Vector3d edge_02 = vertices.at(v2) - vertices.at(v0);
   const Vector3d edge_03 = vertices.at(v3) - vertices.at(v0);
   return edge_01.cross(edge_02).dot(edge_03) / 6.0;
+}
+
+double VolumeMeshCoarsener::CalcMinIncidentTetrahedronVolume(
+    const int vertex) const {
+  DRAKE_THROW_UNLESS(0 <= vertex && vertex < ssize(vertex_to_tetrahedra_));
+  double min_volume = std::numeric_limits<double>::max();
+  for (const int tet : vertex_to_tetrahedra_.at(vertex)) {
+    const double volume = CalcTetrahedronVolume(tet, tetrahedra_, vertices_);
+    if (volume < min_volume) {
+      min_volume = volume;
+    }
+  }
+  return min_volume;
 }
 
 bool VolumeMeshCoarsener::AreAllMorphedTetrahedraPositive(
@@ -215,6 +229,10 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
   DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(vertex_to_tetrahedra_));
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(signed_distances_));
   DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(signed_distances_));
+  const double min_tet_volume_before =
+      std::min(CalcMinIncidentTetrahedronVolume(v0),
+               CalcMinIncidentTetrahedronVolume(v1));
+  DRAKE_THROW_UNLESS(min_tet_volume_before >= kTinyVolume_);
 
   // The caller is supposed to check for contractibility before calling
   // this function.
@@ -287,11 +305,15 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
     }
   }
 
-  // Double-check that all tetrahedra has positive volumes.
-  for (int tet : vertex_to_tetrahedra_[v0]) {
-    DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_, vertices_) >=
-                       kTinyVolume_);
+  // Check that the min tetrahedron volume:
+  // 1. didn't go below the volume threshold, and
+  // 2. didn't shrink beyond a factor of 10 after the edge contraction.
+  const double min_tet_volume_after = CalcMinIncidentTetrahedronVolume(v0);
+  DRAKE_THROW_UNLESS(min_tet_volume_after >= kTinyVolume_);
+  if (!(min_tet_volume_before / min_tet_volume_after < 10.0)) {
+    WriteTetrahedraAfterEdgeContraction(v0, v1, "ContractEdge_shrink10X");
   }
+  // DRAKE_THROW_UNLESS(min_tet_volume_before / min_tet_volume_after < 10.0);
 }
 
 VolumeMeshCoarsener::VolumeMeshCoarsener(
@@ -509,10 +531,13 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
     }
     bool found_edge_to_contract = false;
     QEF Q_of_edge_to_contract;
-    int vertex0_of_edge_to_contract = -1;
-    int vertex1_of_edge_to_contract = -1;
+    int selected_vertex0 = -1;
+    int selected_vertex1 = -1;
     Vector3d optimal_point{0, 0, 0};
     double optimal_value{0};
+    // Vertices of the last candidate edges to contract that got rejection.
+    int last_rejected_vi = -1;
+    int last_rejected_vj = -1;
     double min_edge_error = std::numeric_limits<double>::max();
     double max_edge_error = std::numeric_limits<double>::min();
     for (int tet = 0; tet < num_input_tetrahedra; ++tet) {
@@ -537,36 +562,50 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
         if (edge_Q.e > max_edge_error) {
           max_edge_error = edge_Q.e;
         }
-        if (edge_Q.e < min_edge_error) {
-          if (IsEdgeContractible(vi, vj, xyz, value)) {
+        if (IsEdgeContractible(vi, vj, xyz, value)) {
+          if (edge_Q.e < min_edge_error) {
             found_edge_to_contract = true;
             min_edge_error = edge_Q.e;
             Q_of_edge_to_contract = edge_Q;
-            vertex0_of_edge_to_contract = vi;
-            vertex1_of_edge_to_contract = vj;
+            selected_vertex0 = vi;
+            selected_vertex1 = vj;
             optimal_point = xyz;
             optimal_value = value;
           }
+        } else {
+          last_rejected_vi = vi;
+          last_rejected_vj = vj;
         }
       }  // for (std::pair<int, int> ij
     }  // for (int tet
     if (found_edge_to_contract) {
-      ContractEdge(vertex0_of_edge_to_contract, vertex1_of_edge_to_contract,
-                   optimal_point, optimal_value);
-      vertex_Qs_[vertex0_of_edge_to_contract] = Q_of_edge_to_contract;
-      vertex_Qs_[vertex1_of_edge_to_contract] = Q_of_edge_to_contract;
+      if (selected_vertex0 == 206 && selected_vertex1 == 45) {
+        WriteTetrahedraBeforeEdgeContraction(selected_vertex0, selected_vertex1,
+                                             "coarsen");
+      }
+
+      ContractEdge(selected_vertex0, selected_vertex1, optimal_point,
+                   optimal_value);
+      vertex_Qs_[selected_vertex0] = Q_of_edge_to_contract;
+      vertex_Qs_[selected_vertex1] = Q_of_edge_to_contract;
       ++num_total_edge_contraction;
 
-      if (volume_to_boundary_.contains(vertex0_of_edge_to_contract) ||
-          volume_to_boundary_.contains(vertex1_of_edge_to_contract)) {
+      // vertex1 gave all its tetrahedra to vertex0.
+      if (selected_vertex0 == 206 && selected_vertex1 == 45) {
+        WriteTetrahedraAfterEdgeContraction(selected_vertex0, selected_vertex1,
+                                            "coarsen");
+      }
+
+      if (volume_to_boundary_.contains(selected_vertex0) ||
+          volume_to_boundary_.contains(selected_vertex1)) {
         double offset_distance = 0;
         int count_num_boundary_vertices = 0;
-        if (volume_to_boundary_.contains(vertex0_of_edge_to_contract)) {
-          offset_distance += signed_distances_[vertex0_of_edge_to_contract];
+        if (volume_to_boundary_.contains(selected_vertex0)) {
+          offset_distance += signed_distances_[selected_vertex0];
           ++count_num_boundary_vertices;
         }
-        if (volume_to_boundary_.contains(vertex1_of_edge_to_contract)) {
-          offset_distance += signed_distances_[vertex1_of_edge_to_contract];
+        if (volume_to_boundary_.contains(selected_vertex1)) {
+          offset_distance += signed_distances_[selected_vertex1];
           ++count_num_boundary_vertices;
         }
         DRAKE_THROW_UNLESS(count_num_boundary_vertices != 0);
@@ -576,27 +615,31 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
             optimal_point, original_boundary_, offset_distance);
         const Vector3d position{proj.x(), proj.y(), proj.z()};
 
-        if (IsVertexMovable(vertex0_of_edge_to_contract, position)) {
+        if (IsVertexMovable(selected_vertex0, position)) {
           const Vector4d new_p{proj.x(), proj.y(), proj.z(), proj.w()};
           QEF moved_Q = Q_of_edge_to_contract.WithMinimizerMoveTo(new_p);
 
-          vertex_Qs_[vertex0_of_edge_to_contract] = moved_Q;
-          vertex_Qs_[vertex1_of_edge_to_contract] = moved_Q;
+          vertex_Qs_[selected_vertex0] = moved_Q;
+          vertex_Qs_[selected_vertex1] = moved_Q;
 
           const double sdf = proj.w();
-          vertices_[vertex0_of_edge_to_contract] = position;
-          vertices_[vertex1_of_edge_to_contract] = position;
-          signed_distances_[vertex0_of_edge_to_contract] = sdf;
-          signed_distances_[vertex1_of_edge_to_contract] = sdf;
+          vertices_[selected_vertex0] = position;
+          vertices_[selected_vertex1] = position;
+          signed_distances_[selected_vertex0] = sdf;
+          signed_distances_[selected_vertex1] = sdf;
         }
 
         // Double-check that all tetrahedra has positive volumes.
-        for (int tet : vertex_to_tetrahedra_[vertex0_of_edge_to_contract]) {
+        for (int tet : vertex_to_tetrahedra_[selected_vertex0]) {
           DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_,
                                                    vertices_) >= kTinyVolume_);
         }
       }
+    } else {  // !found_edge_to_contract
+      WriteTetrahedraBeforeEdgeContraction(last_rejected_vi, last_rejected_vj,
+                                           "coarsen_reject");
     }
+
     if (iteration % report_period == 0) {
       drake::log()->info("");
       drake::log()->info("iteration {}, max_edge_error = {}", iteration,
@@ -665,6 +708,66 @@ VolumeMesh<double> VolumeMeshCoarsener::CompactMesh(
   }
 
   return {std::move(new_tetrahedra), std::move(new_vertices)};
+}
+
+//--------------------------------------------------------
+// Visual debugging facilities
+//--------------------------------------------------------
+
+void VolumeMeshCoarsener::WriteTetrahedraOfVertex(
+    int v0, const std::string& file_name) {
+  std::vector<VolumeElement> tetrahedra_to_write;
+  for (const int tet : vertex_to_tetrahedra_.at(v0)) {
+    tetrahedra_to_write.push_back(tetrahedra_.at(tet));
+  }
+  WriteVolumeMeshToVtk(file_name, CompactMesh(tetrahedra_to_write, vertices_),
+                       "VolumeMeshCoarsener::WriteTetrahedraOfVertex");
+}
+
+void VolumeMeshCoarsener::WriteTetrahedraOfFirstExcludeSecond(
+    int first_vertex, int second_vertex, const std::string& file_name) {
+  const std::vector<int> tetrahedra_of_both =
+      VolumeMeshRefiner::GetTetrahedraOnEdge(first_vertex, second_vertex);
+  std::vector<VolumeElement> tetrahedra_to_write;
+  for (const int tet : vertex_to_tetrahedra_.at(first_vertex)) {
+    if (std::find(tetrahedra_of_both.cbegin(), tetrahedra_of_both.cend(),
+                  tet) == tetrahedra_of_both.end()) {
+      tetrahedra_to_write.push_back(tetrahedra_.at(tet));
+    }
+  }
+  WriteVolumeMeshToVtk(
+      file_name, CompactMesh(tetrahedra_to_write, vertices_),
+      "VolumeMeshCoarsener::WriteTetrahedraOfFirstExcludeSecond");
+}
+
+void VolumeMeshCoarsener::WriteTetrahedraOfBothVertices(
+    int first_vertex, int second_vertex, const std::string& file_name) {
+  std::vector<VolumeElement> tetrahedra_to_write;
+  for (const int tet :
+       VolumeMeshRefiner::GetTetrahedraOnEdge(first_vertex, second_vertex)) {
+    tetrahedra_to_write.push_back(tetrahedra_.at(tet));
+  }
+  WriteVolumeMeshToVtk(file_name, CompactMesh(tetrahedra_to_write, vertices_),
+                       "VolumeMeshCoarsener::WriteTetrahedraOfBothVertices");
+}
+
+void VolumeMeshCoarsener::WriteTetrahedraBeforeEdgeContraction(
+    int v0, int v1, const std::string& prefix_file_name) {
+  WriteTetrahedraOfFirstExcludeSecond(
+      v0, v1,
+      fmt::format("{}_before_v{}_not_v{}_tets.vtk", prefix_file_name, v0, v1));
+  WriteTetrahedraOfFirstExcludeSecond(
+      v1, v0,
+      fmt::format("{}_before_v{}_not_v{}_tets.vtk", prefix_file_name, v1, v0));
+  WriteTetrahedraOfBothVertices(
+      v0, v1,
+      fmt::format("{}_before_v{}_and_v{}_tets.vtk", prefix_file_name, v0, v1));
+}
+
+void VolumeMeshCoarsener::WriteTetrahedraAfterEdgeContraction(
+    const int v0, const int v1, const std::string& prefix_file_name) {
+  WriteTetrahedraOfVertex(
+      v0, fmt::format("{}_after_v{}_v{}_tets.vtk", prefix_file_name, v0, v1));
 }
 
 //-------------------------------------------------------------------------
