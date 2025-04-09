@@ -85,6 +85,8 @@ class SymMat4 {
     return *this;
   }
   double trace() const { return M_(0, 0) + M_(1, 1) + M_(2, 2) + M_(3, 3); }
+  // Constant access.
+  const Eigen::Matrix4d& Mat4d() const { return M_; }
 
  protected:
   explicit SymMat4(Eigen::Matrix4d M_in) : M_(std::move(M_in)) {}
@@ -136,6 +138,10 @@ struct QEF {
     Q.p = CalcCombinedMinimizer(Q1, Q2);
     Q.e = CalcCombinedMinError(Q1, Q2, Q.p);
     return Q;
+  }
+
+  double Evaluate(const Eigen::Vector4d& x) const {
+    return (x - p).dot(A * (x-p)) + e;
   }
 
   // Experimental feature to move the minimizer. For example, when we
