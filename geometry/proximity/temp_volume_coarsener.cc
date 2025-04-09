@@ -808,8 +808,35 @@ Vector4d QEF::CalcCombinedMinimizer(const QEF& Q1, const QEF& Q2) {
   const SymMat4& A2 = Q2.A;
   const Vector4d& p1 = Q1.p;
   const Vector4d& p2 = Q2.p;
+
+  // Solve for x in (A₁+A₂)x = (A₁p₁ + A₂p₂).
   const SymMat4 A = A1 + A2;
 
+#if 0
+  const Vector4d b = A1*p1 + A2*p2;
+  // Example in https://eigen.tuxfamily.org/dox/classEigen_1_1JacobiSVD.html
+  Eigen::JacobiSVD<Matrix4d, Eigen::ComputeThinU | Eigen::ComputeThinV>
+      svd(A.Mat4d());
+  const Vector4d& singular_values = svd.singularValues();
+  if (singular_values(0) < 1e-6) {
+    // Choose between p1, p2, (p1+p2)/2.
+    const Vector4d p12 = (p1 + p2) / 2;
+    const double e_p1 = Q1.e + Q2.Evaluate(p1);
+    const double e_p2 = Q1.Evaluate(p2) + Q2.e;
+    const double e_p12 = Q1.Evaluate(p12) + Q2.Evaluate(p12);
+    if (e_p1 <= e_p2 && e_p1 <= e_p12) {
+      return p1;
+    }
+    if (e_p2 <= e_p1 && e_p2 <= e_p12) {
+      return p2;
+    }
+    return p12;
+  }
+
+  Vector4d x = svd.solve(b);
+
+  return x;
+#endif
   // We will use a custom conjugate gradient method to solve for p in
   // (A₁+A₂)p = (A₁p₁ + A₂p₂). See the algorithm in Fig. 5 of [Huy2007],
   // page 7.
