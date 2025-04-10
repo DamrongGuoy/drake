@@ -1,7 +1,10 @@
 #pragma once
 
+#include <functional>
 #include <limits>
+#include <map>
 #include <memory>
+#include <queue>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -324,6 +327,62 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
 
   // For signed-distance query to the original mesh during optimization.
   const MeshDistanceBoundary original_boundary_;
+
+  //--------------------------------------------------------
+  // For priority queue
+  //--------------------------------------------------------
+
+  // Light-weight representation of an edge as a sorted pair of vertex indices.
+  // An Edge edge_uv with [u,v] = [edge.first(), edge.second()] means the
+  // edge_uv is between the u-th vertex and the v-th vertex of vertices_[]
+  // (inherited from VolumeMeshRefiner).
+  using Edge = SortedPair<int>;
+
+  // We cache the cost the potential edge contraction here, so we don't have
+  // to recalculate Quadric Error Measure again when we inspect an edge
+  // shared by multiple tetrahedra.
+  std::map<Edge, double> edge_cost_;
+
+  // Type of the stored elements in our priority queue. We want to rank
+  // the tetrahedra by the cost of their edge contraction.
+  //
+  // It is the current design choice to store tetrahedra, not edges, in
+  // the priority queue. The reason is that our main data structures are
+  // based on tetrahedra not edges.  We update tetrahedra_[] and associated
+  // data when we change the mesh.  We don't want to maintain another
+  // data structure for edges yet.
+  struct TetrahedronCost {
+    // Index of the tetrahedron. For example, is_tet_deleted_.at(tet) informs
+    // whether the tetrahedron was deleted already, and tetrahedra_[tet] is
+    // the VolumeElement representation of the tetrahedron (tetrahedra_ is
+    // an inherited member from VolumeMeshRefiner).
+    int tet;
+
+    // The minimum cost of contracting an edge of the tetrahedron. It is the
+    // minimum of the edge-contraction errors of the six edges of the
+    // tetrahedron.
+    //
+    //  cost = min {
+    //           Quadric Error Measure of contracting Edge(vi, vj);
+    //           where vi = tetrahedra_[tet].vertex(i), and
+    //           vj = tetrahedra_[tet].vertex(j)
+    //           : 0 <= i < j < 4
+    //         }
+    double cost;
+
+    bool operator>(const TetrahedronCost& other) const {
+      return cost > other.cost;
+    }
+  };
+
+  // By default, the priority_queue puts the highest-priority element at
+  // the top.  However, we want the lowest cost at the top, so we use the
+  // std::greater<>.
+  std::priority_queue<TetrahedronCost, std::vector<TetrahedronCost>,
+                      std::greater<TetrahedronCost>>
+      tetrahedron_queue_;
+
+  void InitializeTetrahedronQueue();
 
   //--------------------------------------------------------
   // Visual debugging facilities

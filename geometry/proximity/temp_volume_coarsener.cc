@@ -539,6 +539,7 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
                      input_mesh_.CalcMinTetrahedralVolume());
 
   InitializeVertexQEFs();
+  InitializeTetrahedronQueue();
 
   int num_total_edge_contraction = 0;
   // Each edge contraction should remove at least two tetrahedra.
@@ -712,6 +713,197 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
 
   return coarsen_mesh;
 }
+
+void VolumeMeshCoarsener::InitializeTetrahedronQueue() {
+  while (!tetrahedron_queue_.empty()) tetrahedron_queue_.pop();
+}
+
+#if 0
+VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
+  const int num_input_tetrahedra = tetrahedra_.size();
+  drake::log()->info("Number of input tetrahedra = {}.", num_input_tetrahedra);
+  const int target_num_tetrahedra =
+      static_cast<int>(fraction * num_input_tetrahedra);
+  drake::log()->info("Target number of tetrahedra = {}.",
+                     target_num_tetrahedra);
+  drake::log()->info("input_mesh_.CalcMinTetrahedralVolume() = {}.",
+                     input_mesh_.CalcMinTetrahedralVolume());
+
+  InitializeVertexQEFs();
+
+  int num_total_edge_contraction = 0;
+  // Each edge contraction should remove at least two tetrahedra.
+  const int num_iterations = (num_input_tetrahedra - target_num_tetrahedra) / 2;
+  constexpr int kNumReports = 10;
+  const int report_period =
+      num_iterations >= kNumReports ? num_iterations / kNumReports : 1;
+  int num_perform_iterations = 0;
+  for (int iteration = 0; iteration < num_iterations; ++iteration) {
+    // If we exhaust all iterations, both num_performed_iterations and
+    // `iteration` variables will become num_iterations.
+    // If we exit early, num_performed_iterations will be 1 + `iteration`
+    // because `iteration` starts at 0 not 1.
+    ++num_perform_iterations;
+    if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
+      break;
+    }
+    bool found_edge_to_contract = false;
+    QEF Q_of_edge_to_contract;
+    int selected_vertex0 = -1;
+    int selected_vertex1 = -1;
+    Vector3d optimal_point{0, 0, 0};
+    double optimal_value{0};
+    // Vertices of the last candidate edges to contract that got rejection.
+    int last_rejected_vi = -1;
+    int last_rejected_vj = -1;
+    double min_edge_error = std::numeric_limits<double>::max();
+    double max_edge_error = std::numeric_limits<double>::min();
+    for (int tet = 0; tet < num_input_tetrahedra; ++tet) {
+      if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
+        break;
+      }
+      if (is_tet_deleted_[tet]) {
+        continue;
+      }
+      const VolumeElement& tetrahedron = tetrahedra_[tet];
+      // Check for a valid edge contraction of edge(i,j) of the tetrahedron.
+      for (std::pair<int, int> ij : std::vector<std::pair<int, int>>{
+          {0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}) {
+        int vi = tetrahedron.vertex(ij.first);
+        int vj = tetrahedron.vertex(ij.second);
+        DRAKE_THROW_UNLESS(!is_vertex_deleted_[vi]);
+        DRAKE_THROW_UNLESS(!is_vertex_deleted_[vj]);
+
+        QEF edge_Q = QEF::Combine(vertex_Qs_[vi], vertex_Qs_[vj]);
+        Vector3d xyz{edge_Q.p.x(), edge_Q.p.y(), edge_Q.p.z()};
+        double value = edge_Q.p.w();
+        if (edge_Q.e > max_edge_error) {
+          max_edge_error = edge_Q.e;
+        }
+        if (IsEdgeContractible(vi, vj, xyz, value)) {
+          if (edge_Q.e < min_edge_error) {
+            found_edge_to_contract = true;
+            min_edge_error = edge_Q.e;
+            Q_of_edge_to_contract = edge_Q;
+            selected_vertex0 = vi;
+            selected_vertex1 = vj;
+            optimal_point = xyz;
+            optimal_value = value;
+          }
+        } else {
+          last_rejected_vi = vi;
+          last_rejected_vj = vj;
+        }
+      }  // for (std::pair<int, int> ij
+    }  // for (int tet
+    if (found_edge_to_contract) {
+      if (selected_vertex0 == 206 && selected_vertex1 == 45) {
+        WriteTetrahedraBeforeEdgeContraction(selected_vertex0, selected_vertex1,
+                                             "coarsen");
+      }
+
+      ContractEdge(selected_vertex0, selected_vertex1, optimal_point,
+                   optimal_value);
+      vertex_Qs_[selected_vertex0] = Q_of_edge_to_contract;
+      vertex_Qs_[selected_vertex1] = Q_of_edge_to_contract;
+      ++num_total_edge_contraction;
+
+      // vertex1 gave all its tetrahedra to vertex0.
+      if (selected_vertex0 == 206 && selected_vertex1 == 45) {
+        WriteTetrahedraAfterEdgeContraction(selected_vertex0, selected_vertex1,
+                                            "coarsen");
+      }
+
+      if (volume_to_boundary_.contains(selected_vertex0) ||
+          volume_to_boundary_.contains(selected_vertex1)) {
+        double offset_distance = 0;
+        int count_num_boundary_vertices = 0;
+        if (volume_to_boundary_.contains(selected_vertex0)) {
+          offset_distance += signed_distances_[selected_vertex0];
+          ++count_num_boundary_vertices;
+        }
+        if (volume_to_boundary_.contains(selected_vertex1)) {
+          offset_distance += signed_distances_[selected_vertex1];
+          ++count_num_boundary_vertices;
+        }
+        DRAKE_THROW_UNLESS(count_num_boundary_vertices != 0);
+        offset_distance /= count_num_boundary_vertices;
+
+        const Vector4d proj = CalcProjectionToOffsetSurface(
+            optimal_point, original_boundary_, offset_distance);
+        const Vector3d position{proj.x(), proj.y(), proj.z()};
+
+        if (IsVertexMovable(selected_vertex0, position)) {
+          const Vector4d new_p{proj.x(), proj.y(), proj.z(), proj.w()};
+          QEF moved_Q = Q_of_edge_to_contract.WithMinimizerMoveTo(new_p);
+
+          vertex_Qs_[selected_vertex0] = moved_Q;
+          vertex_Qs_[selected_vertex1] = moved_Q;
+
+          const double sdf = proj.w();
+          vertices_[selected_vertex0] = position;
+          vertices_[selected_vertex1] = position;
+          signed_distances_[selected_vertex0] = sdf;
+          signed_distances_[selected_vertex1] = sdf;
+        }
+
+        // Double-check that all tetrahedra has positive volumes.
+        for (int tet : vertex_to_tetrahedra_[selected_vertex0]) {
+          DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_,
+                                                   vertices_) >= kTinyVolume_);
+        }
+      }
+    } else {  // !found_edge_to_contract
+      WriteTetrahedraBeforeEdgeContraction(last_rejected_vi, last_rejected_vj,
+                                           "coarsen_reject");
+    }
+
+    if (iteration % report_period == 0) {
+      drake::log()->info("");
+      drake::log()->info("iteration {}, max_edge_error = {}", iteration,
+                         max_edge_error);
+      if (found_edge_to_contract) {
+        drake::log()->info("Contracted edge with min_edge_error = {}",
+                           min_edge_error);
+      }
+      drake::log()->info(
+          "num_total_edge_contraction = {}, "
+          "num_tet_deleted_ = {}, "
+          "num_input_tetrahedra - num_tet_deleted_ = {}",
+          num_total_edge_contraction, num_tet_deleted_,
+          num_input_tetrahedra - num_tet_deleted_);
+    }
+    if (!found_edge_to_contract) {
+      break;
+    }
+  }  // for iteration
+  drake::log()->info("");
+  drake::log()->info("End iterations: num_perform_iterations = {}",
+                     num_perform_iterations);
+  drake::log()->info("");
+  drake::log()->info("Number of edge contractions = {}",
+                     num_total_edge_contraction);
+  drake::log()->info("Number of deleted tetrahedra = {}", num_tet_deleted_);
+
+  std::vector<VolumeElement> valid_tetrahedra;
+  for (int tet = 0; tet < ssize(tetrahedra_); ++tet) {
+    if (!is_tet_deleted_[tet]) {
+      valid_tetrahedra.push_back(tetrahedra_[tet]);
+    }
+  }
+
+  const VolumeMesh<double> coarsen_mesh =
+      CompactMesh(valid_tetrahedra, vertices_);
+
+  drake::log()->info(
+      "Number of output tetrahedra: coarsen_mesh.num_elements() = {}",
+      coarsen_mesh.num_elements());
+  drake::log()->info("coarsen_mesh.CalcMinTetrahedralVolume() = {}",
+                     coarsen_mesh.CalcMinTetrahedralVolume());
+
+  return coarsen_mesh;
+}
+#endif
 
 VolumeMesh<double> VolumeMeshCoarsener::CompactMesh(
     const std::vector<VolumeElement>& tetrahedra,
