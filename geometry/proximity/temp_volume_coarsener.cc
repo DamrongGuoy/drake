@@ -162,6 +162,19 @@ bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
   DRAKE_THROW_UNLESS(0 <= v0 && v0 < ssize(signed_distances_));
   DRAKE_THROW_UNLESS(0 <= v1 && v1 < ssize(signed_distances_));
 
+  // Prohibit edge contraction between a boundary vertex and a non-boundary
+  // vertex.
+  if (volume_to_boundary_.contains(v0)) {
+    if (!volume_to_boundary_.contains(v1)) {
+      return false;
+    }
+  }
+  if (volume_to_boundary_.contains(v1)) {
+    if (!volume_to_boundary_.contains(v0)) {
+      return false;
+    }
+  }
+
   // Prohibit edge contraction to the new position with different sign of
   // the new scalar value.
   if ((new_scalar < 0 && signed_distances_[v0] > 0) ||
@@ -238,6 +251,12 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
   // this function.
   DRAKE_THROW_UNLESS(IsEdgeContractible(v0, v1, new_position, new_scalar));
 
+  // Save old parts of the mesh before edge contraction.
+  const VolumeMesh<double> star_v0_before = DebugTetrahedraOfVertex(v0);
+  const VolumeMesh<double> star_v1_before = DebugTetrahedraOfVertex(v1);
+  const VolumeMesh<double> star_v0v1_before =
+      DebugTetrahedraOfBothVertex(v0, v1);
+
   vertices_[v0] = new_position;
   vertices_[v1] = new_position;
   signed_distances_[v0] = new_scalar;
@@ -310,9 +329,12 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
   // 2. didn't shrink beyond a factor of 10 after the edge contraction.
   const double min_tet_volume_after = CalcMinIncidentTetrahedronVolume(v0);
   DRAKE_THROW_UNLESS(min_tet_volume_after >= kTinyVolume_);
-  if (!(min_tet_volume_before / min_tet_volume_after < 10.0)) {
-    WriteTetrahedraAfterEdgeContraction(v0, v1, "ContractEdge_shrink10X");
-  }
+  // if (!(min_tet_volume_before / min_tet_volume_after < 10.0)) {
+  //   WriteSavedTetrahedraBeforeEdgeContraction(v0, v1, star_v0v1_before,
+  //                                        "ContractEdge_before_shrink10X");
+  //   WriteTetrahedraAfterEdgeContraction(v0, v1,
+  //   "ContractEdge_after_shrink10X");
+  // }
   // DRAKE_THROW_UNLESS(min_tet_volume_before / min_tet_volume_after < 10.0);
 }
 
@@ -714,13 +736,17 @@ VolumeMesh<double> VolumeMeshCoarsener::CompactMesh(
 // Visual debugging facilities
 //--------------------------------------------------------
 
-void VolumeMeshCoarsener::WriteTetrahedraOfVertex(
-    int v0, const std::string& file_name) {
+VolumeMesh<double> VolumeMeshCoarsener::DebugTetrahedraOfVertex(int v0) const {
   std::vector<VolumeElement> tetrahedra_to_write;
   for (const int tet : vertex_to_tetrahedra_.at(v0)) {
     tetrahedra_to_write.push_back(tetrahedra_.at(tet));
   }
-  WriteVolumeMeshToVtk(file_name, CompactMesh(tetrahedra_to_write, vertices_),
+  return CompactMesh(tetrahedra_to_write, vertices_);
+}
+
+void VolumeMeshCoarsener::WriteTetrahedraOfVertex(
+    int v0, const std::string& file_name) {
+  WriteVolumeMeshToVtk(file_name, DebugTetrahedraOfVertex(v0),
                        "VolumeMeshCoarsener::WriteTetrahedraOfVertex");
 }
 
@@ -740,14 +766,19 @@ void VolumeMeshCoarsener::WriteTetrahedraOfFirstExcludeSecond(
       "VolumeMeshCoarsener::WriteTetrahedraOfFirstExcludeSecond");
 }
 
-void VolumeMeshCoarsener::WriteTetrahedraOfBothVertices(
-    int first_vertex, int second_vertex, const std::string& file_name) {
+VolumeMesh<double> VolumeMeshCoarsener::DebugTetrahedraOfBothVertex(
+    int v0, int v1) const {
   std::vector<VolumeElement> tetrahedra_to_write;
-  for (const int tet :
-       VolumeMeshRefiner::GetTetrahedraOnEdge(first_vertex, second_vertex)) {
+  for (const int tet : VolumeMeshRefiner::GetTetrahedraOnEdge(v0, v1)) {
     tetrahedra_to_write.push_back(tetrahedra_.at(tet));
   }
-  WriteVolumeMeshToVtk(file_name, CompactMesh(tetrahedra_to_write, vertices_),
+  return CompactMesh(tetrahedra_to_write, vertices_);
+}
+
+void VolumeMeshCoarsener::WriteTetrahedraOfBothVertices(
+    int first_vertex, int second_vertex, const std::string& file_name) {
+  WriteVolumeMeshToVtk(file_name,
+                       DebugTetrahedraOfBothVertex(first_vertex, second_vertex),
                        "VolumeMeshCoarsener::WriteTetrahedraOfBothVertices");
 }
 
@@ -762,6 +793,15 @@ void VolumeMeshCoarsener::WriteTetrahedraBeforeEdgeContraction(
   WriteTetrahedraOfBothVertices(
       v0, v1,
       fmt::format("{}_before_v{}_and_v{}_tets.vtk", prefix_file_name, v0, v1));
+}
+
+void VolumeMeshCoarsener::WriteSavedTetrahedraBeforeEdgeContraction(
+    int v0, int v1, const VolumeMesh<double>& tetrahedra_on_edge_v0_v1,
+    const std::string& prefix_file_name) {
+  WriteVolumeMeshToVtk(
+      fmt::format("{}_before_v{}_and_v{}.vtk", prefix_file_name, v0, v1),
+      tetrahedra_on_edge_v0_v1,
+      "VolumeMeshCoarsener::WriteTetrahedraBeforeEdgeContraction");
 }
 
 void VolumeMeshCoarsener::WriteTetrahedraAfterEdgeContraction(
@@ -877,6 +917,23 @@ Vector4d QEF::CalcCombinedMinimizer(const QEF& Q1, const QEF& Q2) {
     x += (d / t);  // Update solution vector, x = x + d/(dᵀAd)
   }
 
+  // Constrain x to be between p1 and p2 inclusively.
+  {
+    const Vector4d p12 = p2 - p1;
+    if (p12.norm() < 1e-14) {
+      x = p1;
+    } else {
+      const double w = (x - p1).dot(p12) / p12.dot(p12);
+      if (w <= 0) {
+        x = p1;
+      } else if (w < 1) {
+        x = (1 - w) * p1 + w * p2;
+      } else {
+        x = p2;
+      }
+    }
+  }
+
   return x;
 }
 
@@ -943,6 +1000,7 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
   // Outer product of 4-vector n gives the 4x4 symmetric matrix A.
   SymMat4 A = SymMat4::FromOuterProductOfVector4d(n);
 
+#if 0
   // Multiply A by the volume of the tetrahedron gives the fundamental
   // quadric matrix with the units of its coefficients in cubic meters.
   const double tetrahedron_volume =
@@ -951,6 +1009,7 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
   A *= tetrahedron_volume;
   // Divide the tetrahedrn's quadric matrix to its 4 vertices equally.
   A /= 4.0;
+#endif
 
   vertex_Qs_[v0].A += A;
   vertex_Qs_[v1].A += A;
@@ -986,9 +1045,11 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
   SymMat4 A = SymMat4::Identity() - SymMat4::FromOuterProductOfVector4d(e1) -
               SymMat4::FromOuterProductOfVector4d(e2);
 
+#if 0
   // Multiply by area of the triangle and share (/3) it among three vertices.
   // After this step, A has units in square meters.
   A *= support_boundary_mesh_.area(boundary_tri) / 3.0;
+#endif
 
   // Set a large multiplicative weight to preserve boundary, so the code will
   // contract non-boundary edges first. vtkUnstructuredGridQuadricDecimation
