@@ -328,7 +328,7 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   //--------------------------------------------------------
   // Visual debugging facilities
   //--------------------------------------------------------
-
+ protected:
   VolumeMesh<double> DebugTetrahedraOfVertex(int v0) const;
   VolumeMesh<double> DebugTetrahedraOfBothVertex(int v0, int v1) const;
 
@@ -353,10 +353,19 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   void WriteTetrahedraAfterEdgeContraction(int v0, int v1,
                                            const std::string& prefix_file_name);
 
+ public:
+  // Callers can use this function for debugging.
+  // - Skip near-zero volume tetrahedra, and
+  // - Flip each non-near-zero negative-volume tetrahedron
+  //   to positive; however, it will create overlapping tetrahedra.
+  static VolumeMesh<double> HackNegativeToPositiveVolume(
+      const VolumeMesh<double>& mesh);
+
   //--------------------------------------------------------
   // Functions and data related to Quadric Error Metrics
   //--------------------------------------------------------
 
+ protected:
   // Update QEF of the four vertices of the tet-th tetrahedron.
   //
   // The fundamental quadric matrix A of the tetrahedron is the
