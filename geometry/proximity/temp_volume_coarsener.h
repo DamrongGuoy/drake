@@ -1,5 +1,6 @@
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -141,7 +142,7 @@ struct QEF {
   }
 
   double Evaluate(const Eigen::Vector4d& x) const {
-    return (x - p).dot(A * (x-p)) + e;
+    return (x - p).dot(A * (x - p)) + e;
   }
 
   // Experimental feature to move the minimizer. For example, when we
@@ -285,7 +286,8 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // interpolated signed distances.
   //--------------------------------------------------------
 
-  const double kTinyVolume_ = 1e-12;  // 0.1-millimeter cube
+  // const double kTinyVolume_ = 1e-12;  // 0.1-millimeter cube
+  const double kTinyVolume_ = std::numeric_limits<double>::lowest();
 
   // signed_distances[i] := the signed distance value of the i-th vertex.
   // As we perform edge contraction, the value of `signed_distances[i]` can
@@ -327,6 +329,9 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // Visual debugging facilities
   //--------------------------------------------------------
 
+  VolumeMesh<double> DebugTetrahedraOfVertex(int v0) const;
+  VolumeMesh<double> DebugTetrahedraOfBothVertex(int v0, int v1) const;
+
   void WriteTetrahedraOfVertex(int v0, const std::string& file_name);
   void WriteTetrahedraOfFirstExcludeSecond(int first_vertex, int second_vertex,
                                            const std::string& file_name);
@@ -335,9 +340,16 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
 
   void WriteTetrahedraBeforeEdgeContraction(
       int v0, int v1, const std::string& prefix_file_name);
+  // This version accepts the tetrahedra on the edge v0v1 before the edge
+  // contraction happens.  The parameter v0 and v1 only go into the output
+  // file name without bearing on the output mesh.
+  void WriteSavedTetrahedraBeforeEdgeContraction(
+      int v0, int v1, const VolumeMesh<double>& tetrahedra_on_edge_v0_v1,
+      const std::string& prefix_file_name);
+
   // After edge contraction, v0 gains all tetrahedra from v1.
-  // The parameter v1 goes into the output file name, but it's not used for
-  // looking up incident tetrahedra.
+  // The parameter v1 only goes into the output file name without bearing
+  // on the incident tetrahedra.
   void WriteTetrahedraAfterEdgeContraction(int v0, int v1,
                                            const std::string& prefix_file_name);
 

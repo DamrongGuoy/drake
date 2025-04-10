@@ -1869,6 +1869,7 @@ drake_cc_googletest(
 
 drake_cc_googletest(
     name = "temp_volume_coarsener_test",
+    size = "medium",
     data = [
         "//geometry:test_obj_files",
         "//geometry:test_vtk_files",
