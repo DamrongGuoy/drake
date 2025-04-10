@@ -184,6 +184,10 @@ bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
     return false;
   }
 
+  return true;
+
+  unused(new_position);
+#if 0
   // Pretend to change both v0 and v1 to the new position and then check
   // whether the incident tetrahedra still have at least a tiny positive
   // volumes.
@@ -209,6 +213,7 @@ bool VolumeMeshCoarsener::IsEdgeContractible(const int v0, const int v1,
   signed_distances_[v1] = saved_value1;
 
   return is_contractible0 && is_contractible1;
+#endif
 }
 
 bool VolumeMeshCoarsener::IsVertexMovable(int vertex,
@@ -808,6 +813,29 @@ void VolumeMeshCoarsener::WriteTetrahedraAfterEdgeContraction(
     const int v0, const int v1, const std::string& prefix_file_name) {
   WriteTetrahedraOfVertex(
       v0, fmt::format("{}_after_v{}_v{}_tets.vtk", prefix_file_name, v0, v1));
+}
+
+VolumeMesh<double> VolumeMeshCoarsener::HackNegativeToPositiveVolume(
+    const VolumeMesh<double>& mesh) {
+  std::vector<VolumeElement> positive_tetrahedra;
+  for (int e = 0; e < mesh.num_elements(); ++e) {
+    VolumeElement tet = mesh.tetrahedra()[e];
+    const double tet_volume = mesh.CalcTetrahedronVolume(e);
+    if (std::abs(tet_volume) < 1e-13) {
+      continue;
+    }
+    if (mesh.CalcTetrahedronVolume(e) < 0) {
+      int v0 = tet.vertex(0);
+      int v1 = tet.vertex(1);
+      int v2 = tet.vertex(2);
+      int v3 = tet.vertex(3);
+      // Swap v0 and v1 to flip the signed volume.
+      tet = VolumeElement(v1, v0, v2, v3);
+    }
+    positive_tetrahedra.push_back(tet);
+  }
+  return {std::move(positive_tetrahedra),
+          std::vector<Vector3d>(mesh.vertices())};
 }
 
 //-------------------------------------------------------------------------

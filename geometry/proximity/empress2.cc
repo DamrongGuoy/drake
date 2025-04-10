@@ -72,6 +72,15 @@ int do_main() {
       coarse_mesh_M.num_elements(), coarse_mesh_M.num_vertices(),
       coarse_mesh_M.CalcMinTetrahedralVolume());
 
+  if (coarse_mesh_M.CalcMinTetrahedralVolume() < 1e-14) {
+    drake::log()->warn(
+        "the coarsen mesh has problematic tetrahedra. "
+        "We will remove them with chances of scars "
+        "(overlapping tetrahedra or skinny holes).");
+    coarse_mesh_M =
+        VolumeMeshCoarsener::HackNegativeToPositiveVolume(coarse_mesh_M);
+  }
+
   VolumeMeshFieldLinear<double, double> coarse_sdf_M =
       MakeEmPressSDField(coarse_mesh_M, surface_mesh_M);
   const std::filesystem::path coarse_file(FLAGS_output + "_coarse.vtk");
@@ -100,7 +109,7 @@ int do_main() {
 int main(int argc, char* argv[]) {
   gflags::SetUsageMessage(R"""(
 
-empress1 -input [file.vtk] -original [file.obj] -output [base_name]
+empress2 -input [file.vtk] -original [file.obj] -output [base_name]
         -fraction [number > 0, <= 1, e.g., 0.5]
 
 The option -helpshort will explain the above parameters.
