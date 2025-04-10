@@ -203,25 +203,16 @@ GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_0064) {
 GTEST_TEST(VolumeMeshCoarsenerTest, Box) {
   // About the size of a computer mouse.
   const Box box_M{0.07, 0.10, 0.04};
-  const VolumeMesh<double> box_mesh_M = MakeBoxVolumeMesh<double>(box_M, 0.01);
-  EXPECT_EQ(box_mesh_M.num_vertices(), 495);
-  EXPECT_EQ(box_mesh_M.num_elements(), 1920);
-
-  // Hydroelastic modulus = 0.02 (half thickness of the box) creates the
-  // highest pressure = +0.02 at the center rectangle.
-  const VolumeMeshFieldLinear<double, double> pressure_M =
-      MakeBoxPressureField<double>(box_M, &box_mesh_M, 0.02);
-  // Assign the negative of pressure values to signed distance values.
-  // The pressure and the signed distance have opposite sign conventions.
-  std::vector<double> signed_distances;
-  for (const double p : pressure_M.values()) {
-    signed_distances.push_back(-p);
-  }
-  const VolumeMeshFieldLinear<double, double> sdf_M{std::move(signed_distances),
-                                                    &box_mesh_M};
+  const Box support_box_M{box_M.size() + Vector3d::Constant(0.01)};
+  const VolumeMesh<double> box_mesh_M =
+      MakeBoxVolumeMesh<double>(support_box_M, 0.01);
   const TriangleSurfaceMesh<double> original_surface_M =
-      ConvertVolumeToSurfaceMesh(box_mesh_M);
+      MakeBoxSurfaceMeshWithSymmetricTriangles<double>(box_M);
+  EXPECT_EQ(box_mesh_M.num_vertices(), 648);
+  EXPECT_EQ(box_mesh_M.num_elements(), 2640);
 
+  const VolumeMeshFieldLinear<double, double> sdf_M =
+      MakeEmPressSDField(box_mesh_M, original_surface_M);
   // For debugging.
   WriteVolumeMeshFieldLinearToVtk("box_sdf.vtk", "SignedDistance(meter)", sdf_M,
                                   "VolumeMeshCoarsener coarsen");
