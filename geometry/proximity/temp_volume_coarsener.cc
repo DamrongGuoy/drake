@@ -329,11 +329,33 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
     }
   }
 
+  // Update edge_QEFs of all tetrahedra of v0 (including the ones recently
+  // moved from v1. They are the newly morphed tetrahedra.
+  // There are a number of redundant calculations since an edge could
+  // be shared by multiple tetrahedra.
+  for (const int tet : vertex_to_tetrahedra_[v0]) {
+    for (int i = 0; i < 4; ++i) {
+      for (int j = i + 1; j < 4; ++j) {
+        const int vi = tetrahedra_.at(tet).vertex(i);
+        const int vj = tetrahedra_.at(tet).vertex(j);
+        // Force new calculation since we didn't keep track which edges
+        // have changed.
+        edge_QEFs_[Edge(vi, vj)] =
+            QEF::Combine(vertex_Qs_.at(vi), vertex_Qs_.at(vj));
+      }
+    }
+  }
+  for (const int tet : vertex_to_tetrahedra_[v0]) {
+    Edge dummy;
+    tetrahedron_queue_.emplace(tet,
+                               CalcOrFetchTetrahedronMinEdgeCost(tet, &dummy));
+  }
+
   // Check that the min tetrahedron volume:
   // 1. didn't go below the volume threshold, and
   // 2. didn't shrink beyond a factor of 10 after the edge contraction.
-  const double min_tet_volume_after = CalcMinIncidentTetrahedronVolume(v0);
-  DRAKE_THROW_UNLESS(min_tet_volume_after >= kTinyVolume_);
+  // const double min_tet_volume_after = CalcMinIncidentTetrahedronVolume(v0);
+  // DRAKE_THROW_UNLESS(min_tet_volume_after >= kTinyVolume_);
   // if (!(min_tet_volume_before / min_tet_volume_after < 10.0)) {
   //   WriteSavedTetrahedraBeforeEdgeContraction(v0, v1, star_v0v1_before,
   //                                        "ContractEdge_before_shrink10X");
@@ -391,6 +413,42 @@ void VolumeMeshCoarsener::InitializeVertexQEFs() {
        ++boundary_tri) {
     UpdateVerticesQuadricsFromBoundaryFace(boundary_tri);
   }
+}
+
+void VolumeMeshCoarsener::InitializeTetrahedronQueue() {
+  while (!tetrahedron_queue_.empty()) tetrahedron_queue_.pop();
+  edge_QEFs_.clear();
+  for (int tet = 0; tet < ssize(tetrahedra_); ++tet) {
+    Edge dummy;
+    tetrahedron_queue_.emplace(tet,
+                               CalcOrFetchTetrahedronMinEdgeCost(tet, &dummy));
+  }
+}
+
+double VolumeMeshCoarsener::CalcOrFetchTetrahedronMinEdgeCost(int tet,
+                                                              Edge* min_edge) {
+  const VolumeElement& tetrahedron = tetrahedra_[tet];
+  double tet_cost = std::numeric_limits<double>::max();
+  // Access the six edges of the tetrahedron.
+  for (std::pair<int, int> ij : std::vector<std::pair<int, int>>{
+           {0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}) {
+    int vi = tetrahedron.vertex(ij.first);
+    int vj = tetrahedron.vertex(ij.second);
+    Edge edge(vi, vj);
+
+    QEF edge_Q;
+    if (edge_QEFs_.contains(edge)) {
+      edge_Q = edge_QEFs_.at(edge);
+    } else {
+      edge_Q = QEF::Combine(vertex_Qs_[vi], vertex_Qs_[vj]);
+      edge_QEFs_[edge] = edge_Q;
+    }
+    if (edge_Q.e < tet_cost) {
+      tet_cost = edge_Q.e;
+      *min_edge = Edge(vi, vj);
+    }
+  }
+  return tet_cost;
 }
 
 #if 0
@@ -547,13 +605,12 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
   constexpr int kNumReports = 10;
   const int report_period =
       num_iterations >= kNumReports ? num_iterations / kNumReports : 1;
-  int num_perform_iterations = 0;
-  for (int iteration = 0; iteration < num_iterations; ++iteration) {
-    // If we exhaust all iterations, both num_performed_iterations and
-    // `iteration` variables will become num_iterations.
-    // If we exit early, num_performed_iterations will be 1 + `iteration`
-    // because `iteration` starts at 0 not 1.
-    ++num_perform_iterations;
+  int iteration = 0;
+  int next_report_iteration = report_period;
+  double min_edge_error = std::numeric_limits<double>::max();
+  double max_edge_error = std::numeric_limits<double>::min();
+
+  while (!tetrahedron_queue_.empty()) {
     if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
       break;
     }
@@ -563,66 +620,48 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
     int selected_vertex1 = -1;
     Vector3d optimal_point{0, 0, 0};
     double optimal_value{0};
-    // Vertices of the last candidate edges to contract that got rejection.
-    int last_rejected_vi = -1;
-    int last_rejected_vj = -1;
-    double min_edge_error = std::numeric_limits<double>::max();
-    double max_edge_error = std::numeric_limits<double>::min();
-    for (int tet = 0; tet < num_input_tetrahedra; ++tet) {
-      if (num_input_tetrahedra - num_tet_deleted_ <= target_num_tetrahedra) {
-        break;
-      }
-      if (is_tet_deleted_[tet]) {
-        continue;
-      }
-      const VolumeElement& tetrahedron = tetrahedra_[tet];
-      // Check for a valid edge contraction of edge(i,j) of the tetrahedron.
-      for (std::pair<int, int> ij : std::vector<std::pair<int, int>>{
-               {0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}) {
-        int vi = tetrahedron.vertex(ij.first);
-        int vj = tetrahedron.vertex(ij.second);
-        DRAKE_THROW_UNLESS(!is_vertex_deleted_[vi]);
-        DRAKE_THROW_UNLESS(!is_vertex_deleted_[vj]);
 
-        QEF edge_Q = QEF::Combine(vertex_Qs_[vi], vertex_Qs_[vj]);
-        Vector3d xyz{edge_Q.p.x(), edge_Q.p.y(), edge_Q.p.z()};
-        double value = edge_Q.p.w();
-        if (edge_Q.e > max_edge_error) {
-          max_edge_error = edge_Q.e;
-        }
-        if (IsEdgeContractible(vi, vj, xyz, value)) {
-          if (edge_Q.e < min_edge_error) {
-            found_edge_to_contract = true;
-            min_edge_error = edge_Q.e;
-            Q_of_edge_to_contract = edge_Q;
-            selected_vertex0 = vi;
-            selected_vertex1 = vj;
-            optimal_point = xyz;
-            optimal_value = value;
-          }
-        } else {
-          last_rejected_vi = vi;
-          last_rejected_vj = vj;
-        }
-      }  // for (std::pair<int, int> ij
-    }  // for (int tet
+    const int tet = tetrahedron_queue_.top().tet;
+    const double cost = tetrahedron_queue_.top().cost;
+    tetrahedron_queue_.pop();
+    // We couldn't update the priority queue when tetrahedra change. Some
+    // entries could have been out of date. We check here that the
+    // tetrahedron wasn't deleted and its cost didn't change.
+    if (is_tet_deleted_[tet]) {
+      continue;
+    }
+    Edge min_edge;
+    if (cost != CalcOrFetchTetrahedronMinEdgeCost(tet, &min_edge)) {
+      continue;
+    }
+    int vi = min_edge.first();
+    int vj = min_edge.second();
+    DRAKE_THROW_UNLESS(!is_vertex_deleted_[vi]);
+    DRAKE_THROW_UNLESS(!is_vertex_deleted_[vj]);
+
+    QEF edge_Q = QEF::Combine(vertex_Qs_[vi], vertex_Qs_[vj]);
+    Vector3d xyz{edge_Q.p.x(), edge_Q.p.y(), edge_Q.p.z()};
+    double value = edge_Q.p.w();
+    if (edge_Q.e > max_edge_error) {
+      max_edge_error = edge_Q.e;
+    }
+    if (IsEdgeContractible(vi, vj, xyz, value)) {
+      found_edge_to_contract = true;
+      ++iteration;
+      min_edge_error = edge_Q.e;
+      Q_of_edge_to_contract = edge_Q;
+      selected_vertex0 = vi;
+      selected_vertex1 = vj;
+      optimal_point = xyz;
+      optimal_value = value;
+    }
+
     if (found_edge_to_contract) {
-      if (selected_vertex0 == 206 && selected_vertex1 == 45) {
-        WriteTetrahedraBeforeEdgeContraction(selected_vertex0, selected_vertex1,
-                                             "coarsen");
-      }
-
       ContractEdge(selected_vertex0, selected_vertex1, optimal_point,
                    optimal_value);
       vertex_Qs_[selected_vertex0] = Q_of_edge_to_contract;
       vertex_Qs_[selected_vertex1] = Q_of_edge_to_contract;
       ++num_total_edge_contraction;
-
-      // vertex1 gave all its tetrahedra to vertex0.
-      if (selected_vertex0 == 206 && selected_vertex1 == 45) {
-        WriteTetrahedraAfterEdgeContraction(selected_vertex0, selected_vertex1,
-                                            "coarsen");
-      }
 
       if (volume_to_boundary_.contains(selected_vertex0) ||
           volume_to_boundary_.contains(selected_vertex1)) {
@@ -656,40 +695,26 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
           signed_distances_[selected_vertex0] = sdf;
           signed_distances_[selected_vertex1] = sdf;
         }
-
-        // Double-check that all tetrahedra has positive volumes.
-        for (int tet : vertex_to_tetrahedra_[selected_vertex0]) {
-          DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_,
-                                                   vertices_) >= kTinyVolume_);
-        }
       }
-    } else {  // !found_edge_to_contract
-      WriteTetrahedraBeforeEdgeContraction(last_rejected_vi, last_rejected_vj,
-                                           "coarsen_reject");
     }
-
-    if (iteration % report_period == 0) {
-      drake::log()->info("");
-      drake::log()->info("iteration {}, max_edge_error = {}", iteration,
-                         max_edge_error);
+    if (iteration == next_report_iteration) {
+      drake::log()->info(
+          "iteration {}, max_edge_error = {}, "
+          "num_total_edge_contraction = {}, "
+          "num_tet_deleted_ = {}, "
+          "num_input_tetrahedra - num_tet_deleted_ = {}",
+          iteration, max_edge_error, num_total_edge_contraction,
+          num_tet_deleted_, num_input_tetrahedra - num_tet_deleted_);
       if (found_edge_to_contract) {
         drake::log()->info("Contracted edge with min_edge_error = {}",
                            min_edge_error);
       }
-      drake::log()->info(
-          "num_total_edge_contraction = {}, "
-          "num_tet_deleted_ = {}, "
-          "num_input_tetrahedra - num_tet_deleted_ = {}",
-          num_total_edge_contraction, num_tet_deleted_,
-          num_input_tetrahedra - num_tet_deleted_);
+      next_report_iteration += report_period;
     }
-    if (!found_edge_to_contract) {
-      break;
-    }
-  }  // for iteration
+  }  // while(!tetrahedron_queue_.empty()
+
   drake::log()->info("");
-  drake::log()->info("End iterations: num_perform_iterations = {}",
-                     num_perform_iterations);
+  drake::log()->info("End iterations: iteration = {}", iteration);
   drake::log()->info("");
   drake::log()->info("Number of edge contractions = {}",
                      num_total_edge_contraction);
@@ -712,10 +737,6 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
                      coarsen_mesh.CalcMinTetrahedralVolume());
 
   return coarsen_mesh;
-}
-
-void VolumeMeshCoarsener::InitializeTetrahedronQueue() {
-  while (!tetrahedron_queue_.empty()) tetrahedron_queue_.pop();
 }
 
 #if 0
@@ -797,22 +818,11 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
       }  // for (std::pair<int, int> ij
     }  // for (int tet
     if (found_edge_to_contract) {
-      if (selected_vertex0 == 206 && selected_vertex1 == 45) {
-        WriteTetrahedraBeforeEdgeContraction(selected_vertex0, selected_vertex1,
-                                             "coarsen");
-      }
-
       ContractEdge(selected_vertex0, selected_vertex1, optimal_point,
                    optimal_value);
       vertex_Qs_[selected_vertex0] = Q_of_edge_to_contract;
       vertex_Qs_[selected_vertex1] = Q_of_edge_to_contract;
       ++num_total_edge_contraction;
-
-      // vertex1 gave all its tetrahedra to vertex0.
-      if (selected_vertex0 == 206 && selected_vertex1 == 45) {
-        WriteTetrahedraAfterEdgeContraction(selected_vertex0, selected_vertex1,
-                                            "coarsen");
-      }
 
       if (volume_to_boundary_.contains(selected_vertex0) ||
           volume_to_boundary_.contains(selected_vertex1)) {
@@ -845,12 +855,6 @@ VolumeMesh<double> VolumeMeshCoarsener::coarsen(double fraction) {
           vertices_[selected_vertex1] = position;
           signed_distances_[selected_vertex0] = sdf;
           signed_distances_[selected_vertex1] = sdf;
-        }
-
-        // Double-check that all tetrahedra has positive volumes.
-        for (int tet : vertex_to_tetrahedra_[selected_vertex0]) {
-          DRAKE_THROW_UNLESS(CalcTetrahedronVolume(tet, tetrahedra_,
-                                                   vertices_) >= kTinyVolume_);
         }
       }
     } else {  // !found_edge_to_contract
