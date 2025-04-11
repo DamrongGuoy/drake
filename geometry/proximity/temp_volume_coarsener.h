@@ -338,10 +338,10 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // (inherited from VolumeMeshRefiner).
   using Edge = SortedPair<int>;
 
-  // We cache the cost the potential edge contraction here, so we don't have
-  // to recalculate Quadric Error Measure again when we inspect an edge
-  // shared by multiple tetrahedra.
-  std::map<Edge, double> edge_cost_;
+  // We cache the QEF of the potential edge contraction here, so we don't have
+  // to recalculate it again when we inspect an edge shared by multiple
+  // tetrahedra.
+  std::map<Edge, QEF> edge_QEFs_;
 
   // Type of the stored elements in our priority queue. We want to rank
   // the tetrahedra by the cost of their edge contraction.
@@ -375,6 +375,12 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
     }
   };
 
+  // It has a side effect that the map edge_QEFs_ is updated if the QEFs of
+  // some edges of the tetrahedron wasn't calculated before.
+  //
+  // @param[out] min_edge an edge with the minimum error for contraction.
+  double CalcOrFetchTetrahedronMinEdgeCost(int tet, Edge* min_edge);
+
   // By default, the priority_queue puts the highest-priority element at
   // the top.  However, we want the lowest cost at the top, so we use the
   // std::greater<>.
@@ -382,6 +388,7 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
                       std::greater<TetrahedronCost>>
       tetrahedron_queue_;
 
+  // Assume the Quadric Error Metric is already initialized at the vertices.
   void InitializeTetrahedronQueue();
 
   //--------------------------------------------------------
