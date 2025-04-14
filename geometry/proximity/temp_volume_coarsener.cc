@@ -1047,12 +1047,14 @@ void VolumeMeshCoarsener::WriteTetrahedraAfterEdgeContraction(
 }
 
 VolumeMesh<double> VolumeMeshCoarsener::HackNegativeToPositiveVolume(
-    const VolumeMesh<double>& mesh) {
+    const VolumeMesh<double>& mesh, int* num_negative_volume_tetrahedra) {
   std::vector<VolumeElement> positive_tetrahedra;
+  int count_skip_or_swap = 0;
   for (int e = 0; e < mesh.num_elements(); ++e) {
     VolumeElement tet = mesh.tetrahedra()[e];
     const double tet_volume = mesh.CalcTetrahedronVolume(e);
     if (std::abs(tet_volume) < 1e-13) {
+      ++count_skip_or_swap;
       continue;
     }
     if (mesh.CalcTetrahedronVolume(e) < 0) {
@@ -1062,8 +1064,12 @@ VolumeMesh<double> VolumeMeshCoarsener::HackNegativeToPositiveVolume(
       int v3 = tet.vertex(3);
       // Swap v0 and v1 to flip the signed volume.
       tet = VolumeElement(v1, v0, v2, v3);
+      ++count_skip_or_swap;
     }
     positive_tetrahedra.push_back(tet);
+  }
+  if (num_negative_volume_tetrahedra != nullptr) {
+    *num_negative_volume_tetrahedra = count_skip_or_swap;
   }
   return {std::move(positive_tetrahedra),
           std::vector<Vector3d>(mesh.vertices())};

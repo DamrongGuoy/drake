@@ -431,7 +431,8 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   // - Flip each non-near-zero negative-volume tetrahedron
   //   to positive; however, it will create overlapping tetrahedra.
   static VolumeMesh<double> HackNegativeToPositiveVolume(
-      const VolumeMesh<double>& mesh);
+      const VolumeMesh<double>& mesh,
+      int* num_negative_volume_tetrahedra = nullptr);
 
   //--------------------------------------------------------
   // Functions and data related to Quadric Error Metrics

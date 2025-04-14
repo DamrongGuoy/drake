@@ -141,12 +141,12 @@ GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_1024) {
       VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
 
   EXPECT_LT(coarsen_mesh_M.num_elements(), 1.01 * kTargetNumTetrahedra);
-  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
 
-  if (coarsen_mesh_M.CalcMinTetrahedralVolume() < 0) {
-    coarsen_mesh_M =
-        VolumeMeshCoarsener::HackNegativeToPositiveVolume(coarsen_mesh_M);
-  }
+  EXPECT_LT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
+  int num_negative_volume_tetrahedra = 0;
+  coarsen_mesh_M = VolumeMeshCoarsener::HackNegativeToPositiveVolume(
+      coarsen_mesh_M, &num_negative_volume_tetrahedra);
+  EXPECT_EQ(num_negative_volume_tetrahedra, 75);
 
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
       MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
@@ -192,12 +192,11 @@ GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_0256) {
       VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
 
   EXPECT_LT(coarsen_mesh_M.num_elements(), 1.01 * kTargetNumTetrahedra);
-  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
-
-  if (coarsen_mesh_M.CalcMinTetrahedralVolume() < 0) {
-    coarsen_mesh_M =
-        VolumeMeshCoarsener::HackNegativeToPositiveVolume(coarsen_mesh_M);
-  }
+  EXPECT_LT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
+  int num_negative_volume_tetrahedra = 0;
+  coarsen_mesh_M = VolumeMeshCoarsener::HackNegativeToPositiveVolume(
+      coarsen_mesh_M, &num_negative_volume_tetrahedra);
+  EXPECT_EQ(num_negative_volume_tetrahedra, 29);
 
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
       MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
@@ -237,18 +236,13 @@ GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_0064) {
                                   sdf_M, "VolumeMeshCoarsener coarsen");
 
   const int kTargetNumTetrahedra = 64;
-  const double kFraction = static_cast<double>(kTargetNumTetrahedra) /
-                           ellipsoid_mesh_M.num_elements();
+  const double fraction = static_cast<double>(kTargetNumTetrahedra) /
+                          ellipsoid_mesh_M.num_elements();
   VolumeMesh<double> coarsen_mesh_M =
-      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
+      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(fraction);
 
   EXPECT_LT(coarsen_mesh_M.num_elements(), 1.01 * kTargetNumTetrahedra);
   EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
-
-  if (coarsen_mesh_M.CalcMinTetrahedralVolume() < 0) {
-    coarsen_mesh_M =
-        VolumeMeshCoarsener::HackNegativeToPositiveVolume(coarsen_mesh_M);
-  }
 
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
       MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
@@ -275,18 +269,19 @@ GTEST_TEST(VolumeMeshCoarsenerTest, Box) {
   WriteVolumeMeshFieldLinearToVtk("box_sdf.vtk", "SignedDistance(meter)", sdf_M,
                                   "VolumeMeshCoarsener coarsen");
 
-  const double kFraction = 0.1;
+  const int kTargetNumTetrahedra = 264;
+  const double fraction =
+      static_cast<double>(kTargetNumTetrahedra) / box_mesh_M.num_elements();
   VolumeMesh<double> coarsen_mesh_M =
-      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
-
+      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(fraction);
   EXPECT_LT(coarsen_mesh_M.num_elements(),
-            static_cast<int>(1.01 * kFraction * box_mesh_M.num_elements()));
-  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
+            static_cast<int>(1.01 * kTargetNumTetrahedra));
 
-  if (coarsen_mesh_M.CalcMinTetrahedralVolume() < 0) {
-    coarsen_mesh_M =
-        VolumeMeshCoarsener::HackNegativeToPositiveVolume(coarsen_mesh_M);
-  }
+  EXPECT_LT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
+  int num_negative_volume_tetrahedra = 0;
+  coarsen_mesh_M = VolumeMeshCoarsener::HackNegativeToPositiveVolume(
+      coarsen_mesh_M, &num_negative_volume_tetrahedra);
+  EXPECT_EQ(num_negative_volume_tetrahedra, 28);
 
   VolumeMeshFieldLinear<double, double> coarsen_sdf_M =
       MakeEmPressSDField(coarsen_mesh_M, original_surface_M);
@@ -359,10 +354,10 @@ GTEST_TEST(TempCoarsenVolumeMeshOfSdField, Ellipsoid) {
       ConvertVolumeToSurfaceMesh(support_mesh_M);
 
   const int kTargetNumTetrahedra = 10;
-  const double kFraction =
+  const double fraction =
       static_cast<double>(kTargetNumTetrahedra) / support_mesh_M.num_elements();
   VolumeMesh<double> coarsen_mesh_M =
-      TempCoarsenVolumeMeshOfSdField(sdf_M, kFraction);
+      TempCoarsenVolumeMeshOfSdField(sdf_M, fraction);
 
   EXPECT_LT(coarsen_mesh_M.num_elements(), 1.01 * kTargetNumTetrahedra);
   EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
