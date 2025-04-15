@@ -425,6 +425,9 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   void WriteTetrahedraAfterEdgeContraction(int v0, int v1,
                                            const std::string& prefix_file_name);
 
+  void LogAndWriteQ(int v0, const QEF& v0_Q_before,
+                    const std::string& prefix_file_name);
+
  public:
   // Callers can use this function for debugging.
   // - Skip near-zero volume tetrahedra, and
