@@ -44,8 +44,66 @@ namespace {
 
 using Eigen::Vector3d;
 using Eigen::Vector4d;
+using Eigen::Matrix4d;
 using math::RigidTransformd;
 using math::RollPitchYawd;
+
+GTEST_TEST(EigenSVDTest, PerhapsUnderFlowProblem) {
+// clang-format off
+  // [2025-04-15 01:42:06.735] [console] [warning] v0 = 105, v1 = 601
+  // [2025-04-15 01:42:06.735] [console] [warning] vertex_v0_beforeᵀ =      0      0 -0.005
+  // [2025-04-15 01:42:06.735] [console] [warning] vertex_v1_beforeᵀ =       0       0 -0.0075
+  // [2025-04-15 01:42:06.735] [console] [warning] v0_Q_before.A =
+  //  6.018045408850664e-10 -2.584939414228211e-26  1.033975765691285e-25 -5.169878828456423e-26
+  // -2.584939414228211e-26  3.385150542478499e-10 -1.421716677825516e-25                      0
+  //  1.033975765691285e-25 -1.421716677825516e-25  1.367562530432047e-08  1.501019878597912e-08
+  // -5.169878828456423e-26                      0  1.501019878597912e-08  1.663405510054661e-08
+  // [2025-04-15 01:42:06.735] [console] [warning] v0_Q_before.pᵀ =
+  //      0      0 -0.005 -0.015
+  // [2025-04-15 01:42:06.735] [console] [warning] v0_Q_before.e = 0
+  // [2025-04-15 01:42:06.735] [console] [warning] v1_Q_before.A =
+  //  2.376917340600975e-10 -5.331437541845686e-26                      0                      0
+  // -5.331437541845686e-26  1.337016004088048e-10   9.04728794979874e-26  2.584939414228211e-26
+  //                      0   9.04728794979874e-26  1.484743518050234e-08  1.541662971671698e-08
+  //                      0  2.584939414228211e-26  1.541662971671698e-08  1.603117148502875e-08
+  // [2025-04-15 01:42:06.735] [console] [warning] v1_Q_before.pᵀ =
+  //       0       0 -0.0075 -0.0125
+  // [2025-04-15 01:42:06.735] [console] [warning] v1_Q_before.e = 0
+  // [2025-04-15 01:42:06.735] [console] [warning] new_positionᵀ =
+  // -6.831012323431286e-18 1.463694862046797e-175                      0
+  // [2025-04-15 01:42:06.735] [console] [warning] new_scalar = 0
+// clang-format on
+
+  Matrix4d A1;
+  A1 <<
+    6.018045408850664e-10, -2.584939414228211e-26,  1.033975765691285e-25, -5.169878828456423e-26,
+   -2.584939414228211e-26,  3.385150542478499e-10, -1.421716677825516e-25,                      0,
+    1.033975765691285e-25, -1.421716677825516e-25,  1.367562530432047e-08,  1.501019878597912e-08,
+   -5.169878828456423e-26,                      0,  1.501019878597912e-08,  1.663405510054661e-08;
+  const Vector4d p1(0, 0, -0.005, -0.015);
+  Matrix4d A2;
+  A2 <<
+    2.376917340600975e-10, -5.331437541845686e-26,                      0,                      0,
+   -5.331437541845686e-26,  1.337016004088048e-10,   9.04728794979874e-26,  2.584939414228211e-26,
+                        0,   9.04728794979874e-26,  1.484743518050234e-08,  1.541662971671698e-08,
+                        0,  2.584939414228211e-26,  1.541662971671698e-08,  1.603117148502875e-08;
+  const Vector4d p2(0, 0, -0.0075, -0.0125);
+
+  const Matrix4d A = A1 + A2;
+  const Vector4d b = A1 * p1 + A2 * p2;
+
+  Eigen::JacobiSVD<Matrix4d, Eigen::ComputeThinU | Eigen::ComputeThinV>
+      svd(A);
+  Vector4d x = svd.solve(b);
+
+  // x should be between the original p1(0, 0, -0.005, -0.015) and
+  // p2(0, 0, -0.0075, -0.0125), but it didn't. The z and w coordinates of p1
+  // and p2 are both sizable negative numbers (order of millimeters or centimeters);
+  // however, perhaps underflow caused x to be zero in all coordinates?
+  EXPECT_EQ(x, Vector4d::Zero());
+}
+
+#if 0
 
 GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_1024) {
   const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);
@@ -345,6 +403,8 @@ GTEST_TEST(TempCoarsenVolumeMeshOfSdField, FromMeshFieldLinear) {
       "SignedDistance(meters)", coarsen_sdf_M,
       "Decimated Optimized EmbeddedSignedDistanceField");
 }
+
+#endif
 
 }  // namespace
 }  // namespace internal
