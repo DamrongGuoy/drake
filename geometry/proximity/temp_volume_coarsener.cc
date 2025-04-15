@@ -6,6 +6,7 @@
 // bazel-drake/external/+internal_repositories+vtk_internal/...
 //
 // To ease build system upkeep, we annotate VTK includes with their deps.
+#include <Eigen/Eigenvalues>
 #include <vtkCellIterator.h>                       // vtkCommonDataModel
 #include <vtkCleanPolyData.h>                      // vtkFiltersCore
 #include <vtkDelaunay3D.h>                         // vtkFiltersCore
@@ -26,6 +27,8 @@
 #include "drake/geometry/proximity/hydroelastic_internal.h"
 #include "drake/geometry/proximity/make_box_field.h"
 #include "drake/geometry/proximity/make_box_mesh.h"
+#include "drake/geometry/proximity/make_ellipsoid_field.h"
+#include "drake/geometry/proximity/make_ellipsoid_mesh.h"
 #include "drake/geometry/proximity/mesh_distance_boundary.h"
 #include "drake/geometry/proximity/mesh_to_vtk.h"
 #include "drake/geometry/proximity/volume_mesh.h"
@@ -37,11 +40,13 @@ namespace drake {
 namespace geometry {
 namespace internal {
 
+using Eigen::Matrix3d;
 using Eigen::Matrix4d;
 using Eigen::Vector3d;
 using Eigen::Vector4d;
 using math::RigidTransformd;
 using math::RollPitchYawd;
+using math::RotationMatrixd;
 
 VolumeMesh<double> TempCoarsenVolumeMeshOfSdField(
     const VolumeMeshFieldLinear<double, double>& sdf_M, const double fraction) {
@@ -363,21 +368,26 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
     drake::log()->warn(fmt::format("v0 = {}, v1 = {}", v0, v1));
     drake::log()->warn(fmt::format("vertex_v0_beforeᵀ = {}",
                                    fmt_eigen(vertex_v0_before.transpose())));
-    drake::log()->warn(fmt::format("vertex_v1_beforeᵀ = {}",
+    drake::log()->warn(fmt::format("vertex_v1_beforeᵀ = {}\n",
                                    fmt_eigen(vertex_v1_before.transpose())));
+
     drake::log()->warn(
         fmt::format("v0_Q_before.A = \n{}", fmt_eigen(v0_Q_before.A.Mat4d())));
     drake::log()->warn(fmt::format("v0_Q_before.pᵀ = \n{}",
                                    fmt_eigen(v0_Q_before.p.transpose())));
-    drake::log()->warn(fmt::format("v0_Q_before.e = {}", v0_Q_before.e));
+    LogAndWriteQ(v0, v0_Q_before, "ContractEdge_before_shrink10X");
+    drake::log()->warn(fmt::format("v0_Q_before.e = {}\n", v0_Q_before.e));
+
     drake::log()->warn(
         fmt::format("v1_Q_before.A = \n{}", fmt_eigen(v1_Q_before.A.Mat4d())));
     drake::log()->warn(fmt::format("v1_Q_before.pᵀ = \n{}",
                                    fmt_eigen(v1_Q_before.p.transpose())));
-    drake::log()->warn(fmt::format("v1_Q_before.e = {}", v1_Q_before.e));
+    LogAndWriteQ(v1, v1_Q_before, "ContractEdge_before_shrink10X");
+    drake::log()->warn(fmt::format("v1_Q_before.e = {}\n", v1_Q_before.e));
+
     drake::log()->warn(fmt::format("new_positionᵀ = \n{}",
                                    fmt_eigen(new_position.transpose())));
-    drake::log()->warn(fmt::format("new_scalar = {}", new_scalar));
+    drake::log()->warn(fmt::format("new_scalar = {}\n", new_scalar));
 
     WriteSavedTetrahedraOfVertexBeforeEdgeContration(
         v0, star_v0_before, "ContractEdge_before_shrink10X_star_vertex");
@@ -1046,6 +1056,59 @@ void VolumeMeshCoarsener::WriteTetrahedraAfterEdgeContraction(
       v0, fmt::format("{}_after_v{}_v{}_tets.vtk", prefix_file_name, v0, v1));
 }
 
+void VolumeMeshCoarsener::LogAndWriteQ(int v, const QEF& v_Q,
+                                       const std::string& prefix_file_name) {
+  // B = 3x3 block of the spatial coordinates of the 4x4 A of Q.
+  Matrix3d B = v_Q.A.Mat4d().block(0, 0, 3, 3);
+  drake::log()->warn(
+      fmt::format("v{}'s A's 3x3 spatial block =\n{}", v, fmt_eigen(B)));
+
+  // This debugging tool is a very simplified version of the more rigorous
+  // calculation in:
+  //
+  // template <typename T>
+  // Vector3<double> RotationalInertia<T>::
+  // CalcPrincipalMomentsAndMaybeAxesOfInertia(
+  //    math::RotationMatrix<double>* principal_directions) const;
+  //
+
+  Eigen::SelfAdjointEigenSolver<Matrix3d> es;
+  es.compute(B, Eigen::ComputeEigenvectors);
+  DRAKE_THROW_UNLESS(es.info() == Eigen::Success);
+
+  Vector3d lambdas = es.eigenvalues();
+  drake::log()->warn(fmt::format("v{}'s A's spatial eigenvalues = {}", v,
+                                 fmt_eigen(lambdas.transpose())));
+  DRAKE_THROW_UNLESS(lambdas[0] >= 0);
+  DRAKE_THROW_UNLESS(lambdas[1] >= 0);
+  DRAKE_THROW_UNLESS(lambdas[2] >= 0);
+  DRAKE_THROW_UNLESS(lambdas.maxCoeff() > 0);
+  const Vector3d ev0 = es.eigenvectors().col(0);
+  const Vector3d ev1 = es.eigenvectors().col(1);
+  const Vector3d ev2 = ev0.cross(ev1).normalized();
+  drake::log()->warn(fmt::format("v{}'s A's 1st eigen-vectorᵀ = {}", v,
+                                 fmt_eigen(ev0.transpose())));
+  drake::log()->warn(fmt::format("v{}'s A's 2nd eigen-vectorᵀ = {}", v,
+                                 fmt_eigen(ev1.transpose())));
+  drake::log()->warn(fmt::format("v{}'s A's 3rd eigen-vectorᵀ = {}", v,
+                                 fmt_eigen(ev2.transpose())));
+  // E is the frame of the ellipsoid.
+  const RotationMatrixd R_WE =
+      RotationMatrixd::MakeFromOrthonormalColumns(ev0, ev1, ev2);
+  const RigidTransformd X_WE(R_WE, Vector3d(v_Q.p.x(), v_Q.p.y(), v_Q.p.z()));
+
+  const double scale = 0.001;
+  const Ellipsoid ellipsoid_M(scale * lambdas);
+  // Start in frame E of the ellipsoid.
+  VolumeMesh<double> ellipsoid_mesh = MakeEllipsoidVolumeMesh<double>(
+      ellipsoid_M, 0.0002, TessellationStrategy::kDenseInteriorVertices);
+  // Transform to World frame.
+  ellipsoid_mesh.TransformVertices(X_WE);
+  WriteVolumeMeshToVtk(
+      fmt::format("{}_v{}_QEF_Ellipsoid.vtk", prefix_file_name, v),
+      ellipsoid_mesh, "VolumeMeshCoarsener::LogAndWriteQ");
+}
+
 VolumeMesh<double> VolumeMeshCoarsener::HackNegativeToPositiveVolume(
     const VolumeMesh<double>& mesh, int* num_negative_volume_tetrahedra) {
   std::vector<VolumeElement> positive_tetrahedra;
@@ -1274,16 +1337,17 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
       a.z() * (b.y() * c.x() - b.x() * c.y()),
           // clang-format on
       }
-          .normalized();
+          .stableNormalized();
   // Outer product of 4-vector n gives the 4x4 symmetric matrix A.
   SymMat4 A = SymMat4::FromOuterProductOfVector4d(n);
 
   // Multiply A by the volume of the tetrahedron gives the fundamental
   // quadric matrix with the units of its coefficients in cubic meters.
-  const double tetrahedron_volume =
-      CalcTetrahedronVolume(tet, tetrahedra_, vertices_);
-  DRAKE_THROW_UNLESS(tetrahedron_volume > 0);
-  A *= tetrahedron_volume;
+  // const double tetrahedron_volume =
+  //     CalcTetrahedronVolume(tet, tetrahedra_, vertices_);
+  // DRAKE_THROW_UNLESS(tetrahedron_volume > 0);
+  // A *= tetrahedron_volume;
+
   // Divide the tetrahedrn's quadric matrix to its 4 vertices equally.
   A /= 4.0;
 
@@ -1323,7 +1387,9 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
 
   // Multiply by area of the triangle and share (/3) it among three vertices.
   // After this step, A has units in square meters.
-  A *= support_boundary_mesh_.area(boundary_tri) / 3.0;
+  // A *= support_boundary_mesh_.area(boundary_tri);
+
+  A /= 3.0;
 
   // Set a large multiplicative weight to preserve boundary, so the code will
   // contract non-boundary edges first. vtkUnstructuredGridQuadricDecimation

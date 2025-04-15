@@ -48,6 +48,8 @@ using Eigen::Matrix4d;
 using math::RigidTransformd;
 using math::RollPitchYawd;
 
+#if 0
+
 GTEST_TEST(EigenSVDTest, PerhapsUnderFlowProblem) {
 // clang-format off
   // [2025-04-15 01:42:06.735] [console] [warning] v0 = 105, v1 = 601
@@ -103,7 +105,7 @@ GTEST_TEST(EigenSVDTest, PerhapsUnderFlowProblem) {
   EXPECT_EQ(x, Vector4d::Zero());
 }
 
-#if 0
+#endif
 
 GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_1024) {
   const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);
@@ -155,6 +157,8 @@ GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_1024) {
                                   "SignedDistance(meter)", coarsen_sdf_M,
                                   "VolumeMeshCoarsener coarsen");
 }
+
+#if 0
 
 GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_0256) {
   const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);
