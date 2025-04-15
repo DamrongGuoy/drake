@@ -412,6 +412,12 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   void WriteSavedTetrahedraBeforeEdgeContraction(
       int v0, int v1, const VolumeMesh<double>& tetrahedra_on_edge_v0_v1,
       const std::string& prefix_file_name);
+  // This version accepts the tetrahedra sharing the vertex v before the edge
+  // contraction happens. The parameter v only go into the output file name
+  // without bearing on the mesh.
+  void WriteSavedTetrahedraOfVertexBeforeEdgeContration(
+      int v, const VolumeMesh<double>& tetrahedra_on_vertex,
+      const std::string& prefix_file_name);
 
   // After edge contraction, v0 gains all tetrahedra from v1.
   // The parameter v1 only goes into the output file name without bearing
