@@ -397,6 +397,7 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
  protected:
   VolumeMesh<double> DebugTetrahedraOfVertex(int v0) const;
   VolumeMesh<double> DebugTetrahedraOfBothVertex(int v0, int v1) const;
+  VolumeMesh<double> DebugTetrahedraOfEitherVertices(int v0, int v1) const;
 
   void WriteTetrahedraOfVertex(int v0, const std::string& file_name);
   void WriteTetrahedraOfFirstExcludeSecond(int first_vertex, int second_vertex,
@@ -418,7 +419,9 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   void WriteSavedTetrahedraOfVertexBeforeEdgeContration(
       int v, const VolumeMesh<double>& tetrahedra_on_vertex,
       const std::string& prefix_file_name);
-
+  void WriteSavedTetrahedraOfEitherVerticesBeforeEdgeContraction(
+      int v0, int v1, const VolumeMesh<double>& tetrahedra_on_either_vertices,
+      const std::string& prefix_file_name);
   // After edge contraction, v0 gains all tetrahedra from v1.
   // The parameter v1 only goes into the output file name without bearing
   // on the incident tetrahedra.

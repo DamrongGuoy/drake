@@ -264,6 +264,8 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
   const VolumeMesh<double> star_v1_before = DebugTetrahedraOfVertex(v1);
   const VolumeMesh<double> star_v0v1_before =
       DebugTetrahedraOfBothVertex(v0, v1);
+  const VolumeMesh<double> local_mesh_v0_v1_before =
+      DebugTetrahedraOfEitherVertices(v0, v1);
   const QEF v0_Q_before = vertex_Qs_.at(v0);
   const QEF v1_Q_before = vertex_Qs_.at(v1);
   const Vector3d vertex_v0_before = vertices_[v0];
@@ -395,6 +397,9 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
         v1, star_v1_before, "ContractEdge_before_shrink10X_star_vertex");
     WriteSavedTetrahedraBeforeEdgeContraction(
         v0, v1, star_v0v1_before, "ContractEdge_before_shrink10X_star_edge");
+    WriteSavedTetrahedraOfEitherVerticesBeforeEdgeContraction(
+        v0, v1, local_mesh_v0_v1_before,
+        "ContractEdge_before_shrink10X_closed_star_edge");
     WriteTetrahedraAfterEdgeContraction(v0, v1, "ContractEdge_after_shrink10X");
   }
   // DRAKE_THROW_UNLESS(min_tet_volume_before / min_tet_volume_after < 10.0);
@@ -1012,6 +1017,22 @@ VolumeMesh<double> VolumeMeshCoarsener::DebugTetrahedraOfBothVertex(
   return CompactMesh(tetrahedra_to_write, vertices_);
 }
 
+VolumeMesh<double> VolumeMeshCoarsener::DebugTetrahedraOfEitherVertices(
+    int v0, int v1) const {
+  std::set<int> tet_indices;
+  for (const int tet : vertex_to_tetrahedra_.at(v0)) {
+    tet_indices.insert(tet);
+  }
+  for (const int tet : vertex_to_tetrahedra_.at(v1)) {
+    tet_indices.insert(tet);
+  }
+  std::vector<VolumeElement> tetrahedra_to_write;
+  for (const int tet : tet_indices) {
+    tetrahedra_to_write.push_back(tetrahedra_.at(tet));
+  }
+  return CompactMesh(tetrahedra_to_write, vertices_);
+}
+
 void VolumeMeshCoarsener::WriteTetrahedraOfBothVertices(
     int first_vertex, int second_vertex, const std::string& file_name) {
   WriteVolumeMeshToVtk(file_name,
@@ -1048,6 +1069,17 @@ void VolumeMeshCoarsener::WriteSavedTetrahedraOfVertexBeforeEdgeContration(
       fmt::format("{}_before_v{}.vtk", prefix_file_name, v),
       tetrahedra_on_vertex,
       "VolumeMeshCoarsener::WriteSavedTetrahedraOfVertexBeforeEdgeContration");
+}
+
+void VolumeMeshCoarsener::
+    WriteSavedTetrahedraOfEitherVerticesBeforeEdgeContraction(
+        int v0, int v1, const VolumeMesh<double>& tetrahedra_on_either_vertices,
+        const std::string& prefix_file_name) {
+  WriteVolumeMeshToVtk(
+      fmt::format("{}_before_v{}_or_v{}.vtk", prefix_file_name, v0, v1),
+      tetrahedra_on_either_vertices,
+      "VolumeMeshCoarsener::"
+      "WriteSavedTetrahedraOfEitherVerticesBeforeEdgeContraction");
 }
 
 void VolumeMeshCoarsener::WriteTetrahedraAfterEdgeContraction(
@@ -1180,10 +1212,15 @@ Vector4d QEF::CalcCombinedMinimizer(const QEF& Q1, const QEF& Q2) {
   // Solve for x in (A₁+A₂)x = (A₁p₁ + A₂p₂).
   const SymMat4 A = A1 + A2;
   const Vector4d b = A1 * p1 + A2 * p2;
-  // Example in https://eigen.tuxfamily.org/dox/classEigen_1_1JacobiSVD.html
-  Eigen::JacobiSVD<Matrix4d, Eigen::ComputeThinU | Eigen::ComputeThinV> svd(
-      A.Mat4d());
+  // The example in https://eigen.tuxfamily.org/dox/classEigen_1_1JacobiSVD.html
+  // specified ComputeThinU and ComputeThinV in the template arguments:
+  // Eigen::JacobiSVD<Matrix4d, Eigen::ComputeThinU | Eigen::ComputeThinV>.
+  // However, I found that I need to do it in the constructor arguments instead.
+  // Otherwise, the solve() gave me random noises of numbers near zero.
+  Eigen::JacobiSVD<Matrix4d> svd(A.Mat4d(),
+                                 Eigen::ComputeThinU | Eigen::ComputeThinV);
   Vector4d x = svd.solve(b);
+  DRAKE_THROW_UNLESS(svd.info() == Eigen::Success);
 
   // if (!(x.norm() < 1e10)) {
   //   const Matrix4d& M = A.Mat4d();
