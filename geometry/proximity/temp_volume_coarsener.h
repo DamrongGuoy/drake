@@ -445,13 +445,11 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   //--------------------------------------------------------
 
  protected:
-  // Update QEF of the four vertices of the tet-th tetrahedron.
+  // Return the fundamental-quadric matrix A of the tetrahedron. It is
+  // calculated as the outer product of the unit Vector4d n divided by
+  // the volume of the tetrahedron.
   //
-  // The fundamental quadric matrix A of the tetrahedron is the
-  // outer product of the (column) Vector4d n divided by the volume of
-  // the tetrahedron.
-  //
-  //         A = n nᵀ / volume
+  //         A = n nᵀ
   //
   // The vector n is the generalized cross product of the three edge vectors
   // V01, V02, V03 (V0i = Vi - V0) of the tetrahedron + scalar field in
@@ -463,24 +461,23 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   //            | <-- V02 --> |
   //            | <-- V03 --> |
   //
-  // Each coefficient of n has its unit in cubic meters.
-  // Each coefficient of A has its unit in cubic meters.
+  // Each coefficient of A is dimensionless since n is a unit vector.
   //
-  // Finally, the contribution of A into each of the four vertices is A/4.
-  //
-  void UpdateVerticesQuadricsFromTet(int tet);
+  SymMat4 FundamentalQuadricOfTet(int tet);
 
   // Reference implementation is in
   // vtkUnstructuredGridQuadricDecimationFace::UpdateQuadric().
   //
-  // N.B. Do this after calling UpdateVerticesQuadricsFromTet() for all
+  // N.B. Do this after calling FundamentalQuadricOfTet() for all
   // tetrahedra.
-  void UpdateVerticesQuadricsFromBoundaryFace(int boundary_tri);
+  SymMat4 FundamentalQuadricOfBoundaryTri(int boundary_tri);
 
   void InitializeVertexQEFs();
 
-  // vertex_Qs[i] = Quadric error metric at the i-th vertex.
+  // vertex_Qs_[i] = Quadric error metric at the i-th vertex.
   std::vector<QEF> vertex_Qs_;
+  // tetrahedron_As_[i] = Fundametal Quardric of the i-th tetrahedron.
+  std::vector<SymMat4> tetrahedron_As_;
 };
 
 }  // namespace internal

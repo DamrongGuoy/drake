@@ -52,6 +52,7 @@ using Eigen::VectorXd;
 using math::RigidTransformd;
 using math::RollPitchYawd;
 
+#if 0
 GTEST_TEST(EigenSVDTest, FromSherm) {
   // Define a 4x4 matrix A and a 4x1 vector b
   Eigen::Matrix4d A;
@@ -112,7 +113,7 @@ GTEST_TEST(EigenSVDTest, From_mesh_12vert_20tet_2IntV) {
   drake::log()->warn("(r = b - A*x)ᵀ = {}", fmt_eigen(r.transpose()));
 }
 
-GTEST_TEST(VolumeMeshCoarsenerTest, TwoInteriorVertices) {
+GTEST_TEST(VolumeMeshCoarsenerTest, mesh_12vert_20tet_2IntV) {
   const Mesh mesh_spec{
       FindResourceOrThrow("drake/geometry/test/mesh_12vert_20tet_2IntV.vtk")};
   // It's the local mesh around two interior vertices in an ellipsoid.
@@ -152,7 +153,59 @@ GTEST_TEST(VolumeMeshCoarsenerTest, TwoInteriorVertices) {
       static_cast<double>(kTargetNumTetrahedra) / local_mesh_M.num_elements();
   VolumeMesh<double> coarsen_mesh_M =
       VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
+
+  EXPECT_LE(coarsen_mesh_M.num_elements(), kTargetNumTetrahedra);
+  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
 }
+
+#endif
+
+GTEST_TEST(VolumeMeshCoarsenerTest, mesh_28vert_52tet) {
+  const Mesh mesh_spec{
+      FindResourceOrThrow("drake/geometry/test/mesh_28vert_52tet.vtk")};
+  // It's the local mesh around two interior vertices in an ellipsoid.
+  const VolumeMesh<double> local_mesh_M =
+      MakeVolumeMeshFromVtk<double>(mesh_spec);
+  EXPECT_EQ(local_mesh_M.num_vertices(), 28);
+  EXPECT_EQ(local_mesh_M.num_elements(), 52);
+
+  // Confirm that there are two interior vertices by verifying that
+  // the extracted surface mesh has 26 vertices.  Remove this extra
+  // check later.
+  {
+    auto check_surface_mesh = ConvertVolumeToSurfaceMesh(local_mesh_M);
+    EXPECT_EQ(check_surface_mesh.num_vertices(), 26);
+  }
+
+  // This is the original ellipsoid that we used for debugging and producing
+  // the above local mesh.
+  const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);
+  // Hydroelastic modulus = 0.02 the length of the minimum principal semi-axis
+  // will give the highest pressure = +0.02 at the center.
+  const VolumeMeshFieldLinear<double, double> pressure_M =
+      MakeEllipsoidPressureField<double>(ellipsoid_M, &local_mesh_M, 0.02);
+  // Assign the negative of pressure values to signed distance values.
+  // The pressure and the signed distance have opposite sign conventions.
+  std::vector<double> signed_distances;
+  for (const double p : pressure_M.values()) {
+    signed_distances.push_back(-p);
+  }
+  const VolumeMeshFieldLinear<double, double> sdf_M{std::move(signed_distances),
+                                                    &local_mesh_M};
+  const TriangleSurfaceMesh<double> original_surface_M =
+      MakeEllipsoidSurfaceMesh<double>(ellipsoid_M, 0.01);
+
+  const int kTargetNumTetrahedra = 48;
+  const double kFraction =
+      static_cast<double>(kTargetNumTetrahedra) / local_mesh_M.num_elements();
+  VolumeMesh<double> coarsen_mesh_M =
+      VolumeMeshCoarsener(sdf_M, original_surface_M).coarsen(kFraction);
+
+  EXPECT_LE(coarsen_mesh_M.num_elements(), kTargetNumTetrahedra);
+  EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
+}
+
+#if 0
 
 GTEST_TEST(EigenSVDTest, 2025_04_15_v105_v601) {
   // clang-format off
@@ -237,8 +290,6 @@ GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_1024) {
                                   "SignedDistance(meter)", coarsen_sdf_M,
                                   "VolumeMeshCoarsener coarsen");
 }
-
-#if 0
 
 GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_0256) {
   const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);

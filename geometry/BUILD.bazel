@@ -851,6 +851,7 @@ filegroup(
         "test/cube_as_volume.vtk",
         "test/inflation_infeasible_vertex.vtk",
         "test/mesh_12vert_20tet_2IntV.vtk",
+        "test/mesh_28vert_52tet.vtk",
         "test/non_convex_mesh.vtk",
         "test/one_negative_tetrahedron.vtk",
         "test/one_tetrahedron.vtk",
