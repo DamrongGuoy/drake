@@ -435,6 +435,7 @@ void VolumeMeshCoarsener::InitializeVertexQEFs() {
   int num_vertices = vertices_.size();
   // Initialize each vertex_Qs_[v] from (x,y,z,sdf).
   vertex_Qs_.clear();
+  tetrahedron_As_.clear();
   for (int v = 0; v < num_vertices; ++v) {
     QEF Q = QEF::Zero();
     Q.p(0) = vertices_[v].x();
@@ -444,15 +445,59 @@ void VolumeMeshCoarsener::InitializeVertexQEFs() {
     vertex_Qs_.push_back(Q);
   }
   const int num_tetrahedra = tetrahedra_.size();
+  // For each vertex v, we want a volume-weighted average of the fundamental
+  // quadric of its tetrahedra into vertex_Qs_[v].A. The first for-loop
+  // will accumulate both ∑ volume*matrix and ∑volume, and the second
+  // for-loop will divide by ∑volume.
+  std::vector<double> sum_tet_volume_at_vertex(num_vertices, 0);
   // Contribute every tetrahedron's QEM to its four vertices.
   for (int tet = 0; tet < num_tetrahedra; ++tet) {
-    UpdateVerticesQuadricsFromTet(tet);
+    SymMat4 A = FundamentalQuadricOfTet(tet);
+    tetrahedron_As_.push_back(A);
+
+    double volume = CalcTetrahedronVolume(tet, tetrahedra_, vertices_);
+    A *= volume;
+
+    const int v0 = tetrahedra_[tet].vertex(0);
+    const int v1 = tetrahedra_[tet].vertex(1);
+    const int v2 = tetrahedra_[tet].vertex(2);
+    const int v3 = tetrahedra_[tet].vertex(3);
+    vertex_Qs_[v0].A += A;
+    vertex_Qs_[v1].A += A;
+    vertex_Qs_[v2].A += A;
+    vertex_Qs_[v3].A += A;
+    sum_tet_volume_at_vertex[v0] += volume;
+    sum_tet_volume_at_vertex[v1] += volume;
+    sum_tet_volume_at_vertex[v2] += volume;
+    sum_tet_volume_at_vertex[v3] += volume;
   }
+  for (int v = 0; v < num_vertices; ++v) {
+    vertex_Qs_[v].A /= sum_tet_volume_at_vertex[v];
+  }
+
   // Contribute every boundary triangle's QEM to its three vertices.
   const int num_boundary_triangles = support_boundary_mesh_.num_triangles();
   for (int boundary_tri = 0; boundary_tri < num_boundary_triangles;
        ++boundary_tri) {
-    UpdateVerticesQuadricsFromBoundaryFace(boundary_tri);
+    SymMat4 A = FundamentalQuadricOfBoundaryTri(boundary_tri);
+
+    constexpr double kBoundaryWeight = 1e2;
+    A *= kBoundaryWeight;
+
+    const SurfaceTriangle& triangle =
+        support_boundary_mesh_.triangles().at(boundary_tri);
+    const int boundary_vertex0 = triangle.vertex(0);
+    const int boundary_vertex1 = triangle.vertex(1);
+    const int boundary_vertex2 = triangle.vertex(2);
+    const int v0 = boundary_to_volume_.at(boundary_vertex0);
+    const int v1 = boundary_to_volume_.at(boundary_vertex1);
+    const int v2 = boundary_to_volume_.at(boundary_vertex2);
+
+    // Should we use support_boundary_mesh_.area(boundary_tri) ?
+
+    vertex_Qs_.at(v0).A += A;
+    vertex_Qs_.at(v1).A += A;
+    vertex_Qs_.at(v2).A += A;
   }
 }
 
@@ -1326,7 +1371,7 @@ double QEF::CalcCombinedMinError(const QEF& Q1, const QEF& Q2,
   return e1 + e2 + (p - p1).dot(A1 * (p - p1)) + (p - p2).dot(A2 * (p - p2));
 }
 
-void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
+SymMat4 VolumeMeshCoarsener::FundamentalQuadricOfTet(int tet) {
   DRAKE_THROW_UNLESS(0 <= tet && tet < ssize(tetrahedra_));
   const int v0 = tetrahedra_[tet].vertex(0);
   const int v1 = tetrahedra_[tet].vertex(1);
@@ -1378,26 +1423,13 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromTet(int tet) {
   // Outer product of 4-vector n gives the 4x4 symmetric matrix A.
   SymMat4 A = SymMat4::FromOuterProductOfVector4d(n);
 
-  // Multiply A by the volume of the tetrahedron gives the fundamental
-  // quadric matrix with the units of its coefficients in cubic meters.
-  // const double tetrahedron_volume =
-  //     CalcTetrahedronVolume(tet, tetrahedra_, vertices_);
-  // DRAKE_THROW_UNLESS(tetrahedron_volume > 0);
-  // A *= tetrahedron_volume;
-
-  // Divide the tetrahedrn's quadric matrix to its 4 vertices equally.
-  A /= 4.0;
-
-  vertex_Qs_[v0].A += A;
-  vertex_Qs_[v1].A += A;
-  vertex_Qs_[v2].A += A;
-  vertex_Qs_[v3].A += A;
+  return A;
 }
 
 // This numerical routine is from [Garland & Zhou] with reference code
 // from vtkUnstructuredGridQuadricDecimationFace::UpdateQuadric().
 //
-void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
+SymMat4 VolumeMeshCoarsener::FundamentalQuadricOfBoundaryTri(
     int boundary_tri) {
   DRAKE_THROW_UNLESS(0 <= boundary_tri &&
                      boundary_tri < support_boundary_mesh_.num_triangles());
@@ -1422,21 +1454,7 @@ void VolumeMeshCoarsener::UpdateVerticesQuadricsFromBoundaryFace(
   SymMat4 A = SymMat4::Identity() - SymMat4::FromOuterProductOfVector4d(e1) -
               SymMat4::FromOuterProductOfVector4d(e2);
 
-  // Multiply by area of the triangle and share (/3) it among three vertices.
-  // After this step, A has units in square meters.
-  // A *= support_boundary_mesh_.area(boundary_tri);
-
-  A /= 3.0;
-
-  // Set a large multiplicative weight to preserve boundary, so the code will
-  // contract non-boundary edges first. vtkUnstructuredGridQuadricDecimation
-  // uses 100.
-  constexpr double kBoundaryWeight = 1e2;
-  A *= kBoundaryWeight;
-
-  vertex_Qs_.at(v0).A += A;
-  vertex_Qs_.at(v1).A += A;
-  vertex_Qs_.at(v2).A += A;
+  return A;
 }
 
 }  // namespace internal
