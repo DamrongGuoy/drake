@@ -1,5 +1,3 @@
-#include <iostream>
-
 #include <gtest/gtest.h>
 
 // TODO(DamrongGuoy): Remove these #include vtk.  Right now I'm checking
@@ -52,67 +50,6 @@ using Eigen::VectorXd;
 using math::RigidTransformd;
 using math::RollPitchYawd;
 
-#if 0
-GTEST_TEST(EigenSVDTest, FromSherm) {
-  // Define a 4x4 matrix A and a 4x1 vector b
-  Eigen::Matrix4d A;
-  A << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16;
-  Eigen::Vector4d b(1.0, 2.0, 3.0, 4.0);
-
-  // Compute SVD of A
-  Eigen::JacobiSVD<Eigen::Matrix4d> svd(
-      A, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-  // Solve Ax = b using SVD
-  Eigen::Vector4d x = svd.solve(b);
-
-  // Output the solution
-  std::cout << "Solution x:\n" << fmt::format("{}", fmt_eigen(x)) << std::endl;
-
-  // Verify the solution (optional)
-  std::cout << "Verification (A*x - b):\n"
-            << fmt::format("{}", fmt_eigen(A * x - b)) << std::endl;
-}
-
-GTEST_TEST(EigenSVDTest, From_mesh_12vert_20tet_2IntV) {
-  // clang-format off
-  Matrix4d A1;
-  A1 <<
-     0.3298969072164947,                      0,                      0,                      0,
-                      0,     0.1855670103092784,                      0,                      0,
-                      0,                      0,     0.7422680412371133, -6.938893903907228e-17,
-                      0,                      0, -6.938893903907228e-17,     0.7422680412371139;
-  const Vector4d p1(0,     0,     0, -0.02);
-  Matrix4d A2;
-  A2 <<
-     0.5510200929923924, -3.469446951953614e-18,  6.591949208711867e-17,      1.077181511882946,
- -3.469446951953614e-18,     0.1851037450380721, -2.081668171172169e-17,  2.775557561562891e-17,
-  6.591949208711867e-17, -2.081668171172169e-17,      0.740414980152288, -2.775557561562891e-17,
-      1.077181511882946,  2.775557561562891e-17, -2.775557561562891e-17,      2.523461181817247;
-  // clang-format on
-  const Vector4d p2(-0.00375, 0, 0, -0.0175);
-
-  const Matrix4d A = A1 + A2;
-  const Vector4d b = A1 * p1 + A2 * p2;
-
-  drake::log()->warn("A = \n{}", fmt_eigen(A));
-  drake::log()->warn("bᵀ = {}", fmt_eigen(b.transpose()));
-
-  // Eigen::JacobiSVD<Matrix4d, Eigen::ComputeFullU | Eigen::ComputeFullV>
-  //     svd(A);
-  Eigen::JacobiSVD<Eigen::Matrix4d> svd(
-      A, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-  drake::log()->warn("svd.singularValues()ᵀ = {}",
-                     fmt_eigen(svd.singularValues().transpose()));
-
-  Vector4d x = svd.solve(b);
-  drake::log()->warn("xᵀ = svd.solve(b)ᵀ = {}", fmt_eigen(x.transpose()));
-
-  Vector4d r = b - A * x;
-  drake::log()->warn("(r = b - A*x)ᵀ = {}", fmt_eigen(r.transpose()));
-}
-
 GTEST_TEST(VolumeMeshCoarsenerTest, mesh_12vert_20tet_2IntV) {
   const Mesh mesh_spec{
       FindResourceOrThrow("drake/geometry/test/mesh_12vert_20tet_2IntV.vtk")};
@@ -157,8 +94,6 @@ GTEST_TEST(VolumeMeshCoarsenerTest, mesh_12vert_20tet_2IntV) {
   EXPECT_LE(coarsen_mesh_M.num_elements(), kTargetNumTetrahedra);
   EXPECT_GT(coarsen_mesh_M.CalcMinTetrahedralVolume(), 0);
 }
-
-#endif
 
 GTEST_TEST(VolumeMeshCoarsenerTest, mesh_28vert_52tet) {
   const Mesh mesh_spec{
@@ -206,39 +141,6 @@ GTEST_TEST(VolumeMeshCoarsenerTest, mesh_28vert_52tet) {
 }
 
 #if 0
-
-GTEST_TEST(EigenSVDTest, 2025_04_15_v105_v601) {
-  // clang-format off
-  Matrix4d A1;
-  A1 <<
-    6.018045408850664e-10, -2.584939414228211e-26,  1.033975765691285e-25, -5.169878828456423e-26,
-   -2.584939414228211e-26,  3.385150542478499e-10, -1.421716677825516e-25,                      0,
-    1.033975765691285e-25, -1.421716677825516e-25,  1.367562530432047e-08,  1.501019878597912e-08,
-   -5.169878828456423e-26,                      0,  1.501019878597912e-08,  1.663405510054661e-08;
-  const Vector4d p1(0, 0, -0.005, -0.015);
-  Matrix4d A2;
-  A2 <<
-    2.376917340600975e-10, -5.331437541845686e-26,                      0,                      0,
-   -5.331437541845686e-26,  1.337016004088048e-10,   9.04728794979874e-26,  2.584939414228211e-26,
-                        0,   9.04728794979874e-26,  1.484743518050234e-08,  1.541662971671698e-08,
-                        0,  2.584939414228211e-26,  1.541662971671698e-08,  1.603117148502875e-08;
-  // clang-format on
-  const Vector4d p2(0, 0, -0.0075, -0.0125);
-
-  const Matrix4d A = A1 + A2;
-  const Vector4d b = A1 * p1 + A2 * p2;
-
-  Eigen::JacobiSVD<Matrix4d> svd(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
-  Vector4d x = svd.solve(b);
-
-  // x should be between the original p1(0, 0, -0.005, -0.015) and
-  // p2(0, 0, -0.0075, -0.0125), but it didn't. The z and w coordinates of p1
-  // and p2 are both sizable negative numbers (order of millimeters or
-  // centimeters); however, perhaps underflow caused x to be zero in all
-  // coordinates?
-  EXPECT_TRUE(CompareMatrices(
-      x, Vector4d(0, 0, -0.005044629395883285, -0.01491139552061834), 1e-16));
-}
 
 GTEST_TEST(VolumeMeshCoarsenerTest, Ellipsoid_1024) {
   const Ellipsoid ellipsoid_M(0.03, 0.04, 0.02);

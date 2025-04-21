@@ -259,6 +259,10 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
       int tetrahedron_index, const std::vector<VolumeElement>& tetrahedra,
       const std::vector<Eigen::Vector3<double>>& vertices);
 
+  static Eigen::Vector3d CalcTetrahedronCentroid(
+      int tetrahedron_index, const std::vector<VolumeElement>& tetrahedra,
+      const std::vector<Eigen::Vector3<double>>& vertices);
+
   double CalcMinIncidentTetrahedronVolume(int vertex) const;
 
   // Return true if all incident tetrahedra of the given vertex,
@@ -430,6 +434,8 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
 
   void LogAndWriteQ(int v0, const QEF& v0_Q_before,
                     const std::string& prefix_file_name);
+
+  void WriteTetEigenValues(int tet, const SymMat4& A) const;
 
  public:
   // Callers can use this function for debugging.
