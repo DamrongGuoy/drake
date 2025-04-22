@@ -432,10 +432,11 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   void WriteTetrahedraAfterEdgeContraction(int v0, int v1,
                                            const std::string& prefix_file_name);
 
-  void LogAndWriteQ(int v0, const QEF& v0_Q_before,
-                    const std::string& prefix_file_name);
+  void LogAndWriteVertexQ(int v0, const QEF& v0_Q_before,
+                          const std::string& prefix_file_name);
 
-  void WriteTetEigenValues(int tet, const SymMat4& A) const;
+  void WriteTetEigenValues(int tet, const Eigen::Vector4d& n,
+                           const std::string& prefix_file_name) const;
 
  public:
   // Callers can use this function for debugging.
@@ -451,7 +452,7 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   //--------------------------------------------------------
 
  protected:
-  // Return the fundamental-quadric matrix A of the tetrahedron. It is
+  // Compute the fundamental-quadric matrix A of the tetrahedron. It is
   // calculated as the outer product of the unit Vector4d n divided by
   // the volume of the tetrahedron.
   //
@@ -465,11 +466,13 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
   //            | ∂x ∂y ∂z ∂w |
   //   n =  det | <-- V01 --> | ; ∂x,∂y,∂z,∂w are the basis vectors in ℝ⁴.
   //            | <-- V02 --> |
-  //            | <-- V03 --> |
+  //            | <-- V03 --> |.normalized()
   //
   // Each coefficient of A is dimensionless since n is a unit vector.
   //
-  SymMat4 FundamentalQuadricOfTet(int tet);
+  // @return A and n
+  //
+  std::pair<SymMat4, Eigen::Vector4d> FundamentalQuadricOfTet(int tet);
 
   // Reference implementation is in
   // vtkUnstructuredGridQuadricDecimationFace::UpdateQuadric().
@@ -482,8 +485,14 @@ class VolumeMeshCoarsener : VolumeMeshRefiner {
 
   // vertex_Qs_[i] = Quadric error metric at the i-th vertex.
   std::vector<QEF> vertex_Qs_;
+
   // tetrahedron_As_[i] = Fundametal Quardric of the i-th tetrahedron.
   std::vector<SymMat4> tetrahedron_As_;
+
+  // tetrahedron_Ns_[i] = the i-th tetrahedron's n vector, which is the
+  // normalization of the generalized cross product of the three edge
+  // vectors in four dimensions of the tetrahedron.
+  std::vector<Eigen::Vector4d> tetrahedron_Ns_;
 };
 
 }  // namespace internal

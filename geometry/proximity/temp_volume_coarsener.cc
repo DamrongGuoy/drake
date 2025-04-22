@@ -391,14 +391,14 @@ void VolumeMeshCoarsener::ContractEdge(const int v0, const int v1,
                        fmt_eigen(v0_Q_before.A.Mat4d()));
     drake::log()->warn("v{}_Q_before.pᵀ = \n{}", v0,
                        fmt_eigen(v0_Q_before.p.transpose()));
-    LogAndWriteQ(v0, v0_Q_before, "ContractEdge_before");
+    LogAndWriteVertexQ(v0, v0_Q_before, "ContractEdge_before");
     drake::log()->warn("v{}_Q_before.e = {}\n", v0, v0_Q_before.e);
 
     drake::log()->warn("v{}_Q_before.A = \n{}", v1,
                        fmt_eigen(v1_Q_before.A.Mat4d()));
     drake::log()->warn("v{}_Q_before.pᵀ = \n{}", v1,
                        fmt_eigen(v1_Q_before.p.transpose()));
-    LogAndWriteQ(v1, v1_Q_before, "ContractEdge_before");
+    LogAndWriteVertexQ(v1, v1_Q_before, "ContractEdge_before");
     drake::log()->warn("v{}_Q_before.e = {}\n", v1, v1_Q_before.e);
 
     drake::log()->warn("new_positionᵀ = {}",
@@ -449,6 +449,7 @@ void VolumeMeshCoarsener::InitializeVertexQEFs() {
   // Initialize each vertex_Qs_[v] from (x,y,z,sdf).
   vertex_Qs_.clear();
   tetrahedron_As_.clear();
+  tetrahedron_Ns_.clear();
   for (int v = 0; v < num_vertices; ++v) {
     QEF Q = QEF::Zero();
     Q.p(0) = vertices_[v].x();
@@ -465,10 +466,11 @@ void VolumeMeshCoarsener::InitializeVertexQEFs() {
   std::vector<double> sum_tet_volume_at_vertex(num_vertices, 0);
   // Contribute every tetrahedron's QEM to its four vertices.
   for (int tet = 0; tet < num_tetrahedra; ++tet) {
-    SymMat4 A = FundamentalQuadricOfTet(tet);
+    auto [A, n] = FundamentalQuadricOfTet(tet);
     tetrahedron_As_.push_back(A);
+    tetrahedron_Ns_.push_back(n);
 
-    WriteTetEigenValues(tet, A);
+    WriteTetEigenValues(tet, n, "Init_");
 
     double volume = CalcTetrahedronVolume(tet, tetrahedra_, vertices_);
     A *= volume;
@@ -843,8 +845,8 @@ void VolumeMeshCoarsener::WriteTetrahedraAfterEdgeContraction(
       v0, fmt::format("{}_after_v{}_v{}_tets.vtk", prefix_file_name, v0, v1));
 }
 
-void VolumeMeshCoarsener::LogAndWriteQ(int v, const QEF& v_Q,
-                                       const std::string& prefix_file_name) {
+void VolumeMeshCoarsener::LogAndWriteVertexQ(
+    int v, const QEF& v_Q, const std::string& prefix_file_name) {
   // B = 3x3 block of the spatial coordinates of the 4x4 A of Q.
   Matrix3d B = v_Q.A.Mat4d().block(0, 0, 3, 3);
   drake::log()->warn(
@@ -884,7 +886,7 @@ void VolumeMeshCoarsener::LogAndWriteQ(int v, const QEF& v_Q,
       RotationMatrixd::MakeFromOrthonormalColumns(ev0, ev1, ev2);
   const RigidTransformd X_WE(R_WE, Vector3d(v_Q.p.x(), v_Q.p.y(), v_Q.p.z()));
 
-  const double scale = 0.001;
+  const double scale = 1;
   const Ellipsoid ellipsoid_M(scale * lambdas);
   const double resolution = scale * lambdas.maxCoeff() / 10;
   // Start in frame E of the ellipsoid.
@@ -894,16 +896,39 @@ void VolumeMeshCoarsener::LogAndWriteQ(int v, const QEF& v_Q,
   ellipsoid_mesh.TransformVertices(X_WE);
   WriteVolumeMeshToVtk(
       fmt::format("{}_v{}_QEF_Ellipsoid.vtk", prefix_file_name, v),
-      ellipsoid_mesh, "VolumeMeshCoarsener::LogAndWriteQ");
+      ellipsoid_mesh, "VolumeMeshCoarsener::LogAndWriteVertexQ");
 }
 
-void VolumeMeshCoarsener::WriteTetEigenValues(int tet, const SymMat4& A) const {
-  Eigen::SelfAdjointEigenSolver<Matrix4d> es;
-  es.compute(A.Mat4d(), Eigen::ComputeEigenvectors);
-  DRAKE_THROW_UNLESS(es.info() == Eigen::Success);
-  Vector4d lambdas = es.eigenvalues();
-  drake::log()->warn(fmt::format("tet{}'s A's eigenvalues = {}", tet,
-                                 fmt_eigen(lambdas.transpose())));
+void VolumeMeshCoarsener::WriteTetEigenValues(
+    int tet, const Vector4d& n, const std::string& prefix_file_name) const {
+  drake::log()->warn("tet{}'s n-vectorᵀ = {}", tet, fmt_eigen(n.transpose()));
+
+  const Vector3d Nxyz{n.z(), n.y(), n.z()};
+  // Very skinny box to represent the vector.
+  const Box skinny_box_F(0.001, 1e-5, 1e-5);
+  // First, the mesh is in frame F of the box.
+  TriangleSurfaceMesh<double> mesh =
+      MakeBoxSurfaceMeshWithSymmetricTriangles<double>(skinny_box_F);
+  const RotationMatrixd R_WF = RotationMatrixd::MakeFromOneVector(Nxyz, 0);
+  const RigidTransformd X_WF(
+      R_WF, CalcTetrahedronCentroid(tet, tetrahedra_, vertices_));
+  // Now the mesh is in World frame.
+  mesh.TransformVertices(X_WF);
+  WriteSurfaceMeshToVtk(fmt::format("{}_tet{}_Nxyz.vtk", prefix_file_name, tet),
+                        mesh, "VolumeMeshCoarsener::WriteTetEigenValues");
+
+  // Eigen::SelfAdjointEigenSolver<Matrix4d> es;
+  // es.compute(A.Mat4d(), Eigen::ComputeEigenvectors);
+  // DRAKE_THROW_UNLESS(es.info() == Eigen::Success);
+  // Vector4d lambdas = es.eigenvalues();
+  // drake::log()->warn("tet{}'s A's eigenvalues = {}", tet,
+  //                    fmt_eigen(lambdas.transpose()));
+  // const Vector4d ev0 = es.eigenvectors().col(0);
+  // const Vector4d ev1 = es.eigenvectors().col(1);
+  // const Vector4d ev2 = es.eigenvectors().col(2);
+  // const Vector4d ev3 = es.eigenvectors().col(3);
+  // drake::log()->warn("tet{}'s A's 4th eigenvectorᵀ = {}", tet,
+  //                    fmt_eigen(ev3.transpose()));
 }
 
 VolumeMesh<double> VolumeMeshCoarsener::HackNegativeToPositiveVolume(
@@ -1019,7 +1044,8 @@ double QEF::CalcCombinedMinError(const QEF& Q1, const QEF& Q2,
   return e1 + e2 + (p - p1).dot(A1 * (p - p1)) + (p - p2).dot(A2 * (p - p2));
 }
 
-SymMat4 VolumeMeshCoarsener::FundamentalQuadricOfTet(int tet) {
+std::pair<SymMat4, Eigen::Vector4d>
+VolumeMeshCoarsener::FundamentalQuadricOfTet(int tet) {
   DRAKE_THROW_UNLESS(0 <= tet && tet < ssize(tetrahedra_));
   const int v0 = tetrahedra_[tet].vertex(0);
   const int v1 = tetrahedra_[tet].vertex(1);
@@ -1071,7 +1097,7 @@ SymMat4 VolumeMeshCoarsener::FundamentalQuadricOfTet(int tet) {
   // Outer product of 4-vector n gives the 4x4 symmetric matrix A.
   SymMat4 A = SymMat4::FromOuterProductOfVector4d(n);
 
-  return A;
+  return {A, n};
 }
 
 // This numerical routine is from [Garland & Zhou] with reference code
