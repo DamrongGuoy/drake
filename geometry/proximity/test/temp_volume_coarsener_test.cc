@@ -85,6 +85,10 @@ GTEST_TEST(VolumeMeshCoarsenerTest, mesh_28vert_52tet) {
   const TriangleSurfaceMesh<double> original_surface_M =
       MakeEllipsoidSurfaceMesh<double>(ellipsoid_M, 0.01);
 
+  // for debugging
+  WriteSurfaceMeshToVtk("ellipsoid_surface.vtk", original_surface_M,
+                        "VolumeMeshCoarsenerTest mesh_28vert_52tet Ellipsoid");
+
   const int kTargetNumTetrahedra = 48;
   const double kFraction =
       static_cast<double>(kTargetNumTetrahedra) / local_mesh_M.num_elements();

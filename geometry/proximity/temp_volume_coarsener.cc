@@ -886,7 +886,7 @@ void VolumeMeshCoarsener::LogAndWriteVertexQ(
       RotationMatrixd::MakeFromOrthonormalColumns(ev0, ev1, ev2);
   const RigidTransformd X_WE(R_WE, Vector3d(v_Q.p.x(), v_Q.p.y(), v_Q.p.z()));
 
-  const double scale = 1;
+  const double scale = 0.01;
   const Ellipsoid ellipsoid_M(scale * lambdas);
   const double resolution = scale * lambdas.maxCoeff() / 10;
   // Start in frame E of the ellipsoid.
@@ -904,8 +904,9 @@ void VolumeMeshCoarsener::WriteTetEigenValues(
   drake::log()->warn("tet{}'s n-vectorᵀ = {}", tet, fmt_eigen(n.transpose()));
 
   const Vector3d Nxyz{n.z(), n.y(), n.z()};
+  const double scale = 0.01;
   // Very skinny box to represent the vector.
-  const Box skinny_box_F(0.001, 1e-5, 1e-5);
+  const Box skinny_box_F(scale * Nxyz.norm(), 1e-4, 1e-4);
   // First, the mesh is in frame F of the box.
   TriangleSurfaceMesh<double> mesh =
       MakeBoxSurfaceMeshWithSymmetricTriangles<double>(skinny_box_F);
