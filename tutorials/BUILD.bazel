@@ -92,6 +92,22 @@ drake_jupyter_py_binary(
 )
 
 drake_jupyter_py_binary(
+    name = "hydroelastic_embpres",
+    add_test_rule = 1,
+    data = [
+        ":vtk_files",
+        "@drake_models//:dishes",
+        "@drake_models//:veggies",
+    ],
+    # TODO(#21380) Revisit timeout value when deferred reification is
+    # implemented.
+    test_timeout = "moderate",
+    deps = [
+        "//bindings/pydrake",
+    ],
+)
+
+drake_jupyter_py_binary(
     name = "index",
     add_test_rule = 1,
     deps = [
@@ -230,6 +246,16 @@ drake_py_test(
     tags = ["lint"],
     deps = [
         "@rules_python//python/runfiles",
+    ],
+)
+
+filegroup(
+    name = "vtk_files",
+    srcs = [
+        "pepper_embsdf.vtk",
+        "yellow_pepper_EmPress_optimized_sdfield.vtk",
+        "yellow_pepper_EmPress_sdfield.vtk",
+        "yellow_pepper_Offset1cmGrid2cm_sdfield.vtk",
     ],
 )
 

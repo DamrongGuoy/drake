@@ -43,6 +43,7 @@ drake_cc_package_library(
         ":make_cylinder_mesh",
         ":make_ellipsoid_field",
         ":make_ellipsoid_mesh",
+        ":make_empress_field",
         ":make_mesh_field",
         ":make_mesh_from_vtk",
         ":make_sphere_field",
@@ -658,6 +659,30 @@ drake_cc_library(
 )
 
 drake_cc_library(
+    name = "make_empress_field",
+    srcs = ["make_empress_field.cc"],
+    hdrs = ["make_empress_field.h"],
+    deps = [
+        ":field_intersection",
+        ":hydroelastic_internal",
+        ":make_box_field",
+        ":make_box_mesh",
+        ":volume_mesh",
+        ":volume_to_surface_mesh",
+        ":vtk_to_volume_mesh",
+        "//common",
+    ],
+    implementation_deps = [
+        ":distance_to_point_callback",
+        "@vtk_internal//:vtkCommonCore",
+        "@vtk_internal//:vtkCommonDataModel",
+        "@vtk_internal//:vtkFiltersCore",
+        "@vtk_internal//:vtkFiltersSources",
+        "@vtk_internal//:vtkIOLegacy",
+    ],
+)
+
+drake_cc_library(
     name = "make_mesh_field",
     srcs = ["make_mesh_field.cc"],
     hdrs = ["make_mesh_field.h"],
@@ -820,6 +845,25 @@ drake_cc_library(
     implementation_deps = [
         "//common:essential",
         "//geometry:read_obj",
+    ],
+)
+
+drake_cc_library(
+    name = "optimize_sdfield",
+    srcs = ["optimize_sdfield.cc"],
+    hdrs = ["optimize_sdfield.h"],
+    tags = ["exclude_from_package"],
+    deps = [
+        ":make_empress_field",
+        ":mesh_to_vtk",
+        ":volume_mesh_refiner",
+        "//common",
+        # TODO(DamrongGuoy): Move ":distance_to_point_callback" into
+        #  implementation_deps after we expose FeatureNormalSet and
+        #  MeshDistanceBoundary, so we can remove "exclude_from_package" tag.
+        #  The calc_signed_distance_to_surface_mesh will continue to be a part
+        #  of distance_to_point_callback, which depends on FCL.
+        ":distance_to_point_callback",
     ],
 )
 
@@ -1028,6 +1072,45 @@ drake_cc_library(
         "@vtk_internal//:vtkCommonCore",
         "@vtk_internal//:vtkCommonDataModel",
         "@vtk_internal//:vtkIOLegacy",
+    ],
+)
+
+drake_cc_binary(
+    name = "empress0",
+    srcs = ["empress0.cc"],
+    deps = [
+        ":make_empress_field",
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        "//common:add_text_logging_gflags",
+        "@gflags",
+    ],
+)
+
+drake_cc_binary(
+    name = "empress1",
+    srcs = ["empress1.cc"],
+    deps = [
+        ":make_empress_field",
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        ":optimize_sdfield",
+        ":vtk_to_volume_mesh",
+        "//common:add_text_logging_gflags",
+        "@gflags",
+    ],
+)
+
+drake_cc_binary(
+    name = "empress2",
+    srcs = ["empress2.cc"],
+    deps = [
+        ":make_empress_field",
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        ":vtk_to_volume_mesh",
+        "//common:add_text_logging_gflags",
+        "@gflags",
     ],
 )
 
@@ -1301,6 +1384,41 @@ drake_cc_googletest(
         "//common:essential",
         "//common/test_utilities",
         "//math:geometric_transform",
+    ],
+)
+
+drake_cc_googletest(
+    name = "embedded_pressure_field_test",
+    data = [
+        "//geometry:test_obj_files",
+        "//geometry:test_vtk_files",
+        "@drake_models//:dishes",
+        "@drake_models//:ycb",
+    ],
+    deps = [
+        ":distance_to_point_callback",
+        ":field_intersection",
+        ":hydroelastic_internal",
+        ":make_box_field",
+        ":make_box_mesh",
+        ":make_empress_field",
+        ":make_mesh_from_vtk",
+        ":mesh_to_vtk",
+        ":obj_to_surface_mesh",
+        ":optimize_sdfield",
+        ":volume_mesh",
+        ":volume_mesh_refiner",
+        ":volume_to_surface_mesh",
+        ":vtk_to_volume_mesh",
+        "//common",
+        "//common/test_utilities",
+        "//common/test_utilities:eigen_matrix_compare",
+        "//common/test_utilities:expect_throws_message",
+        "@vtk_internal//:vtkCommonCore",
+        "@vtk_internal//:vtkCommonDataModel",
+        "@vtk_internal//:vtkFiltersCore",
+        "@vtk_internal//:vtkFiltersSources",
+        "@vtk_internal//:vtkIOLegacy",
     ],
 )
 
@@ -1804,6 +1922,7 @@ drake_cc_googletest(
         "//geometry:test_vtk_files",
     ],
     deps = [
+        ":mesh_field",
         ":vtk_to_volume_mesh",
         "//common:find_resource",
         "//common/test_utilities",

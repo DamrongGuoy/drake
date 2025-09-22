@@ -1,0 +1,603 @@
+#include "drake/geometry/proximity/make_empress_field.h"
+
+// You might see these files in:
+// bazel-drake/external/+internal_repositories+vtk_internal/...
+//
+// To ease build system upkeep, we annotate VTK includes with their deps.
+#include <vtkCellIterator.h>                       // vtkCommonDataModel
+#include <vtkCleanPolyData.h>                      // vtkFiltersCore
+#include <vtkDelaunay3D.h>                         // vtkFiltersCore
+#include <vtkDoubleArray.h>                        // vtkCommonCore
+#include <vtkPointData.h>                          // vtkCommonDataModel
+#include <vtkPointSource.h>                        // vtkFiltersSources
+#include <vtkPoints.h>                             // vtkCommonCore
+#include <vtkPolyData.h>                           // vtkCommonDataModel
+#include <vtkSmartPointer.h>                       // vtkCommonCore
+#include <vtkUnstructuredGrid.h>                   // vtkCommonDataModel
+#include <vtkUnstructuredGridQuadricDecimation.h>  // vtkFiltersCore
+#include <vtkUnstructuredGridReader.h>             // vtkIOLegacy
+
+#include "drake/common/text_logging.h"
+#include "drake/geometry/proximity/calc_signed_distance_to_surface_mesh.h"
+#include "drake/geometry/proximity/field_intersection.h"
+#include "drake/geometry/proximity/hydroelastic_internal.h"
+#include "drake/geometry/proximity/make_box_field.h"
+#include "drake/geometry/proximity/make_box_mesh.h"
+#include "drake/geometry/proximity/mesh_distance_boundary.h"
+#include "drake/geometry/proximity/volume_mesh.h"
+#include "drake/geometry/proximity/volume_mesh_field.h"
+#include "drake/geometry/proximity/volume_to_surface_mesh.h"
+#include "drake/geometry/proximity/vtk_to_volume_mesh.h"
+
+namespace drake {
+namespace geometry {
+namespace internal {
+
+using Eigen::Vector3d;
+using Eigen::Vector4d;
+using math::RigidTransformd;
+using math::RollPitchYawd;
+
+// TODO(DamrongGuoy):  Move functions out of the anonymous namespace for
+//  appropriate unit testings.
+namespace {
+
+bool IsVertexInTheBand(const int v,
+                       const std::vector<double>& signed_distance_at_vertex,
+                       const double inner_offset, const double outer_offset,
+                       int* count_positive, int* count_negative,
+                       int* count_zero) {
+  DRAKE_THROW_UNLESS(0 <= v);
+  DRAKE_THROW_UNLESS(v < std::ssize(signed_distance_at_vertex));
+  const double sd = signed_distance_at_vertex[v];
+  if (sd < 0) {
+    ++(*count_negative);
+  } else if (sd > 0) {
+    ++(*count_positive);
+  } else {
+    ++(*count_zero);
+  }
+  if (-inner_offset <= sd && sd <= outer_offset) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
+                    const double inner_offset, const double outer_offset,
+                    const std::vector<double>& signed_distance_at_vertex) {
+  DRAKE_THROW_UNLESS(inner_offset >= 0);
+  DRAKE_THROW_UNLESS(outer_offset >= 0);
+
+  // Check whether a vertex of the tetrahedron is in the band.
+  // We also check whether some vertices have different sign. That's an
+  // indicator that the tetrahedron cross the implicit surface of the zero-th
+  // level set, i.e., the input surface mesh.
+  int count_positive = 0;
+  int count_negative = 0;
+  int count_zero = 0;  // Unlikely, but we want to be sure.
+  for (int i = 0; i < 4; ++i) {
+    if (IsVertexInTheBand(tetrahedral_mesh_M.tetrahedra()[tet].vertex(i),
+                          signed_distance_at_vertex, inner_offset, outer_offset,
+                          &count_positive, &count_negative, &count_zero)) {
+      return true;
+    }
+    if (count_zero > 0 || (count_positive > 0 && count_negative > 0)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+std::vector<double> CalcSignedDistanceAtVertices(
+    const VolumeMesh<double>& mesh_M, const MeshDistanceBoundary& sdf_M) {
+  std::vector<double> signed_distance_at_vertices;
+  signed_distance_at_vertices.reserve(mesh_M.num_vertices());
+  for (const Vector3d& p_MV : mesh_M.vertices()) {
+    signed_distance_at_vertices.push_back(
+        CalcSignedDistanceToSurfaceMesh(
+            p_MV, sdf_M.tri_mesh(), sdf_M.tri_bvh(),
+            std::get<FeatureNormalSet>(sdf_M.feature_normal()))
+            .signed_distance);
+  }
+
+  return signed_distance_at_vertices;
+}
+
+//
+// Hide these functions for now.  They good for generating coarse meshes only.
+//
+#if 0
+bool IsPointInTheBand(const Vector3d& p_MV, const MeshDistanceBoundary& sdf_M,
+                      const double inner_offset, const double outer_offset,
+                      int* count_positive, int* count_negative,
+                      int* count_zero) {
+  SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+      p_MV, sdf_M.tri_mesh(), sdf_M.tri_bvh(),
+      std::get<FeatureNormalSet>(sdf_M.feature_normal()));
+  if (d.signed_distance < 0) {
+    ++(*count_negative);
+  } else if (d.signed_distance > 0) {
+    ++(*count_positive);
+  } else {
+    ++(*count_zero);
+  }
+  if (-inner_offset <= d.signed_distance && d.signed_distance <= outer_offset) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+// Check whether a tetrahedron touches the band between the outer offset and
+// the inner offset distances, i.e., the implicit region of points Q where
+// -inner_offset <= signed_distance(Q) <= +outer_offset.
+//
+// @param inner_offset specifies the implicit surface of the level set
+//                     at signed distance = -inner_offset (inside).
+// @param outer_offset specifies to the implicit surface of the level set
+//                     at signed distance = +outer_offset (outside).
+//
+// @pre Both inner_offset and outer_offset are positive numbers.
+//
+// It's not enough to use signed-distance query at the vertices of the
+// tetrahedra, especially for coarser grid resolution. Ideally we should check
+// whether a tetrahedron intersects the band (at a vertex, in an edge, or in
+// a face, or even (pedantically) enclosing the entire band). For now, it's too
+// laborious, so we will just check some sampling points inside the tetrahedron.
+bool IsTetInTheBand(const int tet, const VolumeMesh<double>& tetrahedral_mesh_M,
+                    const double inner_offset, const double outer_offset,
+                    const MeshDistanceBoundary& sdf_M) {
+  DRAKE_THROW_UNLESS(inner_offset >= 0);
+  DRAKE_THROW_UNLESS(outer_offset >= 0);
+
+  // Check whether some points in the tetrahedron are in the band.
+  // For simplicity, for now, we check only the four vertices and the edge's
+  // midpoints.
+  //
+  // We also check whether some vertices have different sign. That's an
+  // indicator that the tetrahedron cross the implicit surface of the zero-th
+  // level set, i.e., the input surface mesh.
+
+  // Four vertices.
+  int count_positive = 0;
+  int count_negative = 0;
+  int count_zero = 0;  // Unlikely, but we want to be sure.
+  for (int i = 0; i < 4; ++i) {
+    const Vector3d& p_MV = tetrahedral_mesh_M.vertex(
+        tetrahedral_mesh_M.tetrahedra()[tet].vertex(i));
+    if (IsPointInTheBand(p_MV, sdf_M, inner_offset, outer_offset,
+                         &count_positive, &count_negative, &count_zero)) {
+      return true;
+    }
+    if (count_zero > 0 || (count_positive > 0 && count_negative > 0)) {
+      return true;
+    }
+  }
+
+  // Six edges (3 + 2 + 1 + 0) : {(a,b) : 0 <= a < b < 4}.
+  //  a: 0     | 1   | 2 | 3
+  //  b: 1 2 3 | 2 3 | 3 | {}
+  for (int a = 0; a < 4; ++a) {
+    const Vector3d& p_MA = tetrahedral_mesh_M.vertex(
+        tetrahedral_mesh_M.tetrahedra()[tet].vertex(a));
+    for (int b = a + 1; b < 4; ++b) {
+      const Vector3d p_AB_M = tetrahedral_mesh_M.edge_vector(tet, a, b);
+      // V is the midpoint from A to B.
+      const Vector3d p_MV = p_MA + p_AB_M / 2;
+      if (IsPointInTheBand(p_MV, sdf_M, inner_offset, outer_offset,
+                           &count_positive, &count_negative, &count_zero)) {
+        return true;
+      }
+      if (count_zero > 0 || (count_positive > 0 && count_negative > 0)) {
+        return true;
+      }
+    }
+  }
+
+  // TODO(DamrongGuoy): Check the four face centers and one cell center?
+
+  // TODO(DamrongGuoy): Find a more efficient way than bruteforce subsampling.
+  //  Consider computing an intersection between this tetrahedron and the
+  //  entire triangle surface mesh.  However, that would be more complicated
+  //  than this simple subsampling.
+  const int sampling_resolution = 5;
+  const Vector3d& p_MA = tetrahedral_mesh_M.vertex(0);
+  const Vector3d& p_MB = tetrahedral_mesh_M.vertex(1);
+  const Vector3d& p_MC = tetrahedral_mesh_M.vertex(2);
+  const Vector3d& p_MD = tetrahedral_mesh_M.vertex(3);
+  // For example, sampling_resolution = 3 means 20 sub-samplings.
+  // {(a,b,c,d) : a + b + c + d = 3, 0 <= a,b,c,d <= 3 }
+  //            10          +     5     +   3   + 1 = 20
+  // a: 0 0 0 0 0 0 0 0 0 0 | 1 1 1 1 1 | 2 2 2 | 3
+  // b: 0 0 0 0 1 1 1 2 2 3 | 0 0 1 1 2 | 0 0 1 | 0
+  // c: 0 1 2 3 0 1 2 0 1 0 | 0 1 0 1 0 | 0 1 0 | 0
+  // d: 3 2 1 0 2 1 0 1 0 0 | 2 1 1 0 0 | 1 0 0 | 0
+  for (int a = 0; a <= sampling_resolution; ++a) {
+    for (int b = 0; b <= sampling_resolution - a; ++b) {
+      for (int c = 0; c <= sampling_resolution - a - b; ++c) {
+        int d = sampling_resolution - a - b - c;
+        DRAKE_THROW_UNLESS(0 <= d && d <= sampling_resolution);
+        const Vector3d p_MV =
+            (a * p_MA + b * p_MB + c * p_MC + d * p_MD) / sampling_resolution;
+        if (IsPointInTheBand(p_MV, sdf_M, inner_offset, outer_offset,
+                             &count_positive, &count_negative, &count_zero)) {
+          return true;
+        }
+        if (count_zero > 0 || (count_positive > 0 && count_negative > 0)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+#endif
+
+// TODO(DamrongGuoy):  Move MakeEmPressMesh out of anonymous namespace.
+//  Right now, it's not convenient to expose MakeEmPressMesh because the
+//  MeshDistanceBoundary is not available outside geometry/proximity.
+//  If I expose MakeEmPressMesh(), I got build errors at the higher level;
+//  for example, bazel build //tutorials/... couldn't find
+//  mesh_distance_boundary.h.
+VolumeMesh<double> MakeEmPressMesh(const MeshDistanceBoundary& input_M,
+                                   const double grid_resolution) {
+  const double out_offset = 1e-3;  // 1mm tolerance.
+  const double in_offset = std::numeric_limits<double>::infinity();
+
+  const Aabb fitted_box_M = CalcBoundingBox(input_M.tri_mesh());
+
+  // The 10% expanded box's frame B is axis-aligned with the input mesh's
+  // frame M.  Only their origins are different.
+  // The Aabb stores its half-width vector, but the Box stores its "full
+  // width", and hence the extra 2.0 factor below.
+  const Box expanded_box_B(1.1 * 2.0 * fitted_box_M.half_width());
+  const RigidTransformd X_MB(fitted_box_M.center());
+  VolumeMesh<double> background_B =
+      MakeBoxVolumeMesh<double>(expanded_box_B, grid_resolution);
+  // Translate/change to the common frame of reference. This makes the
+  // letter B in background_B a lie, so we will alias it with the
+  // correct name background_M afterward.
+  background_B.TransformVertices(X_MB);
+  const VolumeMesh<double>& background_M = background_B;
+  drake::log()->info(
+      "MakeEmPressMesh: finished creating a background Box mesh.");
+
+  const std::vector<double> signed_distance_at_vertices =
+      CalcSignedDistanceAtVertices(background_M, input_M);
+
+  // Collect tetrahedra in the band between the inner offset and
+  // the outer offset.
+  std::vector<int> qualified_tetrahedra;
+  qualified_tetrahedra.reserve(background_M.num_elements());
+  for (int tet = 0; tet < background_M.num_elements(); ++tet) {
+    if (IsTetInTheBand(tet, background_M, in_offset, out_offset,
+                       signed_distance_at_vertices)) {
+      qualified_tetrahedra.push_back(tet);
+    }
+  }
+  drake::log()->info(
+      "MakeEmPressMesh: finished selecting qualified tetrahedra.");
+
+  // Vertex index from the background_M to the output mesh.
+  std::unordered_map<int, int> old_to_new;
+  old_to_new.reserve(background_M.num_vertices());
+  std::vector<Vector3d> new_vertices;
+  new_vertices.reserve(4 * qualified_tetrahedra.size());
+  int count = 0;
+  for (const int tet : qualified_tetrahedra) {
+    for (int i = 0; i < 4; ++i) {
+      const int v = background_M.tetrahedra()[tet].vertex(i);
+      if (!old_to_new.contains(v)) {
+        new_vertices.push_back(background_M.vertex(v));
+        old_to_new[v] = count;
+        ++count;
+      }
+    }
+  }
+
+  std::vector<VolumeElement> new_tetrahedra;
+  new_tetrahedra.reserve(qualified_tetrahedra.size());
+  for (const int tet : qualified_tetrahedra) {
+    new_tetrahedra.emplace_back(
+        old_to_new.at(background_M.tetrahedra()[tet].vertex(0)),
+        old_to_new.at(background_M.tetrahedra()[tet].vertex(1)),
+        old_to_new.at(background_M.tetrahedra()[tet].vertex(2)),
+        old_to_new.at(background_M.tetrahedra()[tet].vertex(3)));
+  }
+
+  VolumeMesh<double> mesh_EmPress_M{std::move(new_tetrahedra),
+                                    std::move(new_vertices)};
+
+  return mesh_EmPress_M;
+
+  // TODO(DamrongGuoy):  Would this optional step help or not?  Collect more
+  //  tetrahedra that share vertices with previous qualified tetrahedra.
+  //  It might mimic "snowflake" condition in [Stuart2013]; they claimed
+  //  "snowflake" help.
+  //  [Stuart2013] D.A. Stuart, J.A. Levine, B. Jones, and A.W. Bargteil.
+  //  Automatic construction of coarse, high-quality tetrahedralizations that
+  //  enclose and approximate surfaces for animation.
+  //  Proceedings - Motion in Games 2013, MIG 2013, pages 191-199.
+  //
+}
+
+// TODO(DamrongGuoy):  Move MakeEmPressSDField(...) out of anonymous namespace.
+//  Right now, it's not convenient to expose it because the
+//  MeshDistanceBoundary is not available outside geometry/proximity.
+//  If I expose it, I got build errors at the higher level;
+//  for example, bazel build //tutorials/... couldn't find
+//  mesh_distance_boundary.h.
+VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
+    const VolumeMesh<double>& support_mesh_M,
+    const MeshDistanceBoundary& input_M) {
+  std::vector<double> signed_distances;
+  for (const Vector3d& tet_vertex : support_mesh_M.vertices()) {
+    const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+        tet_vertex, input_M.tri_mesh(), input_M.tri_bvh(),
+        std::get<FeatureNormalSet>(input_M.feature_normal()));
+    signed_distances.push_back(d.signed_distance);
+  }
+  return {std::move(signed_distances), &support_mesh_M};
+}
+
+}  // namespace
+
+Aabb CalcBoundingBox(const VolumeMesh<double>& mesh_M) {
+  Vector3d min_xyz{std::numeric_limits<double>::max(),
+                   std::numeric_limits<double>::max(),
+                   std::numeric_limits<double>::max()};
+  Vector3d max_xyz{std::numeric_limits<double>::min(),
+                   std::numeric_limits<double>::min(),
+                   std::numeric_limits<double>::min()};
+  for (const Vector3d& p_MV : mesh_M.vertices()) {
+    for (int c = 0; c < 3; ++c) {
+      if (p_MV(c) < min_xyz(c)) {
+        min_xyz(c) = p_MV(c);
+      }
+      if (p_MV(c) > max_xyz(c)) {
+        max_xyz(c) = p_MV(c);
+      }
+    }
+  }
+  return {(min_xyz + max_xyz) / 2, (max_xyz - min_xyz) / 2};
+}
+
+Aabb CalcBoundingBox(const TriangleSurfaceMesh<double>& mesh_M) {
+  Vector3d min_xyz{std::numeric_limits<double>::max(),
+                   std::numeric_limits<double>::max(),
+                   std::numeric_limits<double>::max()};
+  Vector3d max_xyz{std::numeric_limits<double>::min(),
+                   std::numeric_limits<double>::min(),
+                   std::numeric_limits<double>::min()};
+  for (const Vector3d& p_MV : mesh_M.vertices()) {
+    for (int c = 0; c < 3; ++c) {
+      if (p_MV(c) < min_xyz(c)) {
+        min_xyz(c) = p_MV(c);
+      }
+      if (p_MV(c) > max_xyz(c)) {
+        max_xyz(c) = p_MV(c);
+      }
+    }
+  }
+  return {(min_xyz + max_xyz) / 2, (max_xyz - min_xyz) / 2};
+}
+
+VolumeMeshFieldLinear<double, double> MakeEmPressSDField(
+    const VolumeMesh<double>& support_mesh_M,
+    const TriangleSurfaceMesh<double>& original_mesh_M) {
+  // TODO(DamrongGuoy): Manage memory more carefully.  Right now it's easier
+  //  to just making another copy of the input surface mesh and pass ownership
+  //  to the MeshDistanceBoundary.
+  return MakeEmPressSDField(
+      support_mesh_M,
+      MeshDistanceBoundary(TriangleSurfaceMesh<double>{original_mesh_M}));
+}
+
+std::pair<std::unique_ptr<VolumeMesh<double>>,
+          std::unique_ptr<VolumeMeshFieldLinear<double, double>>>
+MakeEmPressSDField(const TriangleSurfaceMesh<double>& mesh_M,
+                   const double grid_resolution) {
+  // TODO(DamrongGuoy): Manage memory more carefully.  Right now it's easier
+  //  to just making another copy of the input surface mesh and pass ownership
+  //  to the MeshDistanceBoundary.
+  const MeshDistanceBoundary input_M(TriangleSurfaceMesh<double>{mesh_M});
+  drake::log()->info(
+      "MakeEmPressSDField: finished MeshDistanceBoundary from input");
+
+  auto mesh_EmPress_M = std::make_unique<VolumeMesh<double>>(
+      MakeEmPressMesh(input_M, grid_resolution));
+  drake::log()->info("MakeEmPressSDField: finished MakeEmPressMesh");
+
+  auto sdfield_EmPress_M =
+      std::make_unique<VolumeMeshFieldLinear<double, double>>(
+          MakeEmPressSDField(*mesh_EmPress_M.get(), input_M));
+  drake::log()->info("MakeEmPressSDField: finished MakeEmPressSDField");
+
+  return {std::move(mesh_EmPress_M), std::move(sdfield_EmPress_M)};
+}
+
+VolumeMesh<double> CoarsenSdField(
+    const VolumeMeshFieldLinear<double, double>& sdf_M, const double fraction) {
+  // Convert drake's VolumeMeshFieldLinear to vtk's mesh data.
+  vtkNew<vtkPoints> vtk_points;
+  for (const Vector3d& p_MV : sdf_M.mesh().vertices()) {
+    vtk_points->InsertNextPoint(p_MV.x(), p_MV.y(), p_MV.z());
+  }
+  vtkNew<vtkUnstructuredGrid> vtk_mesh;
+  vtk_mesh->SetPoints(vtk_points);
+  for (const VolumeElement& tet : sdf_M.mesh().tetrahedra()) {
+    const vtkIdType ptIds[] = {tet.vertex(0), tet.vertex(1), tet.vertex(2),
+                               tet.vertex(3)};
+    vtk_mesh->InsertNextCell(VTK_TETRA, 4, ptIds);
+  }
+  vtkNew<vtkDoubleArray> vtk_signed_distances;
+  vtk_signed_distances->Allocate(sdf_M.mesh().num_vertices());
+  const std::string kFieldName("SignedDistance(meter)");
+  vtk_signed_distances->SetName(kFieldName.c_str());
+  for (int v = 0; v < sdf_M.mesh().num_vertices(); ++v) {
+    vtk_signed_distances->SetValue(v, sdf_M.EvaluateAtVertex(v));
+  }
+  vtk_mesh->GetPointData()->AddArray(vtk_signed_distances);
+
+  // Decimate the tetrahedral mesh + field.
+  vtkNew<vtkUnstructuredGridQuadricDecimation> decimate;
+  decimate->SetInputData(vtk_mesh);
+  decimate->SetScalarsName(kFieldName.c_str());
+  const double target_reduction = 1.0 - fraction;
+  decimate->SetTargetReduction(target_reduction);
+  // Default BoundaryWeight is 100.
+  decimate->SetBoundaryWeight(1);
+  decimate->Update();
+
+  vtkNew<vtkUnstructuredGrid> vtk_decimated_mesh;
+  vtk_decimated_mesh->ShallowCopy(decimate->GetOutput());
+
+  // Convert vtk's mesh data back to drake's VolumeMesh.
+  const vtkIdType num_vertices = vtk_decimated_mesh->GetNumberOfPoints();
+  std::vector<Vector3d> vertices;
+  vertices.reserve(num_vertices);
+  vtkPoints* vtk_vertices = vtk_decimated_mesh->GetPoints();
+  for (vtkIdType id = 0; id < num_vertices; id++) {
+    double xyz[3];
+    vtk_vertices->GetPoint(id, xyz);
+    vertices.emplace_back(xyz);
+  }
+  std::vector<VolumeElement> tetrahedra;
+  tetrahedra.reserve(vtk_decimated_mesh->GetNumberOfCells());
+  auto iter = vtkSmartPointer<vtkCellIterator>::Take(
+      vtk_decimated_mesh->NewCellIterator());
+  for (iter->InitTraversal(); !iter->IsDoneWithTraversal();
+       iter->GoToNextCell()) {
+    DRAKE_THROW_UNLESS(iter->GetCellType() == VTK_TETRA);
+    vtkIdList* vtk_vertex_ids = iter->GetPointIds();
+    tetrahedra.emplace_back(vtk_vertex_ids->GetId(0), vtk_vertex_ids->GetId(1),
+                            vtk_vertex_ids->GetId(2), vtk_vertex_ids->GetId(3));
+  }
+  return {std::move(tetrahedra), std::move(vertices)};
+}
+
+std::tuple<double, double, double> MeasureDeviationOfZeroLevelSet(
+    const VolumeMeshFieldLinear<double, double>& sdfield_M,
+    const TriangleSurfaceMesh<double>& original_M) {
+  // TODO(DamrongGuoy): Manage memory in a better way.  The
+  //  hydroelastic::SoftMesh want to take ownership of the input data through
+  //  unique_ptr. For simplicity, we just copy both the mesh and the field.
+  auto mesh_EmPress_M = std::make_unique<VolumeMesh<double>>(sdfield_M.mesh());
+  auto sdfield_EmPress_M =
+      std::make_unique<VolumeMeshFieldLinear<double, double>>(
+          std::vector<double>(sdfield_M.values()), mesh_EmPress_M.get());
+  const hydroelastic::SoftMesh compliant_hydro_EmPress_M{
+      std::move(mesh_EmPress_M), std::move(sdfield_EmPress_M)};
+
+  const Aabb bounding_box_M = CalcBoundingBox(compliant_hydro_EmPress_M.mesh());
+  // Frame B and frame M are axis-aligned. Only their origins are different.
+  const Box box_B(2.0 * bounding_box_M.half_width());
+  const RigidTransformd X_MB(bounding_box_M.center());
+  auto box_mesh_B = std::make_unique<VolumeMesh<double>>(
+      MakeBoxVolumeMeshWithMa<double>(box_B));
+  // Using hydroelastic_modulus = 1e-6 will try to track the implicit surface
+  // of the zero-level set of the pepper.
+  auto box_field_B = std::make_unique<VolumeMeshFieldLinear<double, double>>(
+      MakeBoxPressureField<double>(box_B, box_mesh_B.get(), 1e-6));
+  const hydroelastic::SoftMesh compliant_box_B{std::move(box_mesh_B),
+                                               std::move(box_field_B)};
+
+  // The kTriangle argument makes the level0 surface include centroids of
+  // contact polygons for more checks.
+  std::unique_ptr<ContactSurface<double>> level0_M =
+      ComputeContactSurfaceFromCompliantVolumes(
+          GeometryId::get_new_id(), compliant_box_B, X_MB,
+          GeometryId::get_new_id(), compliant_hydro_EmPress_M,
+          RigidTransformd::Identity(),
+          HydroelasticContactRepresentation::kTriangle);
+
+  // TODO(DamrongGuoy): Manage memeory in a better way.  The
+  //  MeshDistanceBoundary want to take ownership of the input surface mesh.
+  //  For simplicity, we just make a copy.
+  const MeshDistanceBoundary input_M{TriangleSurfaceMesh<double>(original_M)};
+
+  double average_absolute_deviation = 0;
+  double max_absolute_deviation = 0;
+  double min_absolute_deviation = std::numeric_limits<double>::max();
+  std::vector<double> deviation_values;
+  for (const Vector3d& level0_vertex : level0_M->tri_mesh_W().vertices()) {
+    const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+        level0_vertex, input_M.tri_mesh(), input_M.tri_bvh(),
+        std::get<FeatureNormalSet>(input_M.feature_normal()));
+    deviation_values.push_back(d.signed_distance);
+    const double absolute_deviation = std::abs(d.signed_distance);
+    average_absolute_deviation += absolute_deviation;
+    if (absolute_deviation < min_absolute_deviation) {
+      min_absolute_deviation = absolute_deviation;
+    }
+    if (absolute_deviation > max_absolute_deviation) {
+      max_absolute_deviation = absolute_deviation;
+    }
+  }
+  average_absolute_deviation /= level0_M->tri_mesh_W().num_vertices();
+
+  return {min_absolute_deviation, average_absolute_deviation,
+          max_absolute_deviation};
+}
+
+double CalcRMSErrorOfSDField(
+    const VolumeMeshFieldLinear<double, double>& sdfield_M,
+    const TriangleSurfaceMesh<double>& original_M) {
+  // TODO(DamrongGuoy): Manage memory in a better way.  The
+  //  hydroelastic::SoftMesh wants to take ownership of the input
+  //  signed-distance field through unique_ptr. For simplicity, we just
+  //  copy both the mesh and the field.
+  auto temporary_mesh_M =
+      std::make_unique<VolumeMesh<double>>(sdfield_M.mesh());
+  auto temporary_sdfield_M =
+      std::make_unique<VolumeMeshFieldLinear<double, double>>(
+          std::vector<double>(sdfield_M.values()), temporary_mesh_M.get());
+  const hydroelastic::SoftMesh compliant_hydro_EmPress_M{
+      std::move(temporary_mesh_M), std::move(temporary_sdfield_M)};
+
+  const Aabb bounding_box_M = CalcBoundingBox(compliant_hydro_EmPress_M.mesh());
+  // Frame B and frame M are axis-aligned. Only their origins are different.
+  const Box box_B(2.0 * bounding_box_M.half_width());
+  const RigidTransformd X_MB(bounding_box_M.center());
+  auto box_mesh_B = std::make_unique<VolumeMesh<double>>(
+      MakeBoxVolumeMeshWithMa<double>(box_B));
+  // Using hydroelastic_modulus = 1e-6 will try to track the implicit surface
+  // of the zero-level set of the pepper.
+  auto box_field_B = std::make_unique<VolumeMeshFieldLinear<double, double>>(
+      MakeBoxPressureField<double>(box_B, box_mesh_B.get(), 1e-6));
+  const hydroelastic::SoftMesh compliant_box_B{std::move(box_mesh_B),
+                                               std::move(box_field_B)};
+
+  // The kTriangle argument makes the level0 surface include centroids of
+  // contact polygons for more checks.
+  std::unique_ptr<ContactSurface<double>> level0_M =
+      ComputeContactSurfaceFromCompliantVolumes(
+          GeometryId::get_new_id(), compliant_box_B, X_MB,
+          GeometryId::get_new_id(), compliant_hydro_EmPress_M,
+          RigidTransformd::Identity(),
+          HydroelasticContactRepresentation::kTriangle);
+
+  // TODO(DamrongGuoy): Manage memeory in a better way.  The
+  //  MeshDistanceBoundary want to take ownership of the input surface mesh.
+  //  For simplicity, we just make a copy.
+  const MeshDistanceBoundary input_M{TriangleSurfaceMesh<double>(original_M)};
+
+  double accumulate_squared_error = 0;
+  for (const Vector3d& level0_vertex : level0_M->tri_mesh_W().vertices()) {
+    const SignedDistanceToSurfaceMesh d = CalcSignedDistanceToSurfaceMesh(
+        level0_vertex, input_M.tri_mesh(), input_M.tri_bvh(),
+        std::get<FeatureNormalSet>(input_M.feature_normal()));
+    accumulate_squared_error += d.signed_distance * d.signed_distance;
+  }
+
+  return std::sqrt(accumulate_squared_error /
+                   level0_M->tri_mesh_W().num_vertices());
+}
+
+}  // namespace internal
+}  // namespace geometry
+}  // namespace drake
