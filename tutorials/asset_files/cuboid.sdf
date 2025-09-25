@@ -17,16 +17,18 @@
       <visual name="visual">
         <geometry>
           <mesh>
-            <uri>package://drake/tutorials/asset_files/cuboid.stl</uri>
-            <scale>1 1 1</scale>
+            <uri>package://drake/tutorials/asset_files/cuboid.obj</uri>
+            <!-- Convert millimeters to meters -->
+            <scale>0.001 0.001 0.001</scale>
           </mesh>
         </geometry>
       </visual>
       <collision name="collision">
         <geometry>
           <mesh>
-            <uri>package://drake/tutorials/asset_files/cuboid.stl</uri>
-            <scale>1 1 1</scale>
+            <uri>package://drake/tutorials/asset_files/cuboid.vtk</uri>
+            <!-- Convert millimeters to meters -->
+            <scale>0.001 0.001 0.001</scale>
           </mesh>
         </geometry>
         <drake:proximity_properties>

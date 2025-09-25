@@ -110,8 +110,10 @@ drake_jupyter_py_binary(
 filegroup(
     name = "asset",
     srcs = [
+        "asset_files/cuboid.obj",
         "asset_files/cuboid.sdf",
         "asset_files/cuboid.stl",
+        "asset_files/cuboid.vtk",
         "asset_files/peg.stl",
     ],
 )
