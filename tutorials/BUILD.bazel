@@ -95,6 +95,7 @@ drake_jupyter_py_binary(
     name = "hydroelastic_cuboids",
     add_test_rule = 1,
     data = [
+        ":asset",
         "@drake_models//:dishes",
         "@drake_models//:veggies",
     ],
@@ -103,6 +104,15 @@ drake_jupyter_py_binary(
     test_timeout = "moderate",
     deps = [
         "//bindings/pydrake",
+    ],
+)
+
+filegroup(
+    name = "asset",
+    srcs = [
+        "asset_files/cuboid.sdf",
+        "asset_files/cuboid.stl",
+        "asset_files/peg.stl",
     ],
 )
 
