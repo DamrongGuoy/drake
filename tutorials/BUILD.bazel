@@ -114,7 +114,10 @@ filegroup(
         "asset_files/cuboid.sdf",
         "asset_files/cuboid.stl",
         "asset_files/cuboid.vtk",
+        "asset_files/peg.obj",
+        "asset_files/peg.sdf",
         "asset_files/peg.stl",
+        "asset_files/peg.vtk",
     ],
 )
 
